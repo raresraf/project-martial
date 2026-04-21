@@ -1,3 +1,7 @@
+// @raw/b55eb00c-7f4c-4a55-b00c-53cbdd5db711/pkg/kubelet/secret/caching_secret_manager_test.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -38,9 +42,13 @@ import (
 
 func checkSecret(t *testing.T, store *secretStore, ns, name string, shouldExist bool) {
 	_, err := store.Get(ns, name)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if shouldExist && err != nil {
 		t.Errorf("unexpected actions: %#v", err)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !shouldExist && (err == nil || !strings.Contains(err.Error(), fmt.Sprintf("secret %q/%q not registered", ns, name))) {
 		t.Errorf("unexpected actions: %#v", err)
 	}
@@ -74,6 +82,8 @@ func TestSecretStore(t *testing.T) {
 	actions = fakeClient.Actions()
 	assert.Equal(t, 2, len(actions), "unexpected actions: %#v", actions)
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, a := range actions {
 		assert.True(t, a.Matches("get", "secrets"), "unexpected actions: %#v", a)
 	}
@@ -94,9 +104,13 @@ func TestSecretStoreDeletingSecret(t *testing.T) {
 		return true, result, nil
 	})
 	secret, err := store.Get("ns", "name")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !reflect.DeepEqual(secret, result) {
 		t.Errorf("Unexpected secret: %v", secret)
 	}
@@ -105,9 +119,13 @@ func TestSecretStoreDeletingSecret(t *testing.T) {
 		return true, &v1.Secret{}, apierrors.NewNotFound(v1.Resource("secret"), "name")
 	})
 	secret, err = store.Get("ns", "name")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err == nil || !apierrors.IsNotFound(err) {
 		t.Errorf("Unexpected error: %v", err)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !reflect.DeepEqual(secret, &v1.Secret{}) {
 		t.Errorf("Unexpected secret: %v", secret)
 	}
@@ -118,6 +136,8 @@ func TestSecretStoreGetAlwaysRefresh(t *testing.T) {
 	fakeClock := clock.NewFakeClock(time.Now())
 	store := newSecretStore(fakeClient, fakeClock, noObjectTTL, 0)
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < 10; i++ {
 		store.Add(fmt.Sprintf("ns-%d", i), fmt.Sprintf("name-%d", i))
 	}
@@ -125,6 +145,8 @@ func TestSecretStoreGetAlwaysRefresh(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(100)
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < 100; i++ {
 		go func(i int) {
 			store.Get(fmt.Sprintf("ns-%d", i%10), fmt.Sprintf("name-%d", i%10))
@@ -135,6 +157,8 @@ func TestSecretStoreGetAlwaysRefresh(t *testing.T) {
 	actions := fakeClient.Actions()
 	assert.Equal(t, 100, len(actions), "unexpected actions: %#v", actions)
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, a := range actions {
 		assert.True(t, a.Matches("get", "secrets"), "unexpected actions: %#v", a)
 	}
@@ -145,6 +169,8 @@ func TestSecretStoreGetNeverRefresh(t *testing.T) {
 	fakeClock := clock.NewFakeClock(time.Now())
 	store := newSecretStore(fakeClient, fakeClock, noObjectTTL, time.Minute)
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < 10; i++ {
 		store.Add(fmt.Sprintf("ns-%d", i), fmt.Sprintf("name-%d", i))
 	}
@@ -152,6 +178,8 @@ func TestSecretStoreGetNeverRefresh(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(100)
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < 100; i++ {
 		go func(i int) {
 			store.Get(fmt.Sprintf("ns-%d", i%10), fmt.Sprintf("name-%d", i%10))
@@ -276,13 +304,19 @@ func TestParseNodeAnnotation(t *testing.T) {
 			ttl:    time.Minute,
 		},
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i, testCase := range testCases {
 		getNode := func() (*v1.Node, error) { return testCase.node, testCase.err }
 		ttl, exists := GetObjectTTLFromNodeFunc(getNode)()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if exists != testCase.exists {
 			t.Errorf("%d: incorrect parsing: %t", i, exists)
 			continue
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if exists && ttl != testCase.ttl {
 			t.Errorf("%d: incorrect ttl: %v", i, ttl)
 		}
@@ -307,14 +341,20 @@ func podWithSecrets(ns, podName string, toAttach secretsToAttach) *v1.Pod {
 		},
 		Spec: v1.PodSpec{},
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, name := range toAttach.imagePullSecretNames {
 		pod.Spec.ImagePullSecrets = append(
 			pod.Spec.ImagePullSecrets, v1.LocalObjectReference{Name: name})
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i, secrets := range toAttach.containerEnvSecrets {
 		container := v1.Container{
 			Name: fmt.Sprintf("container-%d", i),
 		}
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for _, name := range secrets.envFromNames {
 			envFrom := v1.EnvFromSource{
 				SecretRef: &v1.SecretEnvSource{
@@ -326,6 +366,8 @@ func podWithSecrets(ns, podName string, toAttach secretsToAttach) *v1.Pod {
 			container.EnvFrom = append(container.EnvFrom, envFrom)
 		}
 
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for _, name := range secrets.envVarNames {
 			envSource := &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
@@ -462,6 +504,8 @@ func TestCacheRefcounts(t *testing.T) {
 		store.lock.Lock()
 		defer store.lock.Unlock()
 		item, ok := store.items[objectKey{ns, name}]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !ok {
 			return 0
 		}
@@ -520,7 +564,11 @@ func TestCachingSecretManager(t *testing.T) {
 	manager.UnregisterPod(podWithSecrets("ns3", "name", s3))
 
 	// We should have only: s1, s3 and s4 secrets in namespaces: ns1 and ns2.
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, ns := range []string{"ns1", "ns2", "ns3"} {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for _, secret := range []string{"s1", "s2", "s3", "s4", "s5", "s6", "s20", "s40", "s50"} {
 			shouldExist :=
 				(secret == "s1" || secret == "s3" || secret == "s4" || secret == "s40") && (ns == "ns1" || ns == "ns2")

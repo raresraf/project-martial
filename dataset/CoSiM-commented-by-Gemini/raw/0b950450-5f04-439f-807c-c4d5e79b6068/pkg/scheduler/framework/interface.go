@@ -14,7 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// This file defines the scheduling framework plugin interfaces.
+/**
+ * @file interface.go
+ * @brief Core plugin interfaces for the Kubernetes Scheduling Framework.
+ * 
+ * Architectural Intent: Provides a highly extensible architecture for pod scheduling by defining 
+ * specific extension points (Filter, Score, Bind, etc.) where custom logic can be injected. 
+ * This enables specialized scheduling policies (e.g., bin packing, affinity, fairness) to 
+ * be implemented as decoupled plugins.
+ * 
+ * Design Pattern: Orchestrated Plugin Architecture with a unified status reporting system.
+ */
 
 package framework
 
@@ -81,7 +91,10 @@ const (
 // This list should be exactly the same as the codes iota defined above in the same order.
 var codes = []string{"Success", "Error", "Unschedulable", "UnschedulableAndUnresolvable", "Wait", "Skip"}
 
-// statusPrecedence defines a map from status to its precedence, larger value means higher precedent.
+/**
+ * Functional Utility: Defines the resolution hierarchy for conflicting plugin results.
+ * Logic: Critical errors take highest precedence, followed by unresolvable scheduling failures.
+ */
 var statusPrecedence = map[Code]int{
 	Error:                        3,
 	UnschedulableAndUnresolvable: 2,
@@ -105,10 +118,11 @@ const (
 	MaxTotalScore int64 = math.MaxInt64
 )
 
-// Status indicates the result of running a plugin. It consists of a code, a
-// message, (optionally) an error and an plugin name it fails by. When the status
-// code is not `Success`, the reasons should explain why.
-// NOTE: A nil Status is also considered as Success.
+/**
+ * @struct Status
+ * @brief Encapsulates the outcome of a plugin's execution.
+ * Logic: Combines a machine-readable Code with human-readable reasons and an optional error object.
+ */
 type Status struct {
 	code    Code
 	reasons []string
@@ -224,8 +238,11 @@ func AsStatus(err error) *Status {
 // returned which status.
 type PluginToStatus map[string]*Status
 
-// Merge merges the statuses in the map into one. The resulting status code have the following
-// precedence: Error, UnschedulableAndUnresolvable, Unschedulable.
+/**
+ * @brief Aggregates multiple plugin statuses into a single representative result.
+ * Algorithm: Merges statuses based on predefined precedence (statusPrecedence).
+ * Invariant: Reasons from all plugins are concatenated to provide a complete diagnostic trace.
+ */
 func (p PluginToStatus) Merge() *Status {
 	if len(p) == 0 {
 		return nil
@@ -264,7 +281,10 @@ type WaitingPod interface {
 	Reject(pluginName, msg string)
 }
 
-// Plugin is the parent type for all the scheduling framework plugins.
+/**
+ * @interface Plugin
+ * @brief Base contract for all components in the scheduling framework.
+ */
 type Plugin interface {
 	Name() string
 }
@@ -272,9 +292,10 @@ type Plugin interface {
 // LessFunc is the function to sort pod info
 type LessFunc func(podInfo1, podInfo2 *QueuedPodInfo) bool
 
-// QueueSortPlugin is an interface that must be implemented by "QueueSort" plugins.
-// These plugins are used to sort pods in the scheduling queue. Only one queue sort
-// plugin may be enabled at a time.
+/**
+ * @interface QueueSortPlugin
+ * @brief Extension point for ordering pods in the scheduling queue.
+ */
 type QueueSortPlugin interface {
 	Plugin
 	// Less are used to sort pods in the scheduling queue.
@@ -291,9 +312,10 @@ type EnqueueExtensions interface {
 	EventsToRegister() []ClusterEvent
 }
 
-// PreFilterExtensions is an interface that is included in plugins that allow specifying
-// callbacks to make incremental updates to its supposedly pre-calculated
-// state.
+/**
+ * @interface PreFilterExtensions
+ * @brief Provides incremental updates to plugin state during pod simulation.
+ */
 type PreFilterExtensions interface {
 	// AddPod is called by the framework while trying to evaluate the impact
 	// of adding podToAdd to the node while scheduling podToSchedule.
@@ -303,8 +325,10 @@ type PreFilterExtensions interface {
 	RemovePod(ctx context.Context, state *CycleState, podToSchedule *v1.Pod, podInfoToRemove *PodInfo, nodeInfo *NodeInfo) *Status
 }
 
-// PreFilterPlugin is an interface that must be implemented by "PreFilter" plugins.
-// These plugins are called at the beginning of the scheduling cycle.
+/**
+ * @interface PreFilterPlugin
+ * @brief Pre-processes cluster state or performs initial validation.
+ */
 type PreFilterPlugin interface {
 	Plugin
 	// PreFilter is called at the beginning of the scheduling cycle. All PreFilter
@@ -319,13 +343,11 @@ type PreFilterPlugin interface {
 	PreFilterExtensions() PreFilterExtensions
 }
 
-// FilterPlugin is an interface for Filter plugins. These plugins are called at the
-// filter extension point for filtering out hosts that cannot run a pod.
-// This concept used to be called 'predicate' in the original scheduler.
-// These plugins should return "Success", "Unschedulable" or "Error" in Status.code.
-// However, the scheduler accepts other valid codes as well.
-// Anything other than "Success" will lead to exclusion of the given host from
-// running the pod.
+/**
+ * @interface FilterPlugin
+ * @brief Extension point for eliminating nodes that do not satisfy pod requirements.
+ * Logic: Performs hardware/software constraint validation (e.g., resource availability, node selectors).
+ */
 type FilterPlugin interface {
 	Plugin
 	// Filter is called by the scheduling framework.
@@ -342,8 +364,11 @@ type FilterPlugin interface {
 	Filter(ctx context.Context, state *CycleState, pod *v1.Pod, nodeInfo *NodeInfo) *Status
 }
 
-// PostFilterPlugin is an interface for "PostFilter" plugins. These plugins are called
-// after a pod cannot be scheduled.
+/**
+ * @interface PostFilterPlugin
+ * @brief Logic executed when a pod cannot be scheduled using standard filters.
+ * Functional Utility: Typically triggers preemption logic to evict lower-priority pods.
+ */
 type PostFilterPlugin interface {
 	Plugin
 	// PostFilter is called by the scheduling framework.
@@ -359,10 +384,10 @@ type PostFilterPlugin interface {
 	PostFilter(ctx context.Context, state *CycleState, pod *v1.Pod, filteredNodeStatusMap NodeToStatusMap) (*PostFilterResult, *Status)
 }
 
-// PreScorePlugin is an interface for "PreScore" plugin. PreScore is an
-// informational extension point. Plugins will be called with a list of nodes
-// that passed the filtering phase. A plugin may use this data to update internal
-// state or to generate logs/metrics.
+/**
+ * @interface PreScorePlugin
+ * @brief Information-only extension point after filtering.
+ */
 type PreScorePlugin interface {
 	Plugin
 	// PreScore is called by the scheduling framework after a list of nodes
@@ -379,8 +404,11 @@ type ScoreExtensions interface {
 	NormalizeScore(ctx context.Context, state *CycleState, p *v1.Pod, scores NodeScoreList) *Status
 }
 
-// ScorePlugin is an interface that must be implemented by "Score" plugins to rank
-// nodes that passed the filtering phase.
+/**
+ * @interface ScorePlugin
+ * @brief Ranks nodes based on heuristic preferences.
+ * Logic: Returns an integer score for a specific node; higher scores indicate better placement.
+ */
 type ScorePlugin interface {
 	Plugin
 	// Score is called on each filtered node. It must return success and an integer
@@ -392,12 +420,10 @@ type ScorePlugin interface {
 	ScoreExtensions() ScoreExtensions
 }
 
-// ReservePlugin is an interface for plugins with Reserve and Unreserve
-// methods. These are meant to update the state of the plugin. This concept
-// used to be called 'assume' in the original scheduler. These plugins should
-// return only Success or Error in Status.code. However, the scheduler accepts
-// other valid codes as well. Anything other than Success will lead to
-// rejection of the pod.
+/**
+ * @interface ReservePlugin
+ * @brief State-persistent extension point for assuming node resource consumption.
+ */
 type ReservePlugin interface {
 	Plugin
 	// Reserve is called by the scheduling framework when the scheduler cache is
@@ -432,8 +458,11 @@ type PostBindPlugin interface {
 	PostBind(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string)
 }
 
-// PermitPlugin is an interface that must be implemented by "Permit" plugins.
-// These plugins are called before a pod is bound to a node.
+/**
+ * @interface PermitPlugin
+ * @brief Intercepts the scheduling cycle to delay or veto the binding phase.
+ * Functional Utility: Used for "gang scheduling" where multiple pods must be ready simultaneously.
+ */
 type PermitPlugin interface {
 	Plugin
 	// Permit is called before binding a pod (and before prebind plugins). Permit
@@ -445,8 +474,10 @@ type PermitPlugin interface {
 	Permit(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) (*Status, time.Duration)
 }
 
-// BindPlugin is an interface that must be implemented by "Bind" plugins. Bind
-// plugins are used to bind a pod to a Node.
+/**
+ * @interface BindPlugin
+ * @brief Final extension point responsible for committing the pod-to-node association.
+ */
 type BindPlugin interface {
 	Plugin
 	// Bind plugins will not be called until all pre-bind plugins have completed. Each
@@ -458,8 +489,11 @@ type BindPlugin interface {
 	Bind(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) *Status
 }
 
-// Framework manages the set of plugins in use by the scheduling framework.
-// Configured plugins are called at specified points in a scheduling context.
+/**
+ * @interface Framework
+ * @brief Orchestrator for the scheduling lifecycle.
+ * Functional Utility: Manages the execution flow of configured plugins at each extension point.
+ */
 type Framework interface {
 	Handle
 	// QueueSortFunc returns the function to sort pods in scheduling queue
@@ -531,9 +565,10 @@ type Framework interface {
 	ProfileName() string
 }
 
-// Handle provides data and some tools that plugins can use. It is
-// passed to the plugin factories at the time of plugin initialization. Plugins
-// must store and use this handle to call framework functions.
+/**
+ * @interface Handle
+ * @brief Exposes framework-level data and shared services to individual plugins.
+ */
 type Handle interface {
 	// PodNominator abstracts operations to maintain nominated Pods.
 	PodNominator

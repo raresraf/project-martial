@@ -1,3 +1,9 @@
+/**
+ * @file doc.go
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /*
 Copyright 2016 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");

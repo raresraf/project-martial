@@ -66,9 +66,20 @@ import static org.elasticsearch.xpack.esql.core.expression.TypeResolutions.isNot
 import static org.elasticsearch.xpack.esql.core.expression.TypeResolutions.isString;
 
 /**
- * Base class for full-text functions that use ES queries to match documents.
- * These functions needs to be pushed down to Lucene queries to be executed - there’s no Evaluator for them, but depend on
- * {@link org.elasticsearch.xpack.esql.optimizer.LocalPhysicalPlanOptimizer} to rewrite them into Lucene queries.
+ * ESQL Full-Text Function Base Implementation.
+ *
+ * This module provides the foundational abstraction for ESQL functions that perform
+ * full-text search operations (e.g., MATCH, QUERY_STRING). Unlike scalar functions
+ * that can be evaluated row-by-row in-memory, full-text functions are "pushdown-first,"
+ * meaning they are designed to be translated into native Lucene queries for execution
+ * within the Elasticsearch shard.
+ *
+ * Key Concepts:
+ * - Pushdown Optimization: Relies on {@link LucenePushdownPredicates} to move the
+ *   computation into the search engine.
+ * - Plan Verification: Enforces strict placement rules (e.g., only allowed in WHERE/STATS)
+ *   to ensure correctness and performance.
+ * - Score Mapping: Integrates with the scoring engine to allow relevance-based ordering.
  */
 public abstract class FullTextFunction extends Function
     implements
@@ -166,6 +177,17 @@ public abstract class FullTextFunction extends Function
         return Translatable.YES;
     }
 
+    /**
+     * Translates the ESQL function into a native Elasticsearch Query.
+     *
+     * If a {@link QueryBuilder} is already present (e.g., from a previous optimization pass),
+     * it is wrapped in a {@link TranslationAwareExpressionQuery}. Otherwise, the
+     * implementation-specific {@link #translate} method is invoked.
+     *
+     * @param pushdownPredicates Context for Lucene pushdown optimization.
+     * @param handler The translator handler for converting expressions to queries.
+     * @return The resulting Lucene-compatible query.
+     */
     @Override
     public Query asQuery(LucenePushdownPredicates pushdownPredicates, TranslatorHandler handler) {
         return queryBuilder != null ? new TranslationAwareExpressionQuery(source(), queryBuilder) : translate(handler);
@@ -179,6 +201,12 @@ public abstract class FullTextFunction extends Function
 
     public abstract Expression replaceQueryBuilder(QueryBuilder queryBuilder);
 
+    /**
+     * Provides a verification routine to be executed after plan analysis.
+     *
+     * Full-text functions have restricted placement in the logical plan. This method
+     * returns a consumer that enforces these structural constraints.
+     */
     @Override
     public BiConsumer<LogicalPlan, Failures> postAnalysisPlanVerification() {
         return FullTextFunction::checkFullTextQueryFunctions;
@@ -186,6 +214,10 @@ public abstract class FullTextFunction extends Function
 
     /**
      * Checks full text query functions for invalid usage.
+     *
+     * Verifies that full-text functions are only used within appropriate plan nodes
+     * (like Filter or specific Aggregate scenarios) and not misplaced (e.g., after
+     * certain operations that break pushdown compatibility).
      *
      * @param plan root plan to check
      * @param failures failures found
@@ -237,7 +269,11 @@ public abstract class FullTextFunction extends Function
     }
 
     /**
-     * Checks all commands that exist before a specific type satisfy conditions.
+     * Validates that all logical plan nodes preceding this expression are of allowed types.
+     *
+     * This is critical for ensuring that full-text predicates can be pushed down to
+     * the initial data fetch (EsRelation) before the data is transformed in ways
+     * that Lucene cannot handle.
      *
      * @param plan plan that contains the condition
      * @param condition condition to check
@@ -272,7 +308,11 @@ public abstract class FullTextFunction extends Function
     }
 
     /**
-     * Checks parents of a full text function to ensure they are allowed
+     * Ensures that full-text functions are not nested within unsupported parent expressions.
+     *
+     * Generally, full-text functions should only be siblings of other full-text functions
+     * or part of basic logical conjunctions/disjunctions.
+     *
      * @param condition condition that contains the full text function
      * @param failures failures to add errors to
      */
@@ -296,7 +336,10 @@ public abstract class FullTextFunction extends Function
     }
 
     /**
-     * Executes the action on every parent of a FullTextFunction in the condition if it is found
+     * Executes the action on every parent of a FullTextFunction in the condition if it is found.
+     *
+     * Traverses the expression tree to identify nodes that contain a FullTextFunction
+     * as a child and applies the provided action to the parent-child pair.
      *
      * @param action the action to execute for each parent of a FullTextFunction
      */
@@ -314,6 +357,12 @@ public abstract class FullTextFunction extends Function
         return null;
     }
 
+    /**
+     * Creates an evaluator factory for executing the query within a shard context.
+     *
+     * This bridges the gap for cases where the function might be evaluated in a
+     * late-stage operator, though most full-text functions are handled via pushdown.
+     */
     @Override
     public EvalOperator.ExpressionEvaluator.Factory toEvaluator(ToEvaluator toEvaluator) {
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toEvaluator.shardContexts();
@@ -325,6 +374,9 @@ public abstract class FullTextFunction extends Function
         return new LuceneQueryExpressionEvaluator.Factory(shardConfigs);
     }
 
+    /**
+     * Creates a scorer factory to compute document relevance based on the query.
+     */
     @Override
     public ScoreOperator.ExpressionScorer.Factory toScorer(ToScorer toScorer) {
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toScorer.shardContexts();
@@ -336,6 +388,12 @@ public abstract class FullTextFunction extends Function
         return new LuceneQueryScoreEvaluator.Factory(shardConfigs);
     }
 
+    /**
+     * Utility to extract and validate function options from a MapExpression.
+     *
+     * Performs type checking and conversion for each option entry, ensuring they
+     * match the expected types defined for the function.
+     */
     protected static void populateOptionsMap(
         final MapExpression options,
         final Map<String, Object> optionsMap,
@@ -407,6 +465,9 @@ public abstract class FullTextFunction extends Function
         return fieldName;
     }
 
+    /**
+     * Safely extracts a FieldAttribute from an expression, unwrapping conversions if necessary.
+     */
     public static FieldAttribute fieldAsFieldAttribute(Expression field) {
         Expression fieldExpression = field;
         // Field may be converted to other data type (field_name :: data_type), so we need to check the original field

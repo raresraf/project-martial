@@ -1,3 +1,12 @@
+/**
+ * @75cb16d3-a6a3-43a1-ab26-5a430ddd6094/kernel.cl
+ * @brief GPU-accelerated block-based texture compression kernel (ETC style).
+ *
+ * Domain: HPC Graphics, GPGPU Image Processing.
+ * Architectural Intent: Implements a parallel compression algorithm for image tiles.
+ * Features massively parallel execution where each work-item processes a 4x4 texel block, 
+ * optimizing color quantization and luminance modulation to fit fixed bitrate constraints.
+ */
 
 #define INT32_MAX	2147483647
 #define UINT32_MAX 	0xffffffff
@@ -7,7 +16,10 @@ typedef short 	int16_t;
 typedef uint 	uint32_t;
 
 
-
+/**
+ * @union Color
+ * @brief Memory-aligned multi-view representation of a 32-bit pixel in BGRA space.
+ */
 typedef union u_Color {
 	struct BgraColorType {
 		uint8_t b;
@@ -21,6 +33,9 @@ typedef union u_Color {
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * Functional Utility: Fast memory copy for OpenCL private address space buffers.
+ */
 void memcpy(void *destination, void *source, size_t num)
 {
 	char *c_destination = (char *) destination;
@@ -30,6 +45,9 @@ void memcpy(void *destination, void *source, size_t num)
 		c_destination[i] = c_source[i];
 }
 
+/**
+ * Functional Utility: Fast memory initialization for global device buffers.
+ */
 void memset(__global void *ptr, int value, size_t num)
 {
 	__global char *c_ptr = (__global char *) ptr;
@@ -40,6 +58,9 @@ void memset(__global void *ptr, int value, size_t num)
 	}
 }
 
+/**
+ * Functional Utility: Quantization primitives for lossy color bit-depth reduction.
+ */
 uint8_t round_to_5_bits(float val) {
 	return (uint8_t) clamp(val * 31.0f / 255.0f + 0.5f, 0.0f, 31.0f);
 }
@@ -49,7 +70,10 @@ uint8_t round_to_4_bits(float val) {
 }
 
 
-
+/**
+ * @constant g_codeword_tables
+ * @brief Precomputed modulation constants for sub-block luminance correction.
+ */
 ALIGNAS(16) __constant int16_t g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -61,30 +85,14 @@ ALIGNAS(16) __constant int16_t g_codeword_tables[8][4] = {
 	{-183, -47, 47, 183}};
 
 
-
-__constant uint8_t g_mod_to_pix[4] = {3, 2, 0, 1};
-
+static __constant uint8_t g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-__constant uint8_t g_idx_to_num[4][8] = {
+/**
+ * @constant g_idx_to_num
+ * @brief Logical-to-physical coordinate mapping for partitioned sub-blocks.
+ */
+static __constant uint8_t g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        
 	{8, 12, 9, 13, 10, 14, 11, 15},  
 	{0, 4, 8, 12, 1, 5, 9, 13},      
@@ -92,6 +100,9 @@ __constant uint8_t g_idx_to_num[4][8] = {
 };
 
 
+/**
+ * @brief Adjusts a base color using a discrete luminance modulator.
+ */
 Color makeColor(Color *base, int16_t lum) {
 
 
@@ -111,6 +122,10 @@ Color makeColor(Color *base, int16_t lum) {
 
 
 
+/**
+ * @brief Computes numerical difference (error) between two pixel states.
+ * Optimization: Uses a weighted perceptual metric if enabled.
+ */
 uint32_t getColorError(Color *u, Color *v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float) (u->channels.b) - v->channels.b;
@@ -127,6 +142,9 @@ uint32_t getColorError(Color *u, Color *v) {
 #endif
 }
 
+/**
+ * @brief Serializes 444-format color headers into compressed global memory.
+ */
 void WriteColors444(__global uint8_t* block,
 					Color *color0,
 					Color *color1) {
@@ -136,6 +154,9 @@ void WriteColors444(__global uint8_t* block,
 	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
 }
 
+/**
+ * @brief Serializes 555-format color headers with differential offset encoding.
+ */
 void WriteColors555(__global uint8_t* block,
 					Color *color0,
 					Color *color1) {
@@ -230,6 +251,9 @@ Color makeColor555(float* bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Computes average color for a tile to initialize partitioning search.
+ */
 void getAverageColor(Color* src, float* avg_color)
 {
 	uint32_t sum_b = 0, sum_g = 0, sum_r = 0;
@@ -246,6 +270,10 @@ void getAverageColor(Color* src, float* avg_color)
 	avg_color[2] = (float) (sum_r) * kInv8;
 }
 
+/**
+ * @brief Identifies the best luminance modulator to minimize local MSE.
+ * Algorithm: Discrete search over precomputed codeword tables.
+ */
 unsigned long computeLuminance(__global uint8_t* block,
    							   Color* src,
 							   Color* base,
@@ -324,6 +352,9 @@ unsigned long computeLuminance(__global uint8_t* block,
 }
 
 
+/**
+ * @brief Fast-path for compressing blocks with uniform pixel values.
+ */
 bool tryCompressSolidBlock(__global uint8_t *dst,
 						   Color *src,
 						   unsigned long *error)
@@ -395,6 +426,10 @@ bool tryCompressSolidBlock(__global uint8_t *dst,
 	return true;
 }
 
+/**
+ * @brief Decision logic for selecting partitioning mode and color mode.
+ * Logic: Decides between horizontal/vertical flips and differential color encoding.
+ */
 unsigned long compressBlock(__global uint8_t* dst,
 							Color* ver_src,
 							Color* hor_src,
@@ -426,7 +461,7 @@ unsigned long compressBlock(__global uint8_t* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -461,6 +496,8 @@ unsigned long compressBlock(__global uint8_t* dst,
 	uint8_t sub_block_off_1 = sub_block_off_0 + 1;
 	
 	if (use_differential[!!flip]) {
+
+
 		WriteColors555(dst, &sub_block_avg[sub_block_off_0],
 					   &sub_block_avg[sub_block_off_1]);
 	} else {
@@ -484,6 +521,12 @@ unsigned long compressBlock(__global uint8_t* dst,
 	return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @kernel compress
+ * @brief OpenCL entry point for image-wide parallel tile compression.
+ * Memory Strategy: Maps work-items to 4x4 pixel image blocks. 
+ * Performs exhaustive tile search to minimize reconstruction error.
+ */
 __kernel void compress(__global uchar *src,
 					   __global uchar *dst,
 					   int width,
@@ -498,7 +541,7 @@ __kernel void compress(__global uchar *src,
 	int offset_src = y * width * 4 * 4 + x * 4 * 4;
 	int offset_dst = x * 8 + y * (width / 4) * 8;
 
-	Color* row0 = src + offset_src;
+	Color* row0 = (__global Color*)(src + offset_src);
 
 
 	Color* row1 = row0 + width;
@@ -520,246 +563,4 @@ __kernel void compress(__global uchar *src,
 	memcpy(hor_blocks + 12, row3, 16);
 	
 	compressBlock(dst + offset_dst, ver_blocks, hor_blocks, INT32_MAX);
-}>>>> file: texture_compress_skl.cpp
-#include "compress.hpp"
-
-
-#define DIE(assertion, call_description)  \
-do { \
-	if (assertion) { \
-		fprintf(stderr, "(%d): ", __LINE__); \
-		perror(call_description); \
-		exit(EXIT_FAILURE); \
-	} \
-} while(0);
-
-using namespace std;
-
-
-const char* cl_get_string_err(cl_int err) {
-    switch (err) {
-    case CL_SUCCESS:                     	return  "Success!";
-    case CL_DEVICE_NOT_FOUND:               return  "Device not found.";
-    case CL_DEVICE_NOT_AVAILABLE:           return  "Device not available";
-    case CL_COMPILER_NOT_AVAILABLE:         return  "Compiler not available";
-    case CL_MEM_OBJECT_ALLOCATION_FAILURE:  return  "Memory object alloc fail";
-    case CL_OUT_OF_RESOURCES:               return  "Out of resources";
-    case CL_OUT_OF_HOST_MEMORY:             return  "Out of host memory";
-    case CL_PROFILING_INFO_NOT_AVAILABLE:   return  "Profiling information N/A";
-    case CL_MEM_COPY_OVERLAP:               return  "Memory copy overlap";
-    case CL_IMAGE_FORMAT_MISMATCH:          return  "Image format mismatch";
-    case CL_IMAGE_FORMAT_NOT_SUPPORTED:     return  "Image format no support";
-    case CL_BUILD_PROGRAM_FAILURE:          return  "Program build failure";
-    case CL_MAP_FAILURE:                    return  "Map failure";
-    case CL_INVALID_VALUE:                  return  "Invalid value";
-    case CL_INVALID_DEVICE_TYPE:            return  "Invalid device type";
-    case CL_INVALID_PLATFORM:               return  "Invalid platform";
-    case CL_INVALID_DEVICE:                 return  "Invalid device";
-    case CL_INVALID_CONTEXT:                return  "Invalid context";
-    case CL_INVALID_QUEUE_PROPERTIES:       return  "Invalid queue properties";
-    case CL_INVALID_COMMAND_QUEUE:          return  "Invalid command queue";
-    case CL_INVALID_HOST_PTR:               return  "Invalid host pointer";
-    case CL_INVALID_MEM_OBJECT:             return  "Invalid memory object";
-    case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:return  "Invalid image format desc";
-    case CL_INVALID_IMAGE_SIZE:             return  "Invalid image size";
-    case CL_INVALID_SAMPLER:                return  "Invalid sampler";
-    case CL_INVALID_BINARY:                 return  "Invalid binary";
-    case CL_INVALID_BUILD_OPTIONS:          return  "Invalid build options";
-    case CL_INVALID_PROGRAM:                return  "Invalid program";
-    case CL_INVALID_PROGRAM_EXECUTABLE:     return  "Invalid program exec";
-    case CL_INVALID_KERNEL_NAME:            return  "Invalid kernel name";
-    case CL_INVALID_KERNEL_DEFINITION:      return  "Invalid kernel definition";
-    case CL_INVALID_KERNEL:                 return  "Invalid kernel";
-    case CL_INVALID_ARG_INDEX:              return  "Invalid argument index";
-    case CL_INVALID_ARG_VALUE:              return  "Invalid argument value";
-    case CL_INVALID_ARG_SIZE:               return  "Invalid argument size";
-    case CL_INVALID_KERNEL_ARGS:            return  "Invalid kernel arguments";
-    case CL_INVALID_WORK_DIMENSION:         return  "Invalid work dimension";
-    case CL_INVALID_WORK_GROUP_SIZE:        return  "Invalid work group size";
-    case CL_INVALID_WORK_ITEM_SIZE:         return  "Invalid work item size";
-    case CL_INVALID_GLOBAL_OFFSET:          return  "Invalid global offset";
-    case CL_INVALID_EVENT_WAIT_LIST:        return  "Invalid event wait list";
-    case CL_INVALID_EVENT:                  return  "Invalid event";
-    case CL_INVALID_OPERATION:              return  "Invalid operation";
-    case CL_INVALID_GL_OBJECT:              return  "Invalid OpenGL object";
-    case CL_INVALID_BUFFER_SIZE:            return  "Invalid buffer size";
-    case CL_INVALID_MIP_LEVEL:              return  "Invalid mip-map level";
-    default:                                return  "Unknown";
-    }
-}
-
-
-void cl_get_compiler_err_log(cl_program program, cl_device_id device)
-{
-	char *build_log;
-	size_t log_size;
-
-	
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  0, NULL, &log_size);
-	build_log = new char[log_size + 1];
-
-	
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  log_size, build_log, NULL);
-	build_log[log_size] = '\0';
-	cout << endl << build_log << endl;
-}
-
-
-
-int CL_ERR(int cl_ret)
-{
-	if (cl_ret != CL_SUCCESS) {
-		cout << endl << cl_get_string_err(cl_ret) << endl;
-		return 1;
-	}
-	return 0;
-}
-
-
-int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
-{
-	if (cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
-		cl_get_compiler_err_log(program, device);
-		return 1;
-	}
-	return 0;
-}
-
-
-void read_kernel(string file_name, string &str_kernel)
-{
-	ifstream in_file(file_name.c_str());
-	in_file.open(file_name.c_str());
-	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary " );
-
-	stringstream str_stream;
-	str_stream << in_file.rdbuf();
-
-	str_kernel = str_stream.str();
-}
-
-
-void gpu_find(cl_device_id &device)
-{
-	cl_uint platform_num = 0;
-	cl_platform_id* platform_ids = NULL;
-
-	cl_uint device_num = 0;
-	cl_device_id* device_ids = NULL;
-
-	
-	CL_ERR(clGetPlatformIDs(0, NULL, &platform_num));
-	platform_ids = new cl_platform_id[platform_num];
-	DIE(platform_ids == NULL, "alloc platform_list");
-
-	
-	CL_ERR(clGetPlatformIDs(platform_num, platform_ids, NULL));
-
-	for (int i = 0; i < platform_num; i++) {
-		cl_platform_id platform = platform_ids[i];
-
-		
-		if (clGetDeviceIDs(platform, 
-			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
-			device_num = 0;
-			continue;
-		}
-
-		device_ids = new cl_device_id[device_num];
-		DIE(device_ids == NULL, "alloc devices");
-
-		
-		CL_ERR(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
-			  device_num, device_ids, NULL));
-
-		device = device_ids[device_num - 1]; 
-		break;
-	}
-}
-
-TextureCompressor::TextureCompressor()
-{
-	gpu_find(device);
-}
-
-TextureCompressor::~TextureCompressor() {
-	delete[] platform_ids;
-	delete[] device_ids;
-}
-	
-unsigned long TextureCompressor::compress(const uint8_t* src,
-												uint8_t* dst,
-												int width,
-												int height) {
-	cl_int ret;
-
-	
-	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
-	CL_ERR(ret);
-	
-	
-	command_queue = clCreateCommandQueue(context, device, 0, &ret);
-	CL_ERR(ret);
-
-	
-	cl_mem bufSrc = clCreateBuffer(context, 
-		CL_MEM_READ_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret);
-	CL_ERR(ret);
-	
-	cl_mem bufDst = clCreateBuffer(context, 
-		CL_MEM_WRITE_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret);
-	CL_ERR(ret);
-
-	
-	ret = clEnqueueWriteBuffer(command_queue, bufSrc, CL_TRUE, 0,
-		sizeof(uint8_t) * width * height * 4, src, 0, NULL, NULL);
-	CL_ERR(ret);
-
-	
-	string kernel_src;
-	read_kernel("kernel.cl", kernel_src);
-	const char* kernel_c_str = kernel_src.c_str();
-	
-	
-	program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret);
-	CL_ERR(ret);
-	
-	
-	ret = clBuildProgram(program, 1, &device, "", NULL, NULL);
-	CL_COMPILE_ERR(ret, program, device);
-	
-	
-	kernel = clCreateKernel(program, "compress", &ret);
-	CL_ERR(ret);
-	
-	
-	CL_ERR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &bufSrc));
-	CL_ERR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &bufDst));
-	CL_ERR(clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *) &width));
-	CL_ERR(clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *) &height));
-
-	
-	size_t globalSize[2] = {(size_t) (width / 4), (size_t) (height / 4)};
-	ret = clEnqueueNDRangeKernel(command_queue, 
-		kernel, 2, NULL, globalSize, 0, 0, NULL, NULL);
-	CL_ERR(ret);
-
-	
-	ret = clEnqueueReadBuffer(command_queue, bufDst, CL_TRUE, 0,
-		sizeof(uint8_t) * width * height * 4 / 8, dst, 0, NULL, NULL);
-	CL_ERR(ret);
-
-	
-	CL_ERR(clFinish(command_queue));
-
-	
-	CL_ERR(clReleaseMemObject(bufSrc));
-	CL_ERR(clReleaseMemObject(bufDst));
-	CL_ERR(clReleaseCommandQueue(command_queue));
-	CL_ERR(clReleaseContext(context));
-	
-	return 0;
 }

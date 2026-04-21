@@ -1,3 +1,10 @@
+/**
+ * @raw/780783b4-560e-469a-8037-15ea837f1e05/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/googlevertexai/GoogleVertexAiUnifiedChatCompletionResponseHandler.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -82,6 +89,10 @@ public class GoogleVertexAiUnifiedChatCompletionResponseHandler extends GoogleVe
 
     private static Exception buildMidStreamError(Request request, String message, Exception e) {
         var errorResponse = GoogleVertexAiErrorResponse.fromString(message);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (errorResponse instanceof GoogleVertexAiErrorResponse gver) {
             return new UnifiedChatCompletionException(
                 RestStatus.INTERNAL_SERVER_ERROR,

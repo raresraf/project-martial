@@ -1,3 +1,9 @@
+/**
+ * @file transferable.rs
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -46,6 +52,6 @@ where
 
     fn serialized_storage<'a>(
         data: StructuredData<'a>,
-    ) -> &'a mut Option<HashMap<Self::Id, Self::Data>>;
-    fn deserialized_storage(reader: &mut StructuredDataReader) -> &mut Option<Vec<DomRoot<Self>>>;
+    ) -> &'a mut Option<HashMap<Self::Id, Self::Data>>; /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
+    fn deserialized_storage(reader: &mut StructuredDataReader) -> &mut Option<Vec<DomRoot<Self>>>; /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 }

@@ -1,3 +1,10 @@
+/**
+ * @raw/7ef00992-9ea5-4f61-a18b-d1b49f40f343/components/script/test.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */

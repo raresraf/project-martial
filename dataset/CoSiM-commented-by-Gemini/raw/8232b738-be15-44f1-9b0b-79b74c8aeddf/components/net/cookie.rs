@@ -1,3 +1,10 @@
+/**
+ * @raw/8232b738-be15-44f1-9b0b-79b74c8aeddf/components/net/cookie.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -53,6 +60,10 @@ impl ServoCookie {
         // less strict algorithm from RFC6265.
         // TODO: We can remove this code and the ServoCookie::parse_date function if cookie-rs
         // library fixes this upstream.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if cookie.expires_datetime().is_none() {
             let expiry_date_str = cookie_str
                 .split(';')
@@ -62,6 +73,10 @@ impl ServoCookie {
                         .map(|i| (key_value[..i].trim(), key_value[(i + 1)..].trim()))
                 })
                 .find_map(|(key, value)| key.eq_ignore_ascii_case("expires").then_some(value));
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(date_str) = expiry_date_str {
                 cookie.set_expires(Self::parse_date(date_str));
             }
@@ -80,6 +95,10 @@ impl ServoCookie {
         let expiry_time;
 
         // Step 6. If the cookie-attribute-list contains an attribute with an attribute-name of "Max-Age":
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(max_age) = cookie.max_age() {
             // 1. Set the cookie's persistent-flag to true.
             persistent = true;
@@ -127,8 +146,16 @@ impl ServoCookie {
 
         // Step 9. If the user agent is configured to reject "public suffixes" and the domain-attribute
         // is a public suffix:
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if is_pub_domain(&domain) {
             // 1. If the domain-attribute is identical to the canonicalized request-host:
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if domain == url_host {
                 // 1. Let the domain-attribute be the empty string.
                 domain = String::new();
@@ -142,8 +169,16 @@ impl ServoCookie {
 
         // Step 10. If the domain-attribute is non-empty:
         let host_only;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !domain.is_empty() {
             // 1. If the canonicalized request-host does not domain-match the domain-attribute:
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !ServoCookie::domain_match(&url_host, &domain) {
                 // 1. Abort these steps and ignore the cookie entirely.
                 return None;
@@ -177,6 +212,10 @@ impl ServoCookie {
             })
             .to_owned();
         // TODO: Why do we do this?
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !path.starts_with('/') {
             path = ServoCookie::default_path(request.path()).to_string();
         }
@@ -188,6 +227,10 @@ impl ServoCookie {
 
         // Step 13. If the request-uri does not denote a "secure" connection (as defined by the user agent),
         // and the cookie's secure-only-flag is true, then abort these steps and ignore the cookie entirely.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if secure_only && !request.is_secure_scheme() {
             return None;
         }
@@ -198,6 +241,10 @@ impl ServoCookie {
 
         // Step 15. If the cookie was received from a "non-HTTP" API and the cookie's
         // http-only-flag is true, abort these steps and ignore the cookie entirely.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if http_only && source == CookieSource::NonHTTP {
             return None;
         }
@@ -213,6 +260,10 @@ impl ServoCookie {
                 .get(..prefix.len())
                 .is_some_and(|p| p.eq_ignore_ascii_case(prefix))
         };
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if has_case_insensitive_prefix(cookie.name(), "__Secure-") &&
             !cookie.secure().unwrap_or(false)
         {
@@ -221,13 +272,25 @@ impl ServoCookie {
 
         // Step 21. If the cookie-name begins with a case-insensitive match for the string "__Host-",
         // abort these steps and ignore the cookie entirely unless the cookie meets all the following criteria:
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if has_case_insensitive_prefix(cookie.name(), "__Host-") {
             // 1. The cookie's secure-only-flag is true.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !secure_only {
                 return None;
             }
 
             // 2. The cookie's host-only-flag is true.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !host_only {
                 return None;
             }
@@ -235,6 +298,10 @@ impl ServoCookie {
             // 3. The cookie-attribute-list contains an attribute with an attribute-name of "Path",
             // and the cookie's path is /.
             #[allow(clippy::nonminimal_bool)]
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !has_path_specified || !cookie.path().is_some_and(|path| path == "/") {
                 return None;
             }
@@ -242,13 +309,25 @@ impl ServoCookie {
 
         // Step 22. If the cookie-name is empty and either of the following conditions are true,
         // abort these steps and ignore the cookie entirely:
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if cookie.name().is_empty() {
             // 1. the cookie-value begins with a case-insensitive match for the string "__Secure-"
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_case_insensitive_prefix(cookie.value(), "__Secure-") {
                 return None;
             }
 
             // 2. the cookie-value begins with a case-insensitive match for the string "__Host-"
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_case_insensitive_prefix(cookie.value(), "__Host-") {
                 return None;
             }
@@ -275,12 +354,20 @@ impl ServoCookie {
     /// <http://tools.ietf.org/html/rfc6265#section-5.1.4>
     pub fn default_path(request_path: &str) -> &str {
         // Step 2
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !request_path.starts_with('/') {
             return "/";
         }
 
         // Step 3
         let rightmost_slash_idx = request_path.rfind('/').unwrap();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if rightmost_slash_idx == 0 {
             // There's only one slash; it's the first character
             return "/";
@@ -323,6 +410,10 @@ impl ServoCookie {
 
     /// <http://tools.ietf.org/html/rfc6265#section-5.4> step 1
     pub fn appropriate_for_url(&self, url: &ServoUrl, source: CookieSource) -> bool {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if log_enabled!(Level::Debug) {
             debug!(
                 " === SENT COOKIE : {} {} {:?} {:?}",
@@ -338,29 +429,57 @@ impl ServoCookie {
         // retrieval's URI is identical to the cookie's domain
         // Or: The cookie's host-only-flag is false and the canonicalized host of the
         // retrieval's URI domain-matches the cookie's domain
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.host_only {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if self.cookie.domain() != domain {
                 return false;
             }
         } else if let (Some(domain), Some(cookie_domain)) = (domain, &self.cookie.domain()) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !ServoCookie::domain_match(domain, cookie_domain) {
                 return false;
             }
         }
 
         // The retrieval's URI's path path-matches the cookie's path.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(cookie_path) = self.cookie.path() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !ServoCookie::path_match(url.path(), cookie_path) {
                 return false;
             }
         }
 
         // If the cookie's secure-only-flag is true, then the retrieval's URI must denote a "secure" connection
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.cookie.secure().unwrap_or(false) && !url.is_secure_scheme() {
             return false;
         }
 
         // If the cookie's http-only-flag is true, then exclude the cookie if the retrieval's type is "non-HTTP"
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.cookie.http_only().unwrap_or(false) && source == CookieSource::NonHTTP {
             return false;
         }
@@ -386,6 +505,10 @@ impl ServoCookie {
         // delimiter = %x09 / %x20-2F / %x3B-40 / %x5B-60 / %x7B-7E
         let delimiter: fn(&[u8]) -> IResult<&[u8], u8> = |input| {
             let (input, bytes) = take(1usize)(input)?;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if matches!(bytes[0], 0x09 | 0x20..=0x2F | 0x3B..=0x40 | 0x5B..=0x60 | 0x7B..=0x7E) {
                 Ok((input, bytes[0]))
             } else {
@@ -398,6 +521,10 @@ impl ServoCookie {
         // non-delimiter = %x00-08 / %x0A-1F / DIGIT / ":" / ALPHA / %x7F-FF
         let non_delimiter: fn(&[u8]) -> IResult<&[u8], u8> = |input| {
             let (input, bytes) = take(1usize)(input)?;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if matches!(bytes[0],
                 0x00..=0x08 | 0x0A..=0x1F | b'0'..=b'9' | b':' | b'A'..=b'Z' | b'a'..=b'z' | 0x7F..=0xFF)
             {
@@ -412,6 +539,10 @@ impl ServoCookie {
         // non-digit = %x00-2F / %x3A-FF
         let non_digit: fn(&[u8]) -> IResult<&[u8], u8> = |input| {
             let (input, bytes) = take(1usize)(input)?;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if matches!(bytes[0], 0x00..=0x2F | 0x3A..=0xFF) {
                 Ok((input, bytes[0]))
             } else {
@@ -484,13 +615,29 @@ impl ServoCookie {
         let mut year_value: Option<i32> = None; // Also represents found-year flag.
 
         let (_, date_tokens) = cookie_date(string_in_bytes).ok()?;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for date_token in date_tokens {
             // Step 2.1. If the found-time flag is not set and the token matches the time production,
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if time_value.is_none() {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Ok((_, result)) = time(date_token) {
                     // set the found-time flag and set the hour-value, minute-value, and
                     // second-value to the numbers denoted by the digits in the date-token,
                     // respectively.
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if let (Some(hour), Some(minute), Some(second)) = (
                         parse_ascii_u8(result.0),
                         parse_ascii_u8(result.1),
@@ -505,7 +652,15 @@ impl ServoCookie {
 
             // Step 2.2. If the found-day-of-month flag is not set and the date-token matches the
             // day-of-month production,
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if day_of_month_value.is_none() {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Ok((_, result)) = day_of_month(date_token) {
                     // set the found-day-of-month flag and set the day-of-month-value to the number
                     // denoted by the date-token.
@@ -516,7 +671,15 @@ impl ServoCookie {
             }
 
             // Step 2.3. If the found-month flag is not set and the date-token matches the month production,
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if month_value.is_none() {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Ok((_, result)) = month(date_token) {
                     // set the found-month flag and set the month-value to the month denoted by the date-token.
                     month_value = match std::str::from_utf8(result)
@@ -544,7 +707,15 @@ impl ServoCookie {
             }
 
             // Step 2.4. If the found-year flag is not set and the date-token matches the year production,
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if year_value.is_none() {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Ok((_, result)) = year(date_token) {
                     // set the found-year flag and set the year-value to the number denoted by the date-token.
                     year_value = parse_ascii_i32(result);
@@ -556,7 +727,15 @@ impl ServoCookie {
 
         // Step 3. If the year-value is greater than or equal to 70 and less than or equal to 99,
         // increment the year-value by 1900.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(value) = year_value {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (70..=99).contains(&value) {
                 year_value = Some(value + 1900);
             }
@@ -564,7 +743,15 @@ impl ServoCookie {
 
         // Step 4. If the year-value is greater than or equal to 0 and less than or equal to 69,
         // increment the year-value by 2000.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(value) = year_value {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (0..=69).contains(&value) {
                 year_value = Some(value + 2000);
             }
@@ -572,6 +759,10 @@ impl ServoCookie {
 
         // Step 5. Abort these steps and fail to parse the cookie-date if:
         // * at least one of the found-day-of-month, found-month, found-year, or found-time flags is not set,
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if day_of_month_value.is_none() ||
             month_value.is_none() ||
             year_value.is_none() ||
@@ -580,13 +771,29 @@ impl ServoCookie {
             return None;
         }
         // * the day-of-month-value is less than 1 or greater than 31,
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(value) = day_of_month_value {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !(1..=31).contains(&value) {
                 return None;
             }
         }
         // * the year-value is less than 1601,
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(value) = year_value {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if value < 1601 {
                 return None;
             }
@@ -594,7 +801,15 @@ impl ServoCookie {
         // * the hour-value is greater than 23,
         // * the minute-value is greater than 59, or
         // * the second-value is greater than 59.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some((hour_value, minute_value, second_value)) = time_value {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if hour_value > 23 || minute_value > 59 || second_value > 59 {
                 return None;
             }

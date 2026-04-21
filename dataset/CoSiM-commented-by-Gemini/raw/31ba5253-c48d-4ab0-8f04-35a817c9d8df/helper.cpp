@@ -1,3 +1,13 @@
+/**
+ * @file helper.cpp
+ * @brief OpenCL Infrastructure and ETC1 Texture Compression Toolkit.
+ *
+ * This module provides a foundational layer for OpenCL operations, including
+ * robust error handling, kernel source management, and a specialized ETC1 
+ * compressor implementation. It is architected to facilitate high-throughput 
+ * texture processing on GPGPU hardware, ensuring reliability and performance 
+ * in production-grade visual computing applications.
+ */
 
 >>>> file: helper.cpp
 #include 

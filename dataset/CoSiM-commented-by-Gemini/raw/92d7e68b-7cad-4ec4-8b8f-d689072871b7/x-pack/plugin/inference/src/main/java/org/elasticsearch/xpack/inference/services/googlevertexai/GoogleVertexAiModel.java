@@ -1,3 +1,10 @@
+/**
+ * @raw/92d7e68b-7cad-4ec4-8b8f-d689072871b7/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/googlevertexai/GoogleVertexAiModel.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License

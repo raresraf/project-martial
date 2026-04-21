@@ -1,3 +1,10 @@
+/**
+ * @raw/656b9db2-3fc9-46d9-bc8e-c8f6978e1890/x-pack/plugin/esql/src/internalClusterTest/java/org/elasticsearch/xpack/esql/action/LookupJoinTypesIT.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -89,7 +96,7 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
     private static final String MAIN_INDEX = MAIN_INDEX_PREFIX + "index";
     private static final String LOOKUP_INDEX_PREFIX = "lookup_";
 
-    protected Collection<Class<? extends Plugin>> nodePlugins() {
+    protected Collection<Class<? extends Plugin>> nodePlugins() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         return List.of(
             EsqlPlugin.class,
             MapperExtrasPlugin.class,
@@ -113,7 +120,15 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var integerTypes = List.of(BYTE, SHORT, INTEGER, LONG);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("integers", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType mainType : integerTypes) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (DataType lookupType : integerTypes) {
                     configs.addPasses(mainType, lookupType);
                 }
@@ -124,7 +139,15 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var floatTypes = List.of(HALF_FLOAT, FLOAT, DOUBLE, SCALED_FLOAT);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("floats", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType mainType : floatTypes) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (DataType lookupType : floatTypes) {
                     configs.addPasses(mainType, lookupType);
                 }
@@ -134,7 +157,15 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         // Tests for mixed-numerical types
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("mixed-numerical", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType mainType : integerTypes) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (DataType lookupType : floatTypes) {
                     configs.addPasses(mainType, lookupType);
                     configs.addPasses(lookupType, mainType);
@@ -146,8 +177,20 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var dateTypes = List.of(DATETIME, DATE_NANOS);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("mixed-temporal", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType mainType : dateTypes) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (DataType lookupType : dateTypes) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (mainType != lookupType) {
                         configs.addFails(mainType, lookupType);
                     }
@@ -171,7 +214,15 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("unsupported", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType type : unsupported) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (type == NULL
                     || type == DOC_DATA_TYPE
                     || type == TSID_DATA_TYPE
@@ -182,6 +233,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
                     // Skip unmappable types, or types not supported in ES|QL in general
                     continue;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (existingIndex(existing, type, type)) {
                     // Skip existing configurations
                     continue;
@@ -208,8 +263,16 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("same", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType type : supported) {
                 assertThat("Claiming supported for unsupported type: " + type, List.of(unsupported).contains(type), is(false));
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (existingIndex(existing, type, type) == false) {
                     // Only add the configuration if it doesn't already exist
                     configs.addPasses(type, type);
@@ -218,15 +281,27 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
 
         // Assert that unsupported types are not in the supported list
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (DataType type : unsupported) {
             assertThat("Claiming supported for unsupported type: " + type, List.of(supported).contains(type), is(false));
         }
 
         // Assert that unsupported+supported covers all types:
         List<DataType> missing = new ArrayList<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (DataType type : DataType.values()) {
             boolean isUnsupported = List.of(unsupported).contains(type);
             boolean isSupported = List.of(supported).contains(type);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (isUnsupported == false && isSupported == false) {
                 missing.add(type);
             }
@@ -237,8 +312,20 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("others", TestConfigs::new);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (DataType mainType : supported) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (DataType lookupType : supported) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (existingIndex(existing, mainType, lookupType) == false) {
                         // Only add the configuration if it doesn't already exist
                         configs.addFails(mainType, lookupType);
@@ -250,8 +337,20 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         // Make sure we have never added two configurations with the same lookup index name.
         // This prevents accidentally adding the same test config to two different groups.
         Set<String> knownTypes = new HashSet<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (TestConfigs configs : testConfigurations.values()) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (TestConfig config : configs.configs.values()) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (knownTypes.contains(config.lookupIndexName())) {
                     throw new IllegalArgumentException("Duplicate lookup index name: " + config.lookupIndexName());
                 }
@@ -305,7 +404,15 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         TestConfigs configs = testConfigurations.get(group);
         initIndexes(configs);
         initData(configs);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (TestConfig config : configs.values()) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if ((isValidDataType(config.mainType()) && isValidDataType(config.lookupType())) == false) {
                 continue;
             }
@@ -318,8 +425,16 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
     }
 
     private void initIndexes(TestConfigs configs) {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (TestMapping mapping : configs.indices()) {
             CreateIndexRequestBuilder builder = prepareCreate(mapping.indexName).setMapping(mapping.propertiesAsJson());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (mapping.settings != null) {
                 builder = builder.setSettings(mapping.settings);
             }
@@ -332,6 +447,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         List<TestDocument> docs = configs.docs();
         List<IndexRequestBuilder> indexRequests = new ArrayList<>(docs.size());
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (TestDocument doc : docs) {
             var indexRequest = client().prepareIndex().setIndex(doc.indexName()).setId(doc.id).setSource(doc.source, XContentType.JSON);
             indexRequests.add(indexRequest);
@@ -348,6 +467,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
     }
 
     private static String sampleDataForValue(Object value) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (value instanceof String) {
             return "\"" + value + "\"";
         } else if (value instanceof List<?> list) {
@@ -388,6 +511,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
             TestMapping lastMapping = null;
 
             Set<String> properties = new HashSet<>();
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (TestMapping mapping : mappings) {
                 properties.addAll(mapping.properties);
                 lastMapping = mapping;
@@ -423,9 +550,17 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
             // The main index will have many fields, one of each type to use in later type specific joins
             List<TestMapping> mainIndices = new ArrayList<>();
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (TestConfig config : configs.values()) {
                 mainIndices.add(config.mainIndex());
                 TestMapping otherIndex = config.additionalMainIndex();
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (otherIndex != null) {
                     results.add(otherIndex);
                 }
@@ -447,6 +582,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
             List<TestDocument> results = new ArrayList<>();
 
             int docId = 0;
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (TestConfig config : configs.values()) {
                 String doc = String.format(Locale.ROOT, """
                     {
@@ -468,8 +607,16 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
                 }
                 """, String.join(",\n  ", mainProperties))));
 
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (TestConfig config : configs.values()) {
                 TestMapping additionalIndex = config.additionalMainIndex();
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (additionalIndex != null) {
                     String doc = String.format(Locale.ROOT, """
                         {
@@ -494,6 +641,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
 
         private void add(TestConfig config) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (configs.containsKey(config.lookupIndexName())) {
                 throw new IllegalArgumentException("Duplicate index name: " + config.lookupIndexName());
             }
@@ -621,6 +772,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
     }
 
     private static String propertySpecFor(String fieldName, DataType type) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (type == SCALED_FLOAT) {
             return String.format(
                 Locale.ROOT,

@@ -1,3 +1,15 @@
+/**
+ * @file compression_device.cl
+ * @brief OpenCL kernel and utility functions for ETC1 texture compression.
+ * 
+ * Functional Intent: Implements the Ericsson Texture Compression (ETC1) 
+ * algorithm for 4x4 pixel blocks. It handles the transformation from BGRA8 
+ * input to the packed 64-bit ETC1 format, including sub-block partitioning 
+ * (horizontal vs vertical), base color quantization (RGB444/555), and 
+ * optimal luminance codeword table selection to minimize perceptual error.
+ * 
+ * Domain: Graphics Programming, Image Compression (ETC1), Parallel Computing (OpenCL).
+ */
 
 union Color {
 	struct BgraColorType {
@@ -10,7 +22,9 @@ union Color {
 	uint bits;
 };
 
-
+/**
+ * my_clamp - Scalar clamping utility.
+ */
 inline uint my_clamp(int val, int min, int max) {
 	if (val < min)
 		return min;
@@ -19,17 +33,26 @@ inline uint my_clamp(int val, int min, int max) {
 	return val;
 }
 
+/**
+ * round_to_5_bits - Quantizes an 8-bit color channel to 5 bits for differential mode.
+ */
 inline uchar round_to_5_bits(int val) {
 	return (uchar) my_clamp(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
 
+/**
+ * round_to_4_bits - Quantizes an 8-bit color channel to 4 bits for individual mode.
+ */
 inline uchar round_to_4_bits(int val) {
 	return (uchar) my_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
+// g_mod_to_pix - Maps codeword modifiers to ETC1 pixel index bits.
 __constant short g_mod_to_pix[4] = {3, 2, 0, 1};
 
-
+/**
+ * makeColor - Applies a luminance modifier to a base color.
+ */
 inline union Color* makeColor(union Color base, short lum) {
 	int b = (int)base.channels.b + (int)lum;
 	int g = (int)base.channels.g + (int)lum;
@@ -41,8 +64,13 @@ inline union Color* makeColor(union Color base, short lum) {
 	return (union Color*) color;
 }
 
-
-
+/**
+ * getColorError - Computes the squared distance between two colors.
+ * 
+ * Algorithm: L2 Distance (Euclidean) or Perceptual Weighted Error.
+ * Logic: Minimizes the error between the original pixel and the compressed 
+ * representation (base + codeword modifier).
+ */
 inline uint getColorError(union Color u, union Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)(u.channels.b) - v.channels.b;
@@ -59,59 +87,49 @@ inline uint getColorError(union Color u, union Color v) {
 #endif
 }
 
-
-
+/**
+ * WriteColors444 - Serializes two RGB444 base colors into the block header.
+ */
 inline void WriteColors444(__global uchar* block,
 						    union Color color0,
 						    union Color color1
 								) {
-	
 	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
 	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
 	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
-
-
+/**
+ * WriteColors555 - Serializes RGB555 base color and its 3-bit differential into the block header.
+ */
 inline void WriteColors555(__global uchar* block,
 						   union Color color0,
 						   union Color color1) {
-	
-	uchar two_compl_trans_table[8] = {
-		4,  
-		5,  
-		6,  
-		7,  
-		0,  
-		1,  
-		2,  
-		3,  
-	};
+	uchar two_compl_trans_table[8] = {4, 5, 6, 7, 0, 1, 2, 3};
 
-	short delta_r =
-	(short)(color1.channels.r >> 3) - (color0.channels.r >> 3);
-	short delta_g =
-	(short)(color1.channels.g >> 3) - (color0.channels.g >> 3);
-	short delta_b =
-	(short)(color1.channels.b >> 3) - (color0.channels.b >> 3);
+	short delta_r = (short)(color1.channels.r >> 3) - (color0.channels.r >> 3);
+	short delta_g = (short)(color1.channels.g >> 3) - (color0.channels.g >> 3);
+	short delta_b = (short)(color1.channels.b >> 3) - (color0.channels.b >> 3);
 
-	
 	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
 	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0.
-
-	channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * WriteCodewordTable - Sets the 3-bit table index for a specific sub-block.
+ */
 inline void WriteCodewordTable(__global uchar* block,
 							   uchar sub_block_id,
 							   uchar table) {
-
 	uchar shift = (2 + (3 - sub_block_id * 3));
 	block[3] &= ~(0x07 << shift);
 	block[3] |= table << shift;
 }
 
+/**
+ * WritePixelData - Serializes the 32-bit modulation index map into the block.
+ */
 inline void WritePixelData(__global uchar* block, uint pixel_data) {
 	block[4] |= pixel_data >> 24;
 	block[5] |= (pixel_data >> 16) & 0xff;
@@ -135,6 +153,9 @@ inline void memcpy(uchar *dst, uchar *src, int width) {
 	}
 }
 
+/**
+ * makeColor444 - Reconstructs a full 8-bit color from 4-bit components.
+ */
 inline union Color makeColor444(float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
@@ -143,13 +164,13 @@ inline union Color makeColor444(float* bgr) {
 	bgr444.channels.b = (b4 << 4) | b4;
 	bgr444.channels.g = (g4 << 4) | g4;
 	bgr444.channels.r = (r4 << 4) | r4;
-	
 	bgr444.channels.a = 0x44;
 	return bgr444;
 }
 
-
-
+/**
+ * makeColor555 - Reconstructs a full 8-bit color from 5-bit components.
+ */
 inline union Color makeColor555(float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -157,26 +178,22 @@ inline union Color makeColor555(float* bgr) {
 	union Color bgr555;
 	bgr555.channels.b = (b5 > 2);
 	bgr555.channels.g = (g5 > 2);
-
-
 	bgr555.channels.r = (r5 > 2);
-	
 	bgr555.channels.a = 0x55;
 	return bgr555;
 }
 
+/**
+ * getAverageColor - Computes the mean RGB value for a sub-block.
+ */
 void getAverageColor(union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
-
 	for (uint i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
-
-
 		sum_g += src[i].channels.g;
 		sum_r += src[i].channels.r;
 	}
-
 	float kInv8 = 1.0f / 8.0f;
 	avg_color[0] = (float)(sum_b) * kInv8;
 	avg_color[1] = (float)(sum_g) * kInv8;
@@ -189,6 +206,14 @@ void memset(__global uchar* dst, int value, int size) {
 	}
 }
 
+/**
+ * computeLuminance - Exhaustive search for the best luminance codeword table.
+ * 
+ * Algorithm: Per-subblock error minimization.
+ * 1. Iterates through all 8 standard ETC1 codeword tables.
+ * 2. For each table, finds the modifier index that minimizes color error for each pixel.
+ * 3. Selects the table with the lowest cumulative error for the subblock.
+ */
 unsigned long computeLuminance(__global uchar* block,
 						   union Color* src,
 						   union Color base,
@@ -210,11 +235,8 @@ unsigned long computeLuminance(__global uchar* block,
 	uchar best_tbl_idx = 0;
 	uchar best_mod_idx[8][8];  
 
-	
-	
+	// Block Logic: Table search loop.
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
-		
-		
 		union Color candidate_color[4];  
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
@@ -222,68 +244,57 @@ unsigned long computeLuminance(__global uchar* block,
 		}
 
 		uint tbl_err = 0;
-
 		for (uint i = 0; i < 8; ++i) {
-			
-			
 			uint best_mod_err = threshold;
 			for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				union Color color = candidate_color[mod_idx];
-
 				uint mod_err = getColorError(src[i], color);
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
-
-					if (mod_err == 0)
-						break;  
+					if (mod_err == 0) break;  
 				}
 			}
-
 			tbl_err += best_mod_err;
-			if (tbl_err > best_tbl_err)
-				break;  
+			if (tbl_err > best_tbl_err) break;  
 		}
 
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
-
-			if (tbl_err == 0)
-				break;  
+			if (tbl_err == 0) break;  
 		}
 	}
 
 	WriteCodewordTable(block, sub_block_id, best_tbl_idx);
 
+	/**
+	 * Block Logic: Bitstream packing.
+	 * Logic: Converts optimal modifier indices into the split MSB/LSB bitplanes 
+	 * required by the ETC1 format.
+	 */
 	uint pix_data = 0;
-
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
-
 		uint lsb = pix_idx & 0x1;
 		uint msb = pix_idx >> 1;
-
-		
 		int texel_num = idx_to_num_tab[i];
-
-
 		pix_data |= msb << (texel_num + 16);
 		pix_data |= lsb << (texel_num);
 	}
-
 	WritePixelData(block, pix_data);
-
 	return best_tbl_err;
 }
 
 
+/**
+ * tryCompressSolidBlock - Fast-path optimization for monochrome blocks.
+ */
 bool tryCompressSolidBlock(__global uchar* dst,
 						   union Color* src,
 						   unsigned long* error)
 {
-
 	short g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -301,17 +312,14 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 	};
 
+	// Pre-condition: Block must have identical color in all 16 texels.
 	for (unsigned int i = 1; i < 16; ++i) {
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
 
-	
 	memset(dst, 0, 8);
-
-	float src_color_float[3] = {(float)(src->channels.b),
-		(float)(src->channels.g),
-		(float)(src->channels.r)};
+	float src_color_float[3] = {(float)(src->channels.b), (float)(src->channels.g), (float)(src->channels.r)};
 	union Color base = makeColor555(src_color_float);
 
 	WriteDiff(dst, true);
@@ -322,30 +330,19 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	uchar best_mod_idx = 0;
 	uint best_mod_err = UINT_MAX;
 
-	
-	
-
-
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
-		
-		
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			union Color* color = makeColor(base, lum);
-
 			uint mod_err = getColorError(*src, *color);
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
-
-				if (mod_err == 0)
-					break;  
+				if (mod_err == 0) break;  
 			}
 		}
-
-		if (best_mod_err == 0)
-			break;
+		if (best_mod_err == 0) break;
 	}
 
 	WriteCodewordTable(dst, 0, best_tbl_idx);
@@ -358,7 +355,6 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	uint pix_data = 0;
 	for (unsigned int i = 0; i < 2; ++i) {
 		for (unsigned int j = 0; j < 8; ++j) {
-			
 			int texel_num = g_idx_to_num[i][j];
 			pix_data |= msb << (texel_num + 16);
 			pix_data |= lsb << (texel_num);
@@ -371,6 +367,12 @@ bool tryCompressSolidBlock(__global uchar* dst,
 }
 
 
+/**
+ * compressBlock - High-level decision engine for a single 4x4 block.
+ * 
+ * Logic: Chooses between differential (RGB555+3) and individual (RGB444) 
+ * color modes, and evaluates the best subblock split (vertical vs horizontal).
+ */
 ulong compressBlock(__global uchar* dst,
 										union Color* ver_src,
 										union Color* hor_src,
@@ -381,20 +383,16 @@ ulong compressBlock(__global uchar* dst,
 		return solid_error;
 	}
 
-	uchar g_idx_to_num[4][8] = {
-		{0, 4, 1, 5, 2, 6, 3, 7},        
-		{8, 12, 9, 13, 10, 14, 11, 15},  
-		{0, 4, 8, 12, 1, 5, 9, 13},      
-		{2, 6, 10, 14, 3, 7, 11, 15}     
-	};
-
 	union Color* sub_block_src[4] = {ver_src, ver_src + 8, hor_src, hor_src + 8};
-
 	union Color sub_block_avg[4];
 	bool use_differential[2] = {true, true};
 
-	
-	
+	/**
+	 * Block Logic: Color Mode selection.
+	 * Logic: Determines if the component-wise delta between sub-blocks 
+	 * fits within the signed 3-bit range [-4, 3]. If not, falls back to 
+	 * the less precise RGB444 mode.
+	 */
 	for (uint i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -407,9 +405,8 @@ ulong compressBlock(__global uchar* dst,
 		for (uint light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
-
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -420,9 +417,6 @@ ulong compressBlock(__global uchar* dst,
 		}
 	}
 
-	
-	
-	
 	uint sub_block_err[4] = {0};
 	for (uint i = 0; i < 4; ++i) {
 		for (uint j = 0; j < 8; ++j) {
@@ -430,12 +424,10 @@ ulong compressBlock(__global uchar* dst,
 		}
 	}
 
-	bool flip =
-	sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
+	// Decision Logic: Optimal partitioning (Flip bit).
+	bool flip = sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
 
-	
 	memset(dst, 0, 8);
-
 	WriteDiff(dst, use_differential[!!flip]);
 	WriteFlip(dst, flip);
 
@@ -443,33 +435,37 @@ ulong compressBlock(__global uchar* dst,
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 
 	if (use_differential[!!flip]) {
-		WriteColors555(dst, sub_block_avg[sub_block_off_0],
-					   sub_block_avg[sub_block_off_1]);
+		WriteColors555(dst, sub_block_avg[sub_block_off_0], sub_block_avg[sub_block_off_1]);
 	} else {
-		WriteColors444(dst, sub_block_avg[sub_block_off_0],
-					   sub_block_avg[sub_block_off_1]);
+		WriteColors444(dst, sub_block_avg[sub_block_off_0], sub_block_avg[sub_block_off_1]);
 	}
 
 	return 0;
 }
 
+/**
+ * memcpy_colors - Extracts color texels from the global source image.
+ */
 inline void memcpy_colors(union Color* blocks, int index,
 			int offset, __global uchar *src)
 {
-		uchar *values1;
-		uchar *values2;
-
-		values1 = (uchar *) &blocks[index];
-		values2 = (uchar *) &blocks[index + 1];
-
+		uchar *values1 = (uchar *) &blocks[index];
+		uchar *values2 = (uchar *) &blocks[index + 1];
 		for (int i = 0; i < 4; i++) {
 				values1[i] = *(src+ offset + i);
 				values2[i] = *(src+ offset + 4 + i);
 		}
-
 }
 
 
+/**
+ * @kernel compression_kernel
+ * @brief Entry point for parallel block compression.
+ * 
+ * Logic: Dispatches a work-item for every 4x4 block in the input image. 
+ * Reconstructs vertical and horizontal subblock candidates and delegates 
+ * the algorithmic decision-making to `compressBlock`.
+ */
 __kernel void
 compression_kernel(__global uchar* src,
 		__global uchar* dst,
@@ -482,13 +478,12 @@ compression_kernel(__global uchar* src,
 	union Color ver_blocks[16];
 	union Color hor_blocks[16];
 
-	ulong compressed_error = 0;
-
 	int src_offset = 4 * 4 * gid_0 + gid_1 * width * 4 * 4;
 	int dst_offset = gid_0 * 8 + 8 * gid_1 * width / 4;
 
 	src += src_offset;
 
+	// Block Logic: Sub-block extraction.
 	for (int x = 0; x < width; x += 4) {
 		memcpy_colors(ver_blocks, 0, 0, src + x);
 	 	memcpy_colors(ver_blocks, 2, width, src + x);
@@ -509,235 +504,8 @@ compression_kernel(__global uchar* src,
 	 	memcpy_colors(hor_blocks, 10, 2 * width, src + x + 8);
 		memcpy_colors(hor_blocks, 12, 3 * width, src + x);
 		memcpy_colors(hor_blocks, 14, 3 * width, src + x + 8);
-
-
-}
-	dst += dst_offset;
-	compressed_error += compressBlock(dst, ver_blocks, hor_blocks, UINT_MAX);
-
-}
-#include "compress.hpp"
-
-
-using namespace std;
-
-
-#define BUF_2M		(2 * 1024 * 1024)
-#define BUF_32M		(32 * 1024 * 1024)
-
-
-#define BUF_128	(128)
-
-
-void gpu_find(cl_device_id &device,
-		uint platform_select,
-		uint device_select)
-{
-	cl_platform_id platform;
-	cl_uint platform_num = 0;
-	cl_platform_id* platform_list = NULL;
-
-	cl_uint device_num = 0;
-	cl_device_id* device_list = NULL;
-
-	size_t attr_size = 0;
-	cl_char* attr_data = NULL;
-
+    }
 	
-	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
-	platform_list = new cl_platform_id[platform_num];
-	DIE(platform_list == NULL, "alloc platform_list");
-
-	
-	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
-	cout << "Platforms found: " << platform_num << endl;
-
-	
-	for(uint platf=0; platf<platform_num; platf++)
-	{
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VENDOR, 0, NULL, &attr_size));
-		attr_data = new cl_char[attr_size];
-		DIE(attr_data == NULL, "alloc attr_data");
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
-		cout << "Platform " << platf << " " << attr_data << " ";
-		delete[] attr_data;
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VERSION, 0, NULL, &attr_size));
-		attr_data = new cl_char[attr_size];
-		DIE(attr_data == NULL, "alloc attr_data");
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VERSION, attr_size, attr_data, NULL));
-		cout << attr_data << endl;
-		delete[] attr_data;
-
-		
-		platform = platform_list[platf];
-		DIE(platform == 0, "platform selection");
-
-		
-		if(clGetDeviceIDs(platform,
-			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
-			device_num = 0;
-			continue;
-		}
-
-		device_list = new cl_device_id[device_num];
-		DIE(device_list == NULL, "alloc devices");
-
-		
-		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
-			  device_num, device_list, NULL));
-		cout << "\tDevices found " << device_num  << endl;
-
-		device = device_list[0];
-
-		
-		for(uint dev=0; dev<device_num; dev++)
-		{
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-				0, NULL, &attr_size));
-			attr_data = new cl_char[attr_size];
-			DIE(attr_data == NULL, "alloc attr_data");
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-				attr_size, attr_data, NULL));
-			cout << "\tDevice " << dev << " " << attr_data << " ";
-			delete[] attr_data;
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-				0, NULL, &attr_size));
-			attr_data = new cl_char[attr_size];
-			DIE(attr_data == NULL, "alloc attr_data");
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-				attr_size, attr_data, NULL));
-			cout << attr_data;
-			delete[] attr_data;
-
-			
-			if((platf == platform_select) && (dev == device_select)){
-				device = device_list[dev];
-				cout << " <--- SELECTED ";
-				break;
-			}
-
-			cout << endl;
-		}
-	}
-
-	delete[] platform_list;
-	delete[] device_list;
-}
-
-
-TextureCompressor::TextureCompressor() {
-
-	int platform_select = 0;
-	int device_select = 0;
-
-	gpu_find(device, platform_select, device_select);
-	DIE(device == 0, "check valid device");
-
-}
-
-TextureCompressor::~TextureCompressor() { }	
-
-
-unsigned long TextureCompressor::compress(const uint8_t* src,
-									  uint8_t* dst,
-									  int width,
-									  int height)
-{
-
-  cl_int ret;
-  string kernel_src;
-
-  
-  context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
-  CL_ERR( ret );
-
-  
-  command_queue = clCreateCommandQueue(context, device,
-									CL_QUEUE_PROFILING_ENABLE, &ret);
-  CL_ERR( ret );
-
-  int source_size = 4 * width * height;
-  int destination_size = 4 * width * height / 8;
-
-  
-  cl_mem src_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY,
-											sizeof(uint8_t) * source_size,
-          						NULL, &ret);
-  CL_ERR( ret );
-
-
-  cl_mem dst_buffer = clCreateBuffer(context,	CL_MEM_READ_WRITE,
-		 									sizeof(uint8_t) * destination_size,
-											NULL, &ret);
-  CL_ERR( ret );
-
-  DIE(src_buffer == 0, "alloc src_buffer");
-  DIE(dst_buffer == 0, "alloc dst_buffer");
-
-  
-  CL_ERR( clEnqueueWriteBuffer(command_queue, src_buffer, CL_TRUE,
-						0, sizeof(uint8_t) * source_size, src,
-          	0, NULL, NULL));
-
-  
-  read_kernel("compression_device.cl", kernel_src);
-  const char* kernel_c_str = kernel_src.c_str();
-
-  
-  program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret);
-  CL_ERR( ret );
-
-  
-  ret = clBuildProgram(program, 1, &device, "-cl-fast-relaxed-math",
-	 			NULL, NULL);
-  CL_COMPILE_ERR( ret, program, device );
-
-  
-  kernel = clCreateKernel(program, "compression_kernel", &ret);
-  CL_ERR( ret );
-
-  
-  CL_ERR( clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&src_buffer) );
-  CL_ERR( clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dst_buffer) );
-  CL_ERR( clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *)&width) );
-  CL_ERR( clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *)&height) );
-
-  
-  cl_event event;
-  size_t globalSize[2] = {(size_t) width / 4, (size_t) height / 4};
-  ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, 0, 0,
-  			NULL, &event);
-  CL_ERR( ret );
-  CL_ERR( clWaitForEvents(1, &event));
-
-  
-  CL_ERR( clEnqueueReadBuffer(command_queue, dst_buffer, CL_TRUE, 0,
-            sizeof(uint8_t) * destination_size, dst, 0, NULL, NULL));
-
-  
-  CL_ERR( clFinish(command_queue) );
-
-  
-  CL_ERR( clReleaseMemObject(src_buffer) );
-  CL_ERR( clReleaseMemObject(dst_buffer) );
-
-  return 0;
+    dst += dst_offset;
+	compressBlock(dst, ver_blocks, hor_blocks, UINT_MAX);
 }

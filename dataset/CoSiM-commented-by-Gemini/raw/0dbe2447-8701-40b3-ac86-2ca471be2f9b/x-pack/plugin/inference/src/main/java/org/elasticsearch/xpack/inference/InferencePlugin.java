@@ -5,6 +5,21 @@
  * 2.0.
  */
 
+/**
+ * InferencePlugin is the central entry point for the Elasticsearch Inference feature.
+ * 
+ * This plugin facilitates the integration of various machine learning inference services
+ * (both internal and external) into the Elasticsearch ecosystem. It manages the lifecycle
+ * of inference endpoints, model registrations, and provides the necessary infrastructure
+ * for performing inference during document indexing and search.
+ * 
+ * Key responsibilities include:
+ * - Registering REST and Transport actions for inference management and execution.
+ * - Providing a registry for internal and third-party inference services (e.g., OpenAI, HuggingFace, SageMaker).
+ * - Managing system indices for storing inference configurations and secrets.
+ * - Implementing custom mappers and highlighters for semantic search capabilities.
+ * - Integrating with the cluster's licensing system to ensure feature compliance.
+ */
 package org.elasticsearch.xpack.inference;
 
 import org.apache.logging.log4j.LogManager;
@@ -220,6 +235,9 @@ public class InferencePlugin extends Plugin
         this.settings = settings;
     }
 
+    /**
+     * Registers inference-related actions (CRUD for models/endpoints and execution).
+     */
     @Override
     public List<ActionHandler> getActions() {
         return List.of(
@@ -236,6 +254,9 @@ public class InferencePlugin extends Plugin
         );
     }
 
+    /**
+     * Maps REST endpoints to their respective inference handlers.
+     */
     @Override
     public List<RestHandler> getRestHandlers(
         Settings settings,
@@ -260,6 +281,10 @@ public class InferencePlugin extends Plugin
         );
     }
 
+    /**
+     * Initializes internal components required for inference operations, including
+     * client managers, registries, and action filters.
+     */
     @Override
     public Collection<?> createComponents(PluginServices services) {
         var components = new ArrayList<>();
@@ -313,6 +338,8 @@ public class InferencePlugin extends Plugin
 
         var sageMakerSchemas = new SageMakerSchemas();
         var sageMakerConfigurations = new LazyInitializable<>(new SageMakerConfiguration(sageMakerSchemas));
+        
+        // Registering core inference services including Elastic's own and SageMaker
         inferenceServices.add(
             () -> List.of(
                 context -> new ElasticInferenceService(
@@ -344,8 +371,7 @@ public class InferencePlugin extends Plugin
             settings
         );
 
-        // This must be done after the HttpRequestSenderFactory is created so that the services can get the
-        // reference correctly
+        // Initialize the central registry for all registered inference services
         var serviceRegistry = new InferenceServiceRegistry(inferenceServices, factoryContext);
         serviceRegistry.init(services.client());
         for (var service : serviceRegistry.getServices().values()) {
@@ -372,8 +398,7 @@ public class InferencePlugin extends Plugin
         components.add(httpClientManager);
         components.add(inferenceStatsBinding);
 
-        // Only add InferenceServiceNodeLocalRateLimitCalculator (which is a ClusterStateListener) for cluster aware rate limiting,
-        // if the rate limiting feature flags are enabled, otherwise provide noop implementation
+        // Conditionally initialize cluster-aware rate limiting based on feature flags
         InferenceServiceRateLimitCalculator calculator;
         if (INFERENCE_API_CLUSTER_AWARE_RATE_LIMITING_FEATURE_FLAG) {
             calculator = new InferenceServiceNodeLocalRateLimitCalculator(services.clusterService(), serviceRegistry);
@@ -381,7 +406,6 @@ public class InferencePlugin extends Plugin
             calculator = new NoopNodeLocalRateLimitCalculator();
         }
 
-        // Add binding for interface -> implementation
         components.add(new PluginComponentBinding<>(InferenceServiceRateLimitCalculator.class, calculator));
 
         return components;
@@ -392,6 +416,9 @@ public class InferencePlugin extends Plugin
         inferenceServiceExtensions = loader.loadExtensions(InferenceServiceExtension.class);
     }
 
+    /**
+     * Provides a list of factories for standard third-party inference services.
+     */
     public List<InferenceServiceExtension.Factory> getInferenceServiceFactories() {
         return List.of(
             context -> new HuggingFaceElserService(httpFactory.get(), serviceComponents.get(), context),
@@ -439,6 +466,9 @@ public class InferencePlugin extends Plugin
         return namedXContent;
     }
 
+    /**
+     * Defines the system indices used by the inference plugin for storing configurations and secrets.
+     */
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
 
@@ -483,6 +513,9 @@ public class InferencePlugin extends Plugin
         return List.of(inferenceUtilityExecutor(settings));
     }
 
+    /**
+     * Creates a scaling executor pool for background utility tasks related to inference.
+     */
     public static ExecutorBuilder<?> inferenceUtilityExecutor(Settings settings) {
         return new ScalingExecutorBuilder(
             UTILITY_THREAD_POOL_NAME,
@@ -494,6 +527,10 @@ public class InferencePlugin extends Plugin
         );
     }
 
+    /**
+     * Returns all settings registered by this plugin, including those from sub-components
+     * like HttpClientManager and ThrottlerManager.
+     */
     @Override
     public List<Setting<?>> getSettings() {
         ArrayList<Setting<?>> settings = new ArrayList<>();
@@ -521,6 +558,9 @@ public class InferencePlugin extends Plugin
         return "Inference plugin for managing inference services and inference";
     }
 
+    /**
+     * Ensures graceful shutdown of inference-related components and resources.
+     */
     @Override
     public void close() {
         var serviceComponentsRef = serviceComponents.get();
@@ -539,6 +579,9 @@ public class InferencePlugin extends Plugin
         return () -> modelRegistry.get();
     }
 
+    /**
+     * Registers custom mappers for semantic text and offset management.
+     */
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
         return Map.of(
@@ -554,10 +597,16 @@ public class InferencePlugin extends Plugin
         return singletonList(shardBulkInferenceActionFilter.get());
     }
 
+    /**
+     * Registers the semantic query builder for search-time inference.
+     */
     public List<QuerySpec<?>> getQueries() {
         return List.of(new QuerySpec<>(SemanticQueryBuilder.NAME, SemanticQueryBuilder::new, SemanticQueryBuilder::fromXContent));
     }
 
+    /**
+     * Interceptors that rewrite semantic queries into their low-level vector or match counterparts.
+     */
     @Override
     public List<QueryRewriteInterceptor> getQueryRewriteInterceptors() {
         return List.of(
@@ -567,6 +616,9 @@ public class InferencePlugin extends Plugin
         );
     }
 
+    /**
+     * Registers retrievers for ranking documents based on semantic similarity.
+     */
     @Override
     public List<RetrieverSpec<?>> getRetrievers() {
         return List.of(
@@ -583,6 +635,9 @@ public class InferencePlugin extends Plugin
         return Map.of(SemanticTextHighlighter.NAME, new SemanticTextHighlighter());
     }
 
+    /**
+     * Hook called when the node has fully started, allowing the inference registry to perform post-startup tasks.
+     */
     @Override
     public void onNodeStarted() {
         var registry = inferenceServiceRegistry.get();

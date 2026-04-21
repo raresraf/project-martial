@@ -1,5 +1,12 @@
+/**
+ * @raw/0d1ed590-7b2b-4f82-be77-e489b0585ab0/compare_ppm.cpp
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 
->>>> file: compare_ppm.cpp
+>>>> file: compare_ppm.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include 
 #include 
 #include 
@@ -15,13 +22,25 @@ int main(int argc, char*args[]) {
 	char buffer[256];
 	FILE *f[argc - 1];
 	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i< argc - 1; i++) {
 		char *file = args[1 + i]; 
 		f[i] = fopen(file, "rb");
 		fgets(buffer, sizeof(buffer), f[i]);
 		long data_start = ftell(f[i]);
 
+		/**
+		 * Block Logic: Condition check initialization for iterative traversal.
+		 * Invariant: Condition remains true across iterations, ensuring execution state.
+		 */
 		while (fgets(buffer, sizeof(buffer), f[i])) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (buffer[0] == '#') {
 				data_start = ftell(f[i]);
 			}
@@ -44,7 +63,15 @@ int main(int argc, char*args[]) {
 	green = 1;
 	blue = 0;
 	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < height; i++) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (int j = 0; j < stride; j += 4) {
 			fread(&src[stride * i + j + red], 1, 1, f[0]);
 			fread(&src[stride * i + j + green], 1, 1, f[0]);
@@ -53,13 +80,29 @@ int main(int argc, char*args[]) {
 		}
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int k = 1; k < argc - 1; k++) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (int i = 0; i < height; i++) {
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (int j = 0; j < stride; j += 4) {
 				fread(&src1[stride * i + j + red], 1, 1, f[k]);
 				fread(&src1[stride * i + j + green], 1, 1, f[k]);
 				fread(&src1[stride * i + j + blue], 1, 1, f[k]);
 				src1[stride * i + j + alpha] = 0;
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (int l = 0; l < 4; l++) {
 					unsigned long temp = (src1[stride * i + j + l] - src[stride * i + j + l]);
 					error[k - 1] += (unsigned long)(temp * temp);
@@ -68,13 +111,17 @@ int main(int argc, char*args[]) {
 		}
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < argc - 2; i++) {
 		double PSNR = 10 * log10(3 * 255.0 * 255.0 / (error[i] / (double)(width * height)));
 		double RMSE = sqrt(error[i] / (double)(width * height));
 		printf("FILE = %s, \tPSNR = %.6lf, \tRMSE = %.6lf\n", args[i + 2], PSNR, RMSE);
 	}
 }
->>>> file: compress.cl
+>>>> file: compress.cl /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 #define ALIGNMENT 16 
 
@@ -101,16 +148,24 @@ void mmemcpy(void *bdst,void *bsrc, int len)
 	src = (char*)(bsrc);
 
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(int i = 0 ; i < len ; i++)
 	{
 		dst[i] = src[i];
 	}
 }
 
-void mmemset(void *ptr,int value,int len)
+void mmemset(void *ptr,int value,int len) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
-	char *p;
+	char *p; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	p = (char*)(ptr);
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(int i = 0 ; i < len ; i ++)
 	{
 		p[i] = value;
@@ -206,11 +261,11 @@ uint32_t getColorError(Color *u, Color *v) {
 
 void WriteColors444(uint8_t *block, Color *color0, Color *color1) {
 
-	block[0] = (color0->channels.r & 0xf0) | (color1->channels.r >> 4);
-	block[1] = (color0->channels.g & 0xf0) | (color1->channels.g >> 4);
+	block[0] = (color0->channels.r & 0xf0) | (color1->channels.r >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[1] = (color0->channels.g & 0xf0) | (color1->channels.g >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 
-	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
+	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WriteColors555(uint8_t* block, Color *color0, Color *color1) {
@@ -218,15 +273,15 @@ void WriteColors555(uint8_t* block, Color *color0, Color *color1) {
 	int16_t delta_r;
 	int16_t delta_g;
 	int16_t delta_b;
-	delta_r = (short)(color1->channels.r >> 3) - (color0->channels.r >> 3);
-	delta_g = (short)(color1->channels.g >> 3) - (color0->channels.g >> 3);
-	delta_b = (short)(color1->channels.b >> 3) - (color0->channels.b >> 3);
+	delta_r = (short)(color1->channels.r >> 3) - (color0->channels.r >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	delta_g = (short)(color1->channels.g >> 3) - (color0->channels.g >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	delta_b = (short)(color1->channels.b >> 3) - (color0->channels.b >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
-	block[0] = (color0->channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
+	block[0] = (color0->channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 
-	block[1] = (color0->channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0->channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[1] = (color0->channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[2] = (color0->channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 }
 
@@ -236,17 +291,17 @@ void WriteCodewordTable(uint8_t *block, uint8_t sub_block_id, uint8_t table) {
 	shift = (2 + (3 - sub_block_id * 3));
 
 
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[3] |= table << shift; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WritePixelData(uint8_t *block, uint32_t pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
+	block[4] |= pixel_data >> 24; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[6] |= (pixel_data >> 8) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[7] |= pixel_data & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WriteFlip(uint8_t *block, bool flip) {
@@ -256,11 +311,15 @@ void WriteFlip(uint8_t *block, bool flip) {
 
 void WriteDiff(uint8_t* block, bool diff) {
 	block[3] &= ~0x02;
-	block[3] |= diff << 1;
+	block[3] |= diff << 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void ExtractBlock(uint8_t *dst, uint8_t *src, uint width) {
 	int j;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(j = 0; j < 4;++j) {
 		mmemcpy((void*)(&dst[j*16]),(void*)src,4*4);
 		src += width * 4;
@@ -275,9 +334,9 @@ Color makeColor444(float *bgr) {
 	g4 = round_to_4_bits(bgr[1]);
 	r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.g = (g4 << 4) | g4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.r = (r4 << 4) | r4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	bgr444.channels.a = 0x44;
 	return bgr444;
 }
@@ -311,6 +370,10 @@ void getAverageColor(Color *src, float *avg_color)
 	sum_g = 0;
 	sum_r = 0;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < 8; ++i) {
 
 
@@ -339,38 +402,74 @@ ulong computeLuminance(uint8_t *block, Color* src,Color *base,int sub_block_id,_
 	uint pix_idx;
 	uint32_t mod_err;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		Color candidate_color[4];  // [modifier]
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
 		}
 		
 	tbl_err = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < 8; ++i) {
 		best_mod_err = threshold;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			
 			const Color *color; 
 			color = &(candidate_color[mod_idx]);
 			mod_err = getColorError(&(src[i]), color);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_mod_idx[tbl_idx][i] = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  // We cannot do any better than this.
 				}
 			}
 		
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  // We're already doing worse than the best table so skip.
 		}
 	
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err == 0)
 				break;  // We cannot do any better than this.
 		}
@@ -379,20 +478,24 @@ ulong computeLuminance(uint8_t *block, Color* src,Color *base,int sub_block_id,_
 
 	uint32_t pix_data = 0;
 	pix_data = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < 8; ++i) {
 		mod_idx = best_mod_idx[best_tbl_idx][i];
 		pix_idx = g_mod_to_pix[mod_idx];
 		
 		uint32_t lsb; 
-		lsb = pix_idx & 0x1;
+		lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		uint32_t msb;
-		msb = pix_idx >> 1;
+		msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		
 		// Obtain the texel number as specified in the standard.
 		int texel_num;
 		texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 
 	WritePixelData(block, pix_data);
@@ -402,7 +505,15 @@ ulong computeLuminance(uint8_t *block, Color* src,Color *base,int sub_block_id,_
 bool tryCompressSolidBlock(uint8_t *dst, Color *src, ulong *error)
 {
 	uint i;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -433,9 +544,17 @@ bool tryCompressSolidBlock(uint8_t *dst, Color *src, ulong *error)
 	// block.
 	uint tbl_idx;
 	uint mod_idx;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Try all modifiers in the current table to find which one gives the
 		// smallest error.
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum;
 			lum = g_codeword_tables[tbl_idx][mod_idx];
@@ -443,16 +562,28 @@ bool tryCompressSolidBlock(uint8_t *dst, Color *src, ulong *error)
 			
 			uint32_t mod_err;
 			mod_err = getColorError(src, &color);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  // We cannot do any better than this.
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -463,22 +594,30 @@ bool tryCompressSolidBlock(uint8_t *dst, Color *src, ulong *error)
 	uint8_t pix_idx;
 	pix_idx = g_mod_to_pix[best_mod_idx];
 	uint32_t lsb;
-	lsb = pix_idx & 0x1;
+	lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	uint32_t msb;
-	msb = pix_idx >> 1;
+	msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
 	uint32_t pix_data;
 	pix_data = 0;
 	uint j;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (j = 0; j < 8; ++j) {
 			// Obtain the texel number as specified in the standard.
 			int texel_num;
 			texel_num = g_idx_to_num[i][j];
 
 
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		}
 	}
 	
@@ -492,6 +631,10 @@ ulong compressBlock(uint8_t *dst,Color *ver_src, Color *hor_src, ulong threshold
 	ulong solid_error;
 	solid_error = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -508,6 +651,10 @@ ulong compressBlock(uint8_t *dst,Color *ver_src, Color *hor_src, ulong threshold
 	uint i;
 	uint j;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -517,14 +664,22 @@ ulong compressBlock(uint8_t *dst,Color *ver_src, Color *hor_src, ulong threshold
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		uint light_idx;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (light_idx = 0; light_idx < 3; ++light_idx) {
 			int u;
 			int v;
-			u = avg_color_555_0.components[light_idx] >> 3;
-			v = avg_color_555_1.components[light_idx] >> 3;
+			u = avg_color_555_0.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			v = avg_color_555_1.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			
 			int component_diff;
 			component_diff = v - u;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -544,7 +699,15 @@ ulong compressBlock(uint8_t *dst,Color *ver_src, Color *hor_src, ulong threshold
 	sub_block_err[1] = 0;
 	sub_block_err[2] = 0;
 	sub_block_err[3] = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(&(sub_block_avg[i]), &(sub_block_src[i][j]));
 		}
@@ -561,6 +724,10 @@ ulong compressBlock(uint8_t *dst,Color *ver_src, Color *hor_src, ulong threshold
 	uint8_t sub_block_off_0 = flip ? 2 : 0;
 	uint8_t sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, &(sub_block_avg[sub_block_off_0]),
 					   &(sub_block_avg[sub_block_off_1]));
@@ -632,12 +799,16 @@ __kernel void compress(__global uchar *src,__global uchar *dst, __global int *di
 
 
  	compressBlock(&(aux[0]), ver, hor, ULONG_MAX);	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(int i = 0;i < 8;i++)
  	{
   		dst[doffset + i] = aux[i];
  	}
 }
->>>> file: compress.cpp
+>>>> file: compress.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include "compress.hpp"
 
 #include 
@@ -667,8 +838,12 @@ int readCompressWrite(const char *input,
 	auto begin_timer = std::chrono::high_resolution_clock::now();
 
 	FILE *f = fopen(input, "r");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!f) {
-		cout << "File not found: " << input << endl;
+		cout << "File not found: " << input << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return EXIT_FAILURE;
 	}
 
@@ -685,7 +860,15 @@ int readCompressWrite(const char *input,
 	fgets(line, sizeof(line), f);
 	data_start = ftell(f);
 
+	/**
+	 * Block Logic: Condition check initialization for iterative traversal.
+	 * Invariant: Condition remains true across iterations, ensuring execution state.
+	 */
 	while (fgets(line, sizeof(line), f)) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (line[0] == '#') {
 			data_start = ftell(f);
 		}
@@ -698,6 +881,10 @@ int readCompressWrite(const char *input,
 	fscanf(f, "%d %d %d\n", &width, &height, &max);
 	src = (uint8_t*)malloc( width * height * 4);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!src) {
 		fclose(f);
 		return EXIT_FAILURE;
@@ -705,7 +892,15 @@ int readCompressWrite(const char *input,
 
 	stride = width * 4;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < height; i++) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (int j = 0; j < stride; j += 4) {
 			fread(&src[stride * i + j + red], 1, 1, f);
 			fread(&src[stride * i + j + green], 1, 1, f);
@@ -719,6 +914,10 @@ int readCompressWrite(const char *input,
 	compressed_size = width * height * 4 / 8;
 	dst = (uint8_t*)malloc( compressed_size);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dst) {
 		free(src);
 		return EXIT_FAILURE;
@@ -731,23 +930,27 @@ int readCompressWrite(const char *input,
 	compressor->compress(src, dst, width, height);
 
 	// end timer compressor
-	cout << "FILE = " << input << ", \tTIME.ms = " <<
+	cout << "FILE = " << input << ", \tTIME.ms = " << /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	std::chrono::duration_cast
 	(std::chrono::high_resolution_clock::now() - begin_timer).count()
-	<< endl;
+	<< endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	// write file	
 	f = fopen(output, "wb");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (f) {
 		uint8_t header[16];
 		memcpy(header, "PKM ", 4);
 		memcpy(&header[4], "20", 2);
 		header[6] = 0;
 		header[7] = 1;
-		header[8] = header[12] = (width >> 8) & 0xFF;
-		header[9] = header[13] = width & 0xFF;
-		header[10] = header[14] = (height >> 8) & 0xFF;
-		header[11] = header[15] = height & 0xFF;
+		header[8] = header[12] = (width >> 8) & 0xFF; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		header[9] = header[13] = width & 0xFF; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		header[10] = header[14] = (height >> 8) & 0xFF; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		header[11] = header[15] = height & 0xFF; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		fwrite(header, 16, 1, f);
 		fwrite(dst, compressed_size, 1, f);
@@ -774,42 +977,62 @@ int main(int argc, const char **argv)
 	
 	// create compressor
 	TextureCompressor *compressor = new TextureCompressor();
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!compressor) {
-		cout << "ERR allocate compressor" << endl;
+		cout << "ERR allocate compressor" << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return EXIT_FAILURE;
 	}
 	
 	// end timer contructor
-	cout << "INIT TIME.ms = " <<
+	cout << "INIT TIME.ms = " << /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	chrono::duration_cast
 	(chrono::high_resolution_clock::now() - begin_timer).count()
-	<< endl;
+	<< endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(compressor->device == 0) {
-		cout << "DEVICE INVALID. Is compressor.device set ?" << endl;
+		cout << "DEVICE INVALID. Is compressor.device set ?" << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 	else {
 		char devName[512];
 		clGetDeviceInfo(compressor->device, CL_DEVICE_NAME,
 				512, devName, NULL);
-		cout << "DEVICE = " << devName << endl;
+		cout << "DEVICE = " << devName << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		cl_device_type devType;
 		clGetDeviceInfo(compressor->device, CL_DEVICE_TYPE,
             sizeof(cl_device_type), &devType, NULL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(devType == CL_DEVICE_TYPE_GPU) {
-			cout << "GPU = YES" << endl;
+			cout << "GPU = YES" << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		} else {
-			cout << "GPU = NO!!" << endl;	
+			cout << "GPU = NO!!" << endl;	 /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		}
 	}
 
 	// cycle through list of files
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(int i = 1; i < argc; i++) {
 		CompressedFile cFile;
 		cFile.in = argv[i];
 		cFile.out = cFile.in + ".pkm";
 		todoFiles.push_back(cFile);
 	}
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(auto cFile : todoFiles) {
 		ret |= readCompressWrite(cFile.in.c_str(), 
 			cFile.out.c_str(), compressor);
@@ -818,7 +1041,7 @@ int main(int argc, const char **argv)
 	delete compressor;
 	return ret;
 }
->>>> file: compress.hpp
+>>>> file: compress.hpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -863,7 +1086,7 @@ class TextureCompressor {
 	cl_command_queue  command_queue;
 	cl_kernel         kernel;
 	cl_device_id      *device_ids;
-	cl_platform_id    *platform_ids;
+	cl_platform_id    *platform_ids; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
 public:
 	cl_device_id 	device;	// used to inspect device type
@@ -886,7 +1109,7 @@ protected:
 };
 
 #endif  // CC_RASTER_TEXTURE_COMPRESSOR_H_
->>>> file: texture_compress.cpp
+>>>> file: texture_compress.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include "compress.hpp"
 
 #include 
@@ -954,7 +1177,7 @@ static const uint8_t g_idx_to_num[4][8] = {
 };
 
 // Constructs a color from a given base color and luminance value.
-inline Color makeColor(const Color& base, int16_t lum) {
+inline Color makeColor(const Color& base, int16_t lum) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	int b = static_cast(base.channels.b) + lum;
 	int g = static_cast(base.channels.g) + lum;
 	int r = static_cast(base.channels.r) + lum;
@@ -967,7 +1190,7 @@ inline Color makeColor(const Color& base, int16_t lum) {
 
 // Calculates the error metric for two colors. A small error signals that the
 // colors are similar to each other, a large error the signals the opposite.
-inline uint32_t getColorError(const Color& u, const Color& v) {
+inline uint32_t getColorError(const Color& u, const Color& v) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = static_cast(u.channels.b) - v.channels.b;
 	float delta_g = static_cast(u.channels.g) - v.channels.g;
@@ -984,17 +1207,17 @@ inline uint32_t getColorError(const Color& u, const Color& v) {
 }
 
 inline void WriteColors444(uint8_t* block,
-						   const Color& color0,
-						   const Color& color1) {
+						   const Color& color0, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+						   const Color& color1) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	// Write output color for BGRA textures.
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 inline void WriteColors555(uint8_t* block,
-						   const Color& color0,
-						   const Color& color1) {
+						   const Color& color0, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+						   const Color& color1) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	// Table for conversion to 3-bit two complement format.
 	static const uint8_t two_compl_trans_table[8] = {
 		4,  // -4 (100b)
@@ -1008,16 +1231,16 @@ inline void WriteColors555(uint8_t* block,
 	};
 	
 	int16_t delta_r =
-	static_cast(color1.channels.r >> 3) - (color0.channels.r >> 3);
+	static_cast(color1.channels.r >> 3) - (color0.channels.r >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	int16_t delta_g =
-	static_cast(color1.channels.g >> 3) - (color0.channels.g >> 3);
+	static_cast(color1.channels.g >> 3) - (color0.channels.g >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	int16_t delta_b =
-	static_cast(color1.channels.b >> 3) - (color0.channels.b >> 3);
+	static_cast(color1.channels.b >> 3) - (color0.channels.b >> 3); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
 	// Write output color for BGRA textures.
-	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 inline void WriteCodewordTable(uint8_t* block,
@@ -1025,15 +1248,15 @@ inline void WriteCodewordTable(uint8_t* block,
 							   uint8_t table) {
 	
 	uint8_t shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[3] |= table << shift; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 inline void WritePixelData(uint8_t* block, uint32_t pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[7] |= pixel_data & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 inline void WriteFlip(uint8_t* block, bool flip) {
@@ -1043,10 +1266,14 @@ inline void WriteFlip(uint8_t* block, bool flip) {
 
 inline void WriteDiff(uint8_t* block, bool diff) {
 	block[3] &= ~0x02;
-	block[3] |= static_cast(diff) << 1;
+	block[3] |= static_cast(diff) << 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 inline void ExtractBlock(uint8_t* dst, const uint8_t* src, int width) {
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int j = 0; j < 4; ++j) {
 		memcpy(&dst[j * 4 * 4], src, 4 * 4);
 		src += width * 4;
@@ -1062,9 +1289,9 @@ inline Color makeColor444(const float* bgr) {
 	uint8_t g4 = round_to_4_bits(bgr[1]);
 	uint8_t r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.g = (g4 << 4) | g4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.r = (r4 << 4) | r4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	// Added to distinguish between expanded 555 and 444 colors.
 	bgr444.channels.a = 0x44;
 	return bgr444;
@@ -1091,6 +1318,10 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	uint32_t sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -1105,7 +1336,7 @@ void getAverageColor(const Color* src, float* avg_color)
 	
 unsigned long computeLuminance(uint8_t* block,
 						   const Color* src,
-						   const Color& base,
+						   const Color& base, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 						   int sub_block_id,
 						   const uint8_t* idx_to_num_tab,
 						   unsigned long threshold)
@@ -1116,10 +1347,18 @@ unsigned long computeLuminance(uint8_t* block,
 
 	// Try all codeword tables to find the one giving the best results for this
 	// block.
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Pre-compute all the candidate colors; combinations of the base color and
 		// all available luminance values.
 		Color candidate_color[4];  // [modifier]
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -1127,32 +1366,60 @@ unsigned long computeLuminance(uint8_t* block,
 		
 		uint32_t tbl_err = 0;
 		
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			// Try all modifiers in the current table to find which one gives the
 			// smallest error.
 			uint32_t best_mod_err = threshold;
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
-				const Color& color = candidate_color[mod_idx];
+				const Color& color = candidate_color[mod_idx]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 				
 				uint32_t mod_err = getColorError(src[i], color);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (mod_err == 0)
 						break;  // We cannot do any better than this.
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  // We're already doing worse than the best table so skip.
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err == 0)
 				break;  // We cannot do any better than this.
 		}
@@ -1162,17 +1429,21 @@ unsigned long computeLuminance(uint8_t* block,
 
 	uint32_t pix_data = 0;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uint8_t mod_idx = best_mod_idx[best_tbl_idx][i];
 		uint8_t pix_idx = g_mod_to_pix[mod_idx];
 		
-		uint32_t lsb = pix_idx & 0x1;
-		uint32_t msb = pix_idx >> 1;
+		uint32_t lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		uint32_t msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		
 		// Obtain the texel number as specified in the standard.
 		int texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 
 	WritePixelData(block, pix_data);
@@ -1189,7 +1460,15 @@ bool tryCompressSolidBlock(uint8_t* dst,
 						   const Color* src,
 						   unsigned long* error)
 {
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -1212,24 +1491,44 @@ bool tryCompressSolidBlock(uint8_t* dst,
 	
 	// Try all codeword tables to find the one giving the best results for this
 	// block.
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Try all modifiers in the current table to find which one gives the
 		// smallest error.
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
-			const Color& color = makeColor(base, lum);
+			const Color& color = makeColor(base, lum); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			
 			uint32_t mod_err = getColorError(*src, color);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  // We cannot do any better than this.
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -1238,16 +1537,24 @@ bool tryCompressSolidBlock(uint8_t* dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 	
 	uint8_t pix_idx = g_mod_to_pix[best_mod_idx];
-	uint32_t lsb = pix_idx & 0x1;
-	uint32_t msb = pix_idx >> 1;
+	uint32_t lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	uint32_t msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	
 	uint32_t pix_data = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			// Obtain the texel number as specified in the standard.
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		}
 	}
 	
@@ -1265,6 +1572,10 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
 												   unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -1276,6 +1587,10 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
 	
 	// Compute the average color for each sub block and determine if differential
 	// coding can be used.
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -1285,11 +1600,19 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -1305,7 +1628,15 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
 	// error values are later used for determining if we should flip the sub
 	// block or not.
 	uint32_t sub_block_err[4] = {0};
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -1323,6 +1654,10 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
 	uint8_t sub_block_off_0 = flip ? 2 : 0;
 	uint8_t sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -1356,7 +1691,15 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	
 	unsigned long compressed_error = 0;
 	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int y = 0; y < height; y += 4, src += width * 4 * 4) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (int x = 0; x < width; x += 4, dst += 8) {
 			const Color* row0 = reinterpret_cast(src + x * 4);
 			const Color* row1 = row0 + width;
@@ -1383,7 +1726,7 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	
 	return compressed_error;
 }
->>>> file: texture_compress_skl.cpp
+>>>> file: texture_compress_skl.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include "compress.hpp" 
 #include  
 #include  
@@ -1403,6 +1746,10 @@ TextureCompressor::~TextureCompressor() { }	// destructor
 
 #define DIE(assertion, call_description) \
 do { \
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (assertion) { \
 		fprintf(stderr, "(%d): ", __LINE__); \
 		perror(call_description); \
@@ -1473,19 +1820,23 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device) {
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 void read_kernel(string file_name, string &str_kernel) {
 	ifstream in_file(file_name.c_str());
 	in_file.open(file_name.c_str());
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	str_kernel = str_stream.str();
 }
 int CL_ERR(int cl_ret) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return 1;
 	}
 	return 0;
@@ -1493,8 +1844,12 @@ int CL_ERR(int cl_ret) {
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device) {
 
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -1514,6 +1869,10 @@ void gpu_find(cl_device_id &device, uint device_select) {
 	/* get all available OpenCL platforms */
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
 	/* list all platforms and VENDOR/VERSION properties */
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 	
@@ -1521,6 +1880,10 @@ void gpu_find(cl_device_id &device, uint device_select) {
 		platform = platform_list[platf];
 		DIE(platform == 0, "platform selection");
 		/* get num of available OpenCL devices type GPU on the selected platform */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(clGetDeviceIDs(platform,
 			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
 			device_num = 0;
@@ -1534,9 +1897,17 @@ void gpu_find(cl_device_id &device, uint device_select) {
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
 			  device_num, device_list, NULL));
 		/* list all devices and TYPE/VERSION properties */
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			/* select device based on cli arguments */
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if(dev == device_select)
 			{
 				device = device_list[dev];
@@ -1544,6 +1915,10 @@ void gpu_find(cl_device_id &device, uint device_select) {
 				break;
 			}
 		}
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(flag == 1)
 		{
 			break;

@@ -114,6 +114,12 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> config,
         ActionListener<Model> parseModelListener
     ) {
+        /**
+         * BLOCK: Request configuration parsing
+         * PRECONDITION: inferenceEntityId and config are provided.
+         * INVARIANT: Separates service-specific settings from task-specific settings
+         * to instantiate the corresponding Google Vertex AI model.
+         */
         try {
             Map<String, Object> serviceSettingsMap = removeFromMapOrThrowIfNull(config, ModelConfigurations.SERVICE_SETTINGS);
             Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);

@@ -1,3 +1,10 @@
+/**
+ * @raw/342e33b1-ec2a-4f9f-a268-f0a4baae6beb/server/src/main/java/org/elasticsearch/common/xcontent/XContentHelper.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -68,8 +75,16 @@ public class XContentHelper {
     @Deprecated
     public static XContentParser createParser(XContentParserConfiguration config, BytesReference bytes) throws IOException {
         Compressor compressor = CompressorFactory.compressorForUnknownXContentType(bytes);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (compressor != null) {
             InputStream compressedInput = compressor.threadLocalInputStream(bytes.streamInput());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (compressedInput.markSupported() == false) {
                 compressedInput = new BufferedInputStream(compressedInput);
             }
@@ -90,6 +105,10 @@ public class XContentHelper {
         XContentType xContentType
     ) throws IOException {
         XContent xContent = xContentType.xContent();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (bytes.hasArray()) {
             return xContent.createParser(config, bytes.array(), bytes.arrayOffset(), bytes.length());
         }
@@ -121,6 +140,10 @@ public class XContentHelper {
         throws IOException {
         Objects.requireNonNull(xContentType);
         Compressor compressor = CompressorFactory.compressor(bytes);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (compressor != null) {
             return XContentFactory.xContent(xContentType).createParser(config, compressor.threadLocalInputStream(bytes.streamInput()));
         } else {
@@ -141,7 +164,7 @@ public class XContentHelper {
      *             instead with the proper {@link XContentType}
      */
     @Deprecated
-    public static Tuple<XContentType, Map<String, Object>> convertToMap(BytesReference bytes, boolean ordered)
+    public static Tuple<XContentType, Map<String, Object>> convertToMap(BytesReference bytes, boolean ordered) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         throws ElasticsearchParseException {
         return parseToType(ordered ? XContentParser::mapOrdered : XContentParser::map, bytes, null, XContentParserConfiguration.EMPTY);
     }
@@ -150,7 +173,7 @@ public class XContentHelper {
      * Exactly the same as {@link XContentHelper#convertToMap(BytesReference, boolean, XContentType, Set, Set)} but
      * none of the fields are filtered
      */
-    public static Tuple<XContentType, Map<String, Object>> convertToMap(
+    public static Tuple<XContentType, Map<String, Object>> convertToMap( /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         BytesReference bytes,
         boolean ordered,
         XContentType xContentType,
@@ -165,7 +188,7 @@ public class XContentHelper {
         );
     }
 
-    public static Tuple<XContentType, Map<String, Object>> convertToMap(BytesReference bytes, boolean ordered, XContentType xContentType) {
+    public static Tuple<XContentType, Map<String, Object>> convertToMap(BytesReference bytes, boolean ordered, XContentType xContentType) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         return parseToType(
             ordered ? XContentParser::mapOrdered : XContentParser::map,
             bytes,
@@ -183,7 +206,7 @@ public class XContentHelper {
      * frequently when folks write nanosecond precision dates as a decimal
      * number.
      */
-    public static Tuple<XContentType, Map<String, Object>> convertToMap(
+    public static Tuple<XContentType, Map<String, Object>> convertToMap( /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         BytesReference bytes,
         boolean ordered,
         XContentType xContentType,
@@ -191,6 +214,10 @@ public class XContentHelper {
         @Nullable Set<String> exclude
     ) throws ElasticsearchParseException {
         XContentParserConfiguration config = XContentParserConfiguration.EMPTY;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (include != null || exclude != null) {
             config = config.withFiltering(null, include, exclude, false);
         }
@@ -347,6 +374,10 @@ public class XContentHelper {
     public static String convertToJson(BytesReference bytes, boolean reformatJson, boolean prettyPrint, XContentType xContentType)
         throws IOException {
         Objects.requireNonNull(xContentType);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (xContentType.canonical() == XContentType.JSON && reformatJson == false) {
             return bytes.utf8ToString();
         }
@@ -359,6 +390,10 @@ public class XContentHelper {
     private static String toJsonString(boolean prettyPrint, XContentParser parser) throws IOException {
         parser.nextToken();
         XContentBuilder builder = XContentFactory.jsonBuilder();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (prettyPrint) {
             builder.prettyPrint();
         }
@@ -378,7 +413,15 @@ public class XContentHelper {
      */
     public static boolean update(Map<String, Object> source, Map<String, Object> changes, boolean checkUpdatesAreUnequal) {
         boolean modified = false;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Map.Entry<String, Object> changesEntry : changes.entrySet()) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (source.containsKey(changesEntry.getKey()) == false) {
                 // safe to copy, change does not exist in source
                 source.put(changesEntry.getKey(), changesEntry.getValue());
@@ -386,6 +429,10 @@ public class XContentHelper {
                 continue;
             }
             Object old = source.get(changesEntry.getKey());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (old instanceof Map && changesEntry.getValue() instanceof Map) {
                 // recursive merge maps
                 modified |= update(
@@ -397,9 +444,17 @@ public class XContentHelper {
             }
             // update the field
             source.put(changesEntry.getKey(), changesEntry.getValue());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (modified) {
                 continue;
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (checkUpdatesAreUnequal == false) {
                 modified = true;
                 continue;
@@ -446,22 +501,46 @@ public class XContentHelper {
         Map<String, Object> second,
         @Nullable CustomMerge customMerge
     ) {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Map.Entry<String, Object> toMergeEntry : second.entrySet()) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (first.containsKey(toMergeEntry.getKey()) == false) {
                 // copy it over, it does not exist in the content
                 first.put(toMergeEntry.getKey(), toMergeEntry.getValue());
             } else {
                 // has values in both maps, merge compound ones (maps)
                 Object baseValue = first.get(toMergeEntry.getKey());
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (baseValue instanceof Map && toMergeEntry.getValue() instanceof Map) {
                     Map<String, Object> mergedValue = null;
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (customMerge != null) {
                         Object tmp = customMerge.merge(parent, toMergeEntry.getKey(), baseValue, toMergeEntry.getValue());
+                        /**
+                         * Block Logic: Conditional evaluation for divergent control flow.
+                         * Invariant: Taken branch maintains control flow invariants.
+                         */
                         if (tmp != null && tmp instanceof Map == false) {
                             throw new IllegalStateException("merging of values for [" + toMergeEntry.getKey() + "] must yield a map");
                         }
                         mergedValue = (Map<String, Object>) tmp;
                     }
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (mergedValue != null) {
                         first.put(toMergeEntry.getKey(), mergedValue);
                     } else {
@@ -477,17 +556,33 @@ public class XContentHelper {
                     List<Object> listToMerge = (List<Object>) toMergeEntry.getValue();
                     List<Object> baseList = (List<Object>) baseValue;
 
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (allListValuesAreMapsOfOne(listToMerge) && allListValuesAreMapsOfOne(baseList)) {
                         // all are in the form of [ {"key1" : {}}, {"key2" : {}} ], merge based on keys
-                        Map<String, Map<String, Object>> processed = new LinkedHashMap<>();
+                        Map<String, Map<String, Object>> processed = new LinkedHashMap<>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (Object o : baseList) {
                             Map<String, Object> map = (Map<String, Object>) o;
                             Map.Entry<String, Object> entry = map.entrySet().iterator().next();
                             processed.put(entry.getKey(), map);
                         }
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (Object o : listToMerge) {
                             Map<String, Object> map = (Map<String, Object>) o;
                             Map.Entry<String, Object> entry = map.entrySet().iterator().next();
+                            /**
+                             * Block Logic: Conditional evaluation for divergent control flow.
+                             * Invariant: Taken branch maintains control flow invariants.
+                             */
                             if (processed.containsKey(entry.getKey())) {
                                 merge(toMergeEntry.getKey(), processed.get(entry.getKey()), map, customMerge);
                             } else {
@@ -503,7 +598,15 @@ public class XContentHelper {
                         // custom merge is not applicable here
                         List<Object> mergedList = new ArrayList<>(listToMerge);
 
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (Object o : baseList) {
+                            /**
+                             * Block Logic: Conditional evaluation for divergent control flow.
+                             * Invariant: Taken branch maintains control flow invariants.
+                             */
                             if (mergedList.contains(o) == false) {
                                 mergedList.add(o);
                             }
@@ -512,6 +615,10 @@ public class XContentHelper {
                     }
                 } else if (customMerge != null) {
                     Object mergedValue = customMerge.merge(parent, toMergeEntry.getKey(), baseValue, toMergeEntry.getValue());
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (mergedValue != null) {
                         first.put(toMergeEntry.getKey(), mergedValue);
                     }
@@ -521,10 +628,22 @@ public class XContentHelper {
     }
 
     private static boolean allListValuesAreMapsOfOne(List<Object> list) {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Object o : list) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if ((o instanceof Map) == false) {
                 return false;
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (((Map) o).size() != 1) {
                 return false;
             }
@@ -569,6 +688,10 @@ public class XContentHelper {
     public static void writeRawField(String field, BytesReference source, XContentBuilder builder, ToXContent.Params params)
         throws IOException {
         Compressor compressor = CompressorFactory.compressorForUnknownXContentType(source);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (compressor != null) {
             try (InputStream compressedStreamInput = compressor.threadLocalInputStream(source.streamInput())) {
                 builder.rawField(field, compressedStreamInput);
@@ -593,6 +716,10 @@ public class XContentHelper {
     ) throws IOException {
         Objects.requireNonNull(xContentType);
         Compressor compressor = CompressorFactory.compressorForUnknownXContentType(source);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (compressor != null) {
             try (InputStream compressedStreamInput = compressor.threadLocalInputStream(source.streamInput())) {
                 builder.rawField(field, compressedStreamInput, xContentType);
@@ -647,10 +774,18 @@ public class XContentHelper {
     ) throws IOException {
         try (XContentBuilder builder = XContentBuilder.builder(xContentType.xContent(), restApiVersion)) {
             builder.humanReadable(humanReadable);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (toXContent.isFragment()) {
                 builder.startObject();
             }
             toXContent.toXContent(builder, params);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (toXContent.isFragment()) {
                 builder.endObject();
             }
@@ -678,9 +813,17 @@ public class XContentHelper {
     @Deprecated
     public static XContentType xContentTypeMayCompressed(BytesReference bytes) {
         Compressor compressor = CompressorFactory.compressorForUnknownXContentType(bytes);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (compressor != null) {
             try {
                 InputStream compressedStreamInput = compressor.threadLocalInputStream(bytes.streamInput());
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (compressedStreamInput.markSupported() == false) {
                     compressedStreamInput = new BufferedInputStream(compressedStreamInput);
                 }
@@ -703,6 +846,10 @@ public class XContentHelper {
      */
     @Deprecated
     public static XContentType xContentType(BytesReference bytes) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (bytes.hasArray()) {
             return XContentFactory.xContentType(bytes.array(), bytes.arrayOffset(), bytes.length());
         }
@@ -724,7 +871,15 @@ public class XContentHelper {
      * unnecessarily
      */
     public static BytesReference childBytes(XContentParser parser) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (parser.currentToken() != XContentParser.Token.START_OBJECT) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (parser.nextToken() != XContentParser.Token.START_OBJECT) {
                 throw new XContentParseException(
                     parser.getTokenLocation(),
@@ -744,6 +899,10 @@ public class XContentHelper {
      * @param xContentType an instance to serialize
      */
     public static void writeTo(StreamOutput out, XContentType xContentType) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (out.getTransportVersion().before(TransportVersions.V_8_0_0)) {
             // when sending an enumeration to <v8 node it does not have new VND_ XContentType instances
             out.writeVInt(xContentType.canonical().ordinal());

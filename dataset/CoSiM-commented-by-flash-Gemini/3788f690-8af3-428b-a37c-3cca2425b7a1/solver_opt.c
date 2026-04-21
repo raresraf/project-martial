@@ -2,7 +2,26 @@
 #include <string.h>
 #include "utils.h"
 
+/**
+ * @file solver_opt.c
+ * @brief Manually optimized matrix solver implementation.
+ * 
+ * Functional Intent: Computes the result of the matrix expression:
+ * Result = (A * B * B^T) + (A^T * A)
+ * where A is an upper triangular matrix.
+ * 
+ * Performance Optimization: Employs several low-level C optimization techniques:
+ * 1. Pointer Arithmetic: Reduces indexing overhead by using direct address increments.
+ * 2. Register Hints: Sugests the compiler keep frequently used accumulators in CPU registers.
+ * 3. Cache locality: Accesses arrays in row-major order where possible and caches 
+ *    row/column pointers to minimize redundant base address calculations.
+ * 
+ * Domain: HPC, Linear Algebra, Manual Performance Tuning.
+ */
 
+/**
+ * my_solver - Optimized implementation using pointer-based iteration.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C = (double*) calloc(N * N, sizeof(double));
 	if (!C)
@@ -11,6 +30,14 @@ double* my_solver(int N, double *A, double* B) {
 	double *aux = (double*) calloc(N * N, sizeof(double));
 	if (!aux)
 		return NULL;
+
+	/**
+	 * Block Logic: Compute aux = A * B.
+	 * Optimization: Pointer-based dot product.
+	 * 1. Caches the base address of A's current row.
+	 * 2. Uses linear probing (pa++) for the triangular part of A.
+	 * 3. Uses strided probing (pb += N) for the columns of B.
+	 */
 	int i, j, k;
 	for (i = 0; i < N; i++) {
 		double *orig_pa = &A[i * N];
@@ -27,6 +54,13 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Compute C = aux * B^T.
+	 * Optimization: Row-major dot product for transposed access.
+	 * Logic: By accessing both matrices via linear pointer increments (paux++, pb_t++), 
+	 * the code effectively performs a dot product between aux[i] and B[j], 
+	 * which is mathematically identical to aux[i] * B^T[j].
+	 */
 	for (i = 0; i < N; i++) {
 		double *origin_aux = &aux[i * N];
 		for (j = 0; j < N; j++) {
@@ -42,6 +76,12 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Compute aux = A^T * A.
+	 * Optimization: Strided pointer access to simulate transposition.
+	 * Logic: Both pa_t and pa are incremented by N to traverse the columns 
+	 * of A, representing rows of A^T and columns of A respectively.
+	 */
 	memset(aux, 0, N * N * sizeof(double));
 	for (i = 0; i < N; i++) {
 		double *origin_at = &A[i];
@@ -58,6 +98,9 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Final accumulation pass.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += aux[i * N + j];
@@ -65,6 +108,5 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	free(aux);
-
 	return C;
 }

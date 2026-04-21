@@ -3,6 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file outputChannelModel.ts
+ * @brief Logic for managing file-backed output channels and synchronizing them with text models.
+ * 
+ * Functional Intent: Provides a bridge between a growing log file on disk and a 
+ * read-only text model in the editor. It handles efficient incremental updates, 
+ * throttled polling for file changes, and manages the lifecycle of the 
+ * underlying file content provider.
+ * 
+ * Domain: Production Systems, IDE Development, Asynchronous File I/O, Logging.
+ */
+
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import * as resources from '../../../../base/common/resources.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -24,6 +36,10 @@ import { CancellationToken, CancellationTokenSource } from '../../../../base/com
 import { OutputChannelUpdateMode } from '../../../services/output/common/output.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 
+/**
+ * @interface IOutputChannelModel
+ * @brief High-level abstraction for an output data stream that can be displayed in a text model.
+ */
 export interface IOutputChannelModel extends IDisposable {
 	readonly onDispose: Event<void>;
 	append(output: string): void;
@@ -33,6 +49,13 @@ export interface IOutputChannelModel extends IDisposable {
 	replace(value: string): void;
 }
 
+/**
+ * @class OutputFileListener
+ * @brief Polling-based monitor that detects changes in an underlying log file.
+ * 
+ * Logic: Uses etags to track file revisions and triggers content change events 
+ * when the disk state deviates from the internal cache.
+ */
 class OutputFileListener extends Disposable {
 
 	private readonly _onDidContentChange = new Emitter<number | undefined>();
@@ -51,6 +74,9 @@ class OutputFileListener extends Disposable {
 		this.syncDelayer = new ThrottledDelayer<void>(500);
 	}
 
+	/**
+	 * watch - Starts a throttled observation loop.
+	 */
 	watch(eTag: string | undefined): void {
 		if (!this.watching) {
 			this.etag = eTag;
@@ -69,6 +95,9 @@ class OutputFileListener extends Disposable {
 		});
 	}
 
+	/**
+	 * doWatch - Performs a stateless check against the filesystem etag.
+	 */
 	private async doWatch(): Promise<void> {
 		const stat = await this.fileService.stat(this.file);
 		if (stat.etag !== this.etag) {
@@ -91,6 +120,14 @@ class OutputFileListener extends Disposable {
 	}
 }
 
+/**
+ * @class FileOutputChannelModel
+ * @brief Core implementation for synchronizing a text model with an external log file.
+ * 
+ * Algorithm: Incremental byte-range reading.
+ * Logic: Tracks end-of-file offsets to only fetch new data on each update, 
+ * minimizing I/O overhead and memory consumption for massive logs.
+ */
 export class FileOutputChannelModel extends Disposable implements IOutputChannelModel {
 
 	private readonly _onDispose = this._register(new Emitter<void>());
@@ -142,11 +179,15 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		loadModelPromise.then(() => this.doUpdate(mode, till, immediate));
 	}
 
+	/**
+	 * loadModel - Lazy initialization of the text model with current file content.
+	 */
 	loadModel(): Promise<ITextModel> {
 		this.loadModelPromise = Promises.withAsyncBody<ITextModel>(async (c, e) => {
 			try {
 				let content = '';
 				if (await this.fileService.exists(this.file)) {
+					// Block Logic: Initial byte-range read.
 					const fileContent = await this.fileService.readFile(this.file, { position: this.startOffset });
 					this.endOffset = this.startOffset + fileContent.value.byteLength;
 					this.etag = fileContent.etag;
@@ -179,6 +220,9 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		return this.model;
 	}
 
+	/**
+	 * doUpdate - Orchestrates the visual update sequence (Append, Clear, or Full Replace).
+	 */
 	private doUpdate(mode: OutputChannelUpdateMode, till: number | undefined, immediate: boolean): void {
 		if (mode === OutputChannelUpdateMode.Clear || mode === OutputChannelUpdateMode.Replace) {
 			this.startOffset = this.endOffset = isNumber(till) ? till : this.endOffset;
@@ -208,33 +252,36 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 	}
 
 	private clearContent(model: ITextModel): void {
+		// Logic: Standardizes empty buffer state.
 		this.doUpdateModel(model, [EditOperation.delete(model.getFullModelRange())], VSBuffer.fromString(''));
 	}
 
+	/**
+	 * appendContent - Throttled append logic to prevent UI lag during burst logging.
+	 * 
+	 * Logic: Computes the insertion point at the end of the current model 
+	 * and applies the edit atomically.
+	 */
 	private appendContent(model: ITextModel, immediate: boolean, token: CancellationToken): void {
 		this.appendThrottler.trigger(async () => {
-			/* Abort if operation is cancelled */
 			if (token.isCancellationRequested) {
 				return;
 			}
 
-			/* Wait for replace to finish */
+			/* Serialization: Wait for concurrent full-replacements to finish */
 			if (this.replacePromise) {
 				try { await this.replacePromise; } catch (e) { /* Ignore */ }
-				/* Abort if operation is cancelled */
 				if (token.isCancellationRequested) {
 					return;
 				}
 			}
 
-			/* Get content to append */
 			const contentToAppend = await this.getContentToUpdate();
-			/* Abort if operation is cancelled */
 			if (token.isCancellationRequested) {
 				return;
 			}
 
-			/* Appned Content */
+			// Block Logic: Atomic insertion edit.
 			const lastLine = model.getLineCount();
 			const lastLineMaxColumn = model.getLineMaxColumn(lastLine);
 			const edits = [EditOperation.insert(new Position(lastLine, lastLineMaxColumn), contentToAppend.toString())];
@@ -246,22 +293,23 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		});
 	}
 
+	/**
+	 * replaceContent - Deep synchronization for major content shifts.
+	 * 
+	 * Algorithm: Differencing update. Uses the editor worker to calculate 
+	 * minimal edits between current model and full file content.
+	 */
 	private async replaceContent(model: ITextModel, token: CancellationToken): Promise<void> {
-		/* Get content to replace */
 		const contentToReplace = await this.getContentToUpdate();
-		/* Abort if operation is cancelled */
 		if (token.isCancellationRequested) {
 			return;
 		}
 
-		/* Compute Edits */
 		const edits = await this.getReplaceEdits(model, contentToReplace.toString());
-		/* Abort if operation is cancelled */
 		if (token.isCancellationRequested) {
 			return;
 		}
 
-		/* Apply Edits */
 		this.doUpdateModel(model, edits, contentToReplace);
 	}
 
@@ -270,6 +318,7 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 			return [EditOperation.delete(model.getFullModelRange())];
 		}
 		if (contentToReplace !== model.getValue()) {
+			// Optimization: Delegates CPU-intensive diff computation to a background worker.
 			const edits = await this.editorWorkerService.computeMoreMinimalEdits(model.uri, [{ text: contentToReplace.toString(), range: model.getFullModelRange() }]);
 			if (edits?.length) {
 				return edits.map(edit => EditOperation.replace(Range.lift(edit.range), edit.text));
@@ -300,15 +349,21 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		return content.value;
 	}
 
+	/**
+	 * onDidContentChange - Event handler for disk-level updates.
+	 * 
+	 * Logic: Triggers a full reset if the file size shrinks (rotation), 
+	 * otherwise schedules an incremental append.
+	 */
 	private onDidContentChange(size: number | undefined): void {
 		if (this.model) {
 			if (!this.modelUpdateInProgress) {
 				if (isNumber(size) && this.endOffset > size) {
-					// Reset - Content is removed
+					// Logic: File was likely rotated or truncated.
 					this.update(OutputChannelUpdateMode.Clear, 0, true);
 				}
 			}
-			this.update(OutputChannelUpdateMode.Append, undefined, false /* Not needed to update immediately. Wait to collect more changes and update. */);
+			this.update(OutputChannelUpdateMode.Append, undefined, false);
 		}
 	}
 
@@ -322,6 +377,10 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 	}
 }
 
+/**
+ * @class OutputChannelBackedByFile
+ * @brief Bidirectional output provider that manages both local writing and file-driven display.
+ */
 class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutputChannelModel {
 
 	private logger: ILogger;
@@ -340,7 +399,7 @@ class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutpu
 	) {
 		super(modelUri, language, file, fileService, modelService, logService, editorWorkerService);
 
-		// Donot rotate to check for the file reset
+		// Logic: Disables internal rotation to maintain stable offset tracking.
 		this.logger = loggerService.createLogger(file, { logLevel: 'always', donotRotate: true, donotUseFormatters: true, hidden: true });
 		this._offset = 0;
 	}
@@ -366,6 +425,10 @@ class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutpu
 
 }
 
+/**
+ * @class DelegatedOutputChannelModel
+ * @brief Lazy-initialized model that bootstraps the log file before creating the backing channel.
+ */
 export class DelegatedOutputChannelModel extends Disposable implements IOutputChannelModel {
 
 	private readonly _onDispose: Emitter<void> = this._register(new Emitter<void>());
@@ -387,6 +450,7 @@ export class DelegatedOutputChannelModel extends Disposable implements IOutputCh
 
 	private async createOutputChannelModel(id: string, modelUri: URI, language: ILanguageSelection, outputDirPromise: Promise<URI>): Promise<IOutputChannelModel> {
 		const outputDir = await outputDirPromise;
+		// Sanitization: Strips illegal filesystem characters from the channel ID.
 		const file = resources.joinPath(outputDir, `${id.replace(/[\\/:\*\?"<>\|]/g, '')}.log`);
 		await this.fileService.createFile(file);
 		const outputChannelModel = this._register(this.instantiationService.createInstance(OutputChannelBackedByFile, id, modelUri, language, file));

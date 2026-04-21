@@ -2,14 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! Vello implementation of 2D canvas backend.
-//!
-//! Vello only encodes commands for GPU, then runs rendering when
-//! image is explicitly requested. This requires to copy image
-//! from texture to buffer, then download buffer to CPU
-//! (where we also need to un pad it).
-//!
-//! All Vello images are in no alpha premultiplied RGBA8 pixel format.
+/**
+ * @file vello_backend.rs
+ * @brief GPU-accelerated 2D canvas implementation utilizing the Vello rendering engine.
+ * 
+ * Functional Intent: Provides a complete implementation of the `GenericDrawTarget` 
+ * trait using Vello. It orchestrates the translation of high-level 2D drawing 
+ * commands (paths, text, images) into efficient GPU-bound command streams. 
+ * The backend manages complex lifecycle states, including asynchronous rendering 
+ * to textures and the subsequent read-back (download) to CPU memory for 
+ * compositing or serialization.
+ * 
+ * Domain: Production Systems, Graphics Engines, Web Browsers (Servo), GPU Programming.
+ */
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -38,13 +43,23 @@ use crate::backend::{Convert as _, GenericDrawTarget};
 use crate::canvas_data::{Filter, TextRun};
 
 thread_local! {
-    /// The shared font cache used by all canvases that render on a thread. It would be nicer
-    /// to have a global cache, but it looks like font-kit uses a per-thread FreeType, so
-    /// in order to ensure that fonts are particular to a thread we have to make our own
-    /// cache thread local as well.
+    /**
+     * @thread_local SHARED_FONT_CACHE
+     * @brief Context-aware cache for Peniko-compatible font handles.
+     * 
+     * Logic: Offsets the overhead of repeated FreeType initialization and font 
+     * data transfer by maintaining thread-local persistence of loaded fonts.
+     */
     static SHARED_FONT_CACHE: RefCell<HashMap<FontIdentifier, peniko::Font>> = RefCell::default();
 }
 
+/**
+ * @struct VelloDrawTarget
+ * @brief Encapsulates the state required for a GPU-backed rendering session.
+ * 
+ * Logic: Combines a WGPU device/queue context with Vello's Scene (command accumulator) 
+ * and Renderer (execution engine).
+ */
 pub(crate) struct VelloDrawTarget {
     device: Device,
     queue: Queue,
@@ -63,6 +78,12 @@ fn options() -> vello::RendererOptions {
 }
 
 impl VelloDrawTarget {
+    /**
+     * with_draw_options - Scopes a sequence of drawing commands within a specific layer.
+     * 
+     * Functional Utility: Handles alpha-blending and composition operations 
+     * by pushing a layer onto the Vello scene stack.
+     */
     fn with_draw_options<F: FnOnce(&mut Self)>(&mut self, draw_options: &CompositionOptions, f: F) {
         self.scene.push_layer(
             draw_options.composition_operation.convert(),
@@ -74,6 +95,19 @@ impl VelloDrawTarget {
         self.scene.pop_layer();
     }
 
+    /**
+     * render_and_download - Triggers GPU execution and retrieves pixel data.
+     * 
+     * Algorithm: Async Read-back pipeline.
+     * 1. Creates a transient destination texture and view.
+     * 2. Renders the accumulated Vello Scene to the texture.
+     * 3. Creates a staging buffer with hardware-specific alignment (256 bytes).
+     * 4. Encodes and submits a copy command from texture to buffer.
+     * 5. Asynchronously maps the buffer and invokes the provided closure with raw data.
+     * 
+     * Invariant: Properly handles WGPU alignment requirements and asynchronous mapping 
+     * synchronization via oneshot channels.
+     */
     fn render_and_download<F, R>(&self, f: F) -> R
     where
         F: FnOnce(u32, Option<&[u8]>) -> R,
@@ -94,6 +128,8 @@ impl VelloDrawTarget {
             view_formats: &[],
         });
         let view = target.create_view(&TextureViewDescriptor::default());
+        
+        // Synchronization: Execute the rendering workload.
         self.renderer
             .borrow_mut()
             .render_to_texture(
@@ -109,7 +145,9 @@ impl VelloDrawTarget {
                 },
             )
             .unwrap();
-        // TODO(perf): do a render pass that will multiply with alpha on GPU
+
+        // Block Logic: Data Read-back orchestration.
+        // Optimization: Aligns rows to 256 bytes for WGPU compatibility.
         let padded_byte_width = (self.size.width * 4).next_multiple_of(256);
         let buffer_size = padded_byte_width as u64 * self.size.height as u64;
         let buffer = self.device.create_buffer(&BufferDescriptor {
@@ -136,6 +174,8 @@ impl VelloDrawTarget {
             size,
         );
         self.queue.submit([encoder.finish()]);
+
+        // Logic: Blocks on the GPU to ensure data is available before returning to host code.
         let result = {
             let buf_slice = buffer.slice(..);
             let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
@@ -155,12 +195,15 @@ impl VelloDrawTarget {
 }
 
 impl GenericDrawTarget for VelloDrawTarget {
-    type SourceSurface = Vec<u8>; // TODO: this should be texture
+    type SourceSurface = Vec<u8>; 
 
+    /**
+     * new - Bootstraps the WGPU instance and Vello renderer.
+     * 
+     * Logic: Discovers available GPU backends (excluding OpenGL) and initializes 
+     * a shared RenderContext and Renderer.
+     */
     fn new(size: Size2D<u32>) -> Self {
-        // TODO: we should read prefs instead of env
-
-        // we forbid GL because it clashes with servo's GL usage
         let backends = Backends::from_env().unwrap_or_default() - Backends::GL;
         let flags = InstanceFlags::from_build_config().with_env();
         let backend_options = BackendOptions::from_env_or_default();
@@ -191,6 +234,9 @@ impl GenericDrawTarget for VelloDrawTarget {
         }
     }
 
+    /**
+     * clear_rect - Fills a region with transparency.
+     */
     fn clear_rect(&mut self, rect: &Rect<f32>, transform: Transform2D<f32>) {
         let rect: kurbo::Rect = rect.cast().into();
         let transform = transform.cast().into();
@@ -206,17 +252,12 @@ impl GenericDrawTarget for VelloDrawTarget {
         self.scene.pop_layer();
     }
 
+    /**
+     * copy_surface - High-performance pixel blit from a source buffer.
+     */
     fn copy_surface(&mut self, surface: Vec<u8>, source: Rect<i32>, destination: Point2D<i32>) {
         let destination: kurbo::Point = destination.cast::<f64>().into();
         let rect = kurbo::Rect::from_origin_size(destination, source.size.cast());
-
-        // TODO: ignore clip from prev layers
-        // this will require creating a stacks of applicable clips
-        // that will be popped and reinserted after
-        // or we could impl this in vello directly
-
-        // then there is also this nasty vello bug where clipping does not work correctly:
-        // https://xi.zulipchat.com/#narrow/channel/197075-vello/topic/Servo.202D.20canvas.20backend/near/525153593
 
         self.scene
             .push_layer(peniko::Compose::Copy, 1.0, kurbo::Affine::IDENTITY, &rect);
@@ -251,6 +292,12 @@ impl GenericDrawTarget for VelloDrawTarget {
         }
     }
 
+    /**
+     * draw_surface - Encodes a texture-drawing command with scaling and filtering.
+     * 
+     * Logic: Adjusts sampling quality (Bicubic vs Low) based on whether the 
+     * image is being scaled up, to optimize the power/quality trade-off.
+     */
     fn draw_surface(
         &mut self,
         surface: Vec<u8>,
@@ -273,7 +320,6 @@ impl GenericDrawTarget for VelloDrawTarget {
                     height: source.size.height as u32,
                     x_extend: peniko::Extend::Pad,
                     y_extend: peniko::Extend::Pad,
-                    // we should only do bicubic when scaling up
                     quality: if scale_up {
                         filter.convert()
                     } else {
@@ -300,12 +346,6 @@ impl GenericDrawTarget for VelloDrawTarget {
         _composition_options: CompositionOptions,
     ) {
         log::warn!("no support for drawing shadows");
-        /*
-        We will need to do some changes to support drawing shadows with vello, as current abstraction is made for azure.
-        In vello we do not need new draw target (we will use layers) and we need to pass whole rect.
-        offsets will be applied to rect directly. shadow blur will be passed directly to let backend do transforms.
-        */
-        //self_.scene.draw_blurred_rounded_rect(self_.transform, rect, color, 0.0, sigma);
     }
 
     fn fill(
@@ -327,6 +367,14 @@ impl GenericDrawTarget for VelloDrawTarget {
         })
     }
 
+    /**
+     * fill_text - Orchestrates glyph rendering using thread-local font caching.
+     * 
+     * Algorithm: Multi-run glyph layout.
+     * 1. Resolves and caches peniko::Font handles in the thread-local store.
+     * 2. Iterates through text runs and encodes glyph indices and positions 
+     *    into the Vello Scene.
+     */
     fn fill_text(
         &mut self,
         text_runs: Vec<TextRun>,
@@ -341,11 +389,11 @@ impl GenericDrawTarget for VelloDrawTarget {
             let mut advance = 0.;
             for run in text_runs.iter() {
                 let glyphs = &run.glyphs;
-
                 let template = &run.font.template;
 
                 SHARED_FONT_CACHE.with(|font_cache| {
                     let identifier = template.identifier();
+                    // Synchronization: Lazy font loading into thread-local registry.
                     if !font_cache.borrow().contains_key(&identifier) {
                         font_cache.borrow_mut().insert(
                             identifier.clone(),
@@ -469,6 +517,13 @@ impl GenericDrawTarget for VelloDrawTarget {
         })
     }
 
+    /**
+     * image_descriptor_and_serializable_data - Prepares high-level surface data for IPC transfer.
+     * 
+     * Logic: Triggers a render/download cycle and wraps the resulting buffer 
+     * in IPC shared memory. Performs an in-place transformation if necessary 
+     * to match the required byte layout.
+     */
     fn image_descriptor_and_serializable_data(
         &mut self,
     ) -> (ImageDescriptor, SerializableImageData) {
@@ -495,12 +550,19 @@ impl GenericDrawTarget for VelloDrawTarget {
         })
     }
 
+    /**
+     * snapshot - Captures the current canvas state into an unpadded pixel buffer.
+     * 
+     * Logic: Removes the 256-byte row padding required by the GPU staging buffer 
+     * to produce a tight linear array of RGBA bytes.
+     */
     fn snapshot(&mut self) -> pixels::Snapshot {
         let size = self.size;
         self.render_and_download(|padded_byte_width, data| {
             let data = data
                 .map(|data| {
                     let mut result_unpadded = Vec::<u8>::with_capacity(size.area() as usize * 4);
+                    // Block Logic: Row-wise de-padding.
                     for row in 0..self.size.height {
                         let start = (row * padded_byte_width).try_into().unwrap();
                         result_unpadded
@@ -535,6 +597,9 @@ impl GenericDrawTarget for VelloDrawTarget {
     }
 }
 
+/**
+ * convert_to_brush - Helper to create a Peniko Brush with applied global alpha.
+ */
 fn convert_to_brush(
     style: FillOrStrokeStyle,
     composition_options: CompositionOptions,

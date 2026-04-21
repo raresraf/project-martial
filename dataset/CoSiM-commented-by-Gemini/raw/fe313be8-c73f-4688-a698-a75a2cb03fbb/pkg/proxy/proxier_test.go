@@ -1,3 +1,7 @@
+// @raw/fe313be8-c73f-4688-a698-a75a2cb03fbb/pkg/proxy/proxier_test.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 Google Inc. All rights reserved.
 
@@ -31,12 +35,16 @@ import (
 // being listened on, or an error.
 func echoServer(t *testing.T, addr string) (string, error) {
 	l, err := net.Listen("tcp", addr)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return "", fmt.Errorf("failed to start echo service: %v", err)
 	}
 	go func() {
 		defer l.Close()
 		conn, err := l.Accept()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			t.Errorf("failed to accept new conn to echo service: %v", err)
 		}
@@ -49,17 +57,25 @@ func echoServer(t *testing.T, addr string) (string, error) {
 
 func testEchoConnection(t *testing.T, address, port string) {
 	conn, err := net.Dial("tcp", net.JoinHostPort(address, port))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error connecting to proxy: %v", err)
 	}
 	magic := "aaaaa"
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if _, err := conn.Write([]byte(magic)); err != nil {
 		t.Fatalf("error writing to proxy: %v", err)
 	}
 	buf := make([]byte, 5)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if _, err := conn.Read(buf); err != nil {
 		t.Fatalf("error reading from proxy: %v", err)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if string(buf) != magic {
 		t.Fatalf("bad echo from proxy: got: %q, expected %q", string(buf), magic)
 	}
@@ -67,6 +83,8 @@ func testEchoConnection(t *testing.T, address, port string) {
 
 func TestProxy(t *testing.T) {
 	port, err := echoServer(t, "127.0.0.1:0")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +96,8 @@ func TestProxy(t *testing.T) {
 	p := NewProxier(lb)
 
 	proxyPort, err := p.addServiceOnUnusedPort("echo")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error adding new service: %#v", err)
 	}
@@ -86,6 +106,8 @@ func TestProxy(t *testing.T) {
 
 func TestProxyStop(t *testing.T) {
 	port, err := echoServer(t, "127.0.0.1:0")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,10 +118,14 @@ func TestProxyStop(t *testing.T) {
 	p := NewProxier(lb)
 
 	proxyPort, err := p.addServiceOnUnusedPort("echo")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error adding new service: %#v", err)
 	}
 	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", proxyPort))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error connecting to proxy: %v", err)
 	}
@@ -109,6 +135,8 @@ func TestProxyStop(t *testing.T) {
 	// Wait for the port to really close.
 	time.Sleep(2 * time.Second)
 	_, err = net.Dial("tcp", net.JoinHostPort("127.0.0.1", proxyPort))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err == nil {
 		t.Fatalf("Unexpected non-error.")
 	}
@@ -116,6 +144,8 @@ func TestProxyStop(t *testing.T) {
 
 func TestProxyUpdateDelete(t *testing.T) {
 	port, err := echoServer(t, "127.0.0.1:0")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +156,14 @@ func TestProxyUpdateDelete(t *testing.T) {
 	p := NewProxier(lb)
 
 	proxyPort, err := p.addServiceOnUnusedPort("echo")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error adding new service: %#v", err)
 	}
 	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", proxyPort))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error connecting to proxy: %v", err)
 	}
@@ -139,6 +173,8 @@ func TestProxyUpdateDelete(t *testing.T) {
 	// Wait for the port to close.
 	time.Sleep(2 * time.Second)
 	_, err = net.Dial("tcp", net.JoinHostPort("127.0.0.1", proxyPort))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err == nil {
 		t.Fatalf("Unexpected non-error.")
 	}
@@ -146,6 +182,8 @@ func TestProxyUpdateDelete(t *testing.T) {
 
 func TestProxyUpdatePort(t *testing.T) {
 	port, err := echoServer(t, "127.0.0.1:0")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,6 +194,8 @@ func TestProxyUpdatePort(t *testing.T) {
 	p := NewProxier(lb)
 
 	proxyPort, err := p.addServiceOnUnusedPort("echo")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		t.Fatalf("error adding new service: %#v", err)
 	}
@@ -173,6 +213,8 @@ func TestProxyUpdatePort(t *testing.T) {
 	})
 	time.Sleep(2 * time.Second)
 	_, err = net.Dial("tcp", net.JoinHostPort("127.0.0.1", proxyPort))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err == nil {
 		t.Fatalf("Unexpected non-error.")
 	}

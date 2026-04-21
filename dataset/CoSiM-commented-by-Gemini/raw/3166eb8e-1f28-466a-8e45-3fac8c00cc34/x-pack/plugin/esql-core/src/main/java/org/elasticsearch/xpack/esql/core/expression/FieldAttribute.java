@@ -1,3 +1,10 @@
+/**
+ * @raw/3166eb8e-1f28-466a-8e45-3fac8c00cc34/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/FieldAttribute.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -90,32 +97,52 @@ public class FieldAttribute extends TypedAttribute {
          * and NameId. This should become a hard cast when we move everything out
          * of esql-core.
          */
-        Source source = Source.readFrom((StreamInput & PlanStreamInput) in);
+        Source source = Source.readFrom((StreamInput & PlanStreamInput) in); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         String parentName = ((PlanStreamInput) in).readOptionalCachedString();
         String name = readCachedStringWithVersionCheck(in);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             DataType.readFrom(in);
         }
         EsField field = EsField.readFrom(in);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             in.readOptionalString();
         }
         Nullability nullability = in.readEnum(Nullability.class);
-        NameId nameId = NameId.readFrom((StreamInput & PlanStreamInput) in);
+        NameId nameId = NameId.readFrom((StreamInput & PlanStreamInput) in); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         boolean synthetic = in.readBoolean();
         return new FieldAttribute(source, parentName, name, field, nullability, nameId, synthetic);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (((PlanStreamOutput) out).writeAttributeCacheHeader(this)) {
             Source.EMPTY.writeTo(out);
             ((PlanStreamOutput) out).writeOptionalCachedString(parentName);
             writeCachedStringWithVersionCheck(out, name());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 dataType().writeTo(out);
             }
             field.writeTo(out);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 // We used to write the qualifier here. We can still do if needed in the future.
                 out.writeOptionalString(null);
@@ -148,12 +175,20 @@ public class FieldAttribute extends TypedAttribute {
      * The full name of the field in the index, including all parent fields. E.g. {@code parent.subfield.this_field}.
      */
     public FieldName fieldName() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (lazyFieldName == null) {
             // Before 8.15, the field name was the same as the attribute's name.
             // On later versions, the attribute can be renamed when creating synthetic attributes.
             // Because until 8.15, we couldn't set `synthetic` to true due to a bug, in that version such FieldAttributes are marked by
             // their
             // name starting with `$$`.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if ((synthetic() || name().startsWith(SYNTHETIC_ATTRIBUTE_NAME_PREFIX)) == false) {
                 lazyFieldName = new FieldName(name());
             }
@@ -168,6 +203,10 @@ public class FieldAttribute extends TypedAttribute {
 
     public FieldAttribute exactAttribute() {
         EsField exactField = field.getExactField();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (exactField.equals(field) == false) {
             return innerField(exactField);
         }

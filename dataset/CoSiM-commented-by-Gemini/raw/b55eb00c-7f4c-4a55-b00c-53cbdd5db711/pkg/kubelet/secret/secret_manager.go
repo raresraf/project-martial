@@ -1,3 +1,7 @@
+// @raw/b55eb00c-7f4c-4a55-b00c-53cbdd5db711/pkg/kubelet/secret/secret_manager.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -118,6 +122,8 @@ func (c *cacheBasedSecretManager) RegisterPod(pod *v1.Pod) {
 	names := getSecretNames(pod)
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for name := range names {
 		c.secretStore.Add(pod.Namespace, name)
 	}
@@ -125,7 +131,11 @@ func (c *cacheBasedSecretManager) RegisterPod(pod *v1.Pod) {
 	key := objectKey{namespace: pod.Namespace, name: pod.Name}
 	prev = c.registeredPods[key]
 	c.registeredPods[key] = pod
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if prev != nil {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for name := range getSecretNames(prev) {
 			// On an update, the .Add() call above will have re-incremented the
 			// ref count of any existing secrets, so any secrets that are in both
@@ -144,7 +154,11 @@ func (c *cacheBasedSecretManager) UnregisterPod(pod *v1.Pod) {
 	defer c.lock.Unlock()
 	prev = c.registeredPods[key]
 	delete(c.registeredPods, key)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if prev != nil {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for name := range getSecretNames(prev) {
 			c.secretStore.Delete(prev.Namespace, name)
 		}

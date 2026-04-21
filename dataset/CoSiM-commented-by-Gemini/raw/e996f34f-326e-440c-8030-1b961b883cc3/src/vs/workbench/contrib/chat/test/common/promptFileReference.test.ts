@@ -1,3 +1,10 @@
+/**
+ * @raw/e996f34f-326e-440c-8030-1b961b883cc3/src/vs/workbench/contrib/chat/test/common/promptFileReference.test.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -90,6 +97,10 @@ class TestPromptFileReference extends Disposable {
 		super();
 
 		// ensure all the expected references are disposed
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const expectedReference of this.expectedReferences) {
 			this._register(expectedReference);
 		}
@@ -129,6 +140,10 @@ class TestPromptFileReference extends Disposable {
 			].join('\n')
 		);
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < this.expectedReferences.length; i++) {
 			const expectedReference = this.expectedReferences[i];
 			const resolvedReference = resolvedReferences[i];
@@ -141,6 +156,10 @@ class TestPromptFileReference extends Disposable {
 				].join(', '),
 			);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (expectedReference.errorCondition === undefined) {
 				assert(
 					resolvedReference.errorCondition === undefined,
@@ -174,14 +193,26 @@ class TestPromptFileReference extends Disposable {
 			? URI.joinPath(parentFolder, folder.name)
 			: URI.file(folder.name);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (await fileService.exists(folderUri)) {
 			await fileService.del(folderUri);
 		}
 		await fileService.createFolder(folderUri);
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of folder.children) {
 			const childUri = URI.joinPath(folderUri, child.name);
 			// create child file
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if ('contents' in child) {
 				await fileService.writeFile(childUri, VSBuffer.fromString(child.contents));
 				continue;
@@ -215,6 +246,10 @@ suite('PromptFileReference (Unix)', function () {
 	});
 
 	test('resolves nested file references', async function () {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (isWindows) {
 			this.skip();
 		}
@@ -331,6 +366,10 @@ suite('PromptFileReference (Unix)', function () {
 	});
 
 	test('does not fall into infinite reference recursion', async function () {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (isWindows) {
 			this.skip();
 		}

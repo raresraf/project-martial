@@ -1,6 +1,6 @@
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the "Elastic License
+ * or more contributor license agreements. Licensed under the Elastic License
  * 2.0", the "GNU Affero General Public License v3.0 only", and the "Server Side
  * Public License v 1"; you may not use this file except in compliance with, at
  * your election, the "Elastic License 2.0", the "GNU Affero General Public
@@ -47,6 +47,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
+/**
+ * @file RestCancellableNodeClientTests.java
+ * @brief Unit tests for validating task cancellation upon HTTP channel closure.
+ * 
+ * Functional Intent: Ensures that the RestCancellableNodeClient correctly tracks 
+ * active tasks associated with HTTP channels and triggers cancellation if the 
+ * channel is closed before task completion. Tests various race conditions 
+ * including tasks completing before registration and channels closing concurrently 
+ * with task execution.
+ * 
+ * Domain: Production Systems, Distributed Computing, Resource Cleanup.
+ */
 public class RestCancellableNodeClientTests extends ESTestCase {
 
     private ThreadPool threadPool;
@@ -62,9 +74,13 @@ public class RestCancellableNodeClientTests extends ESTestCase {
     }
 
     /**
-     * This test verifies that no tasks are left in the map where channels and their corresponding tasks are tracked.
-     * Through the {@link TestClient} we simulate a scenario where the task may complete even before it has been
-     * associated with its corresponding channel. Either way, we need to make sure that no tasks are left in the map.
+     * testCompletedTasks - Verifies cleanup of successfully finished tasks.
+     * 
+     * Algorithm: Stress test with random load.
+     * Logic: 
+     * 1. Spawns multiple HTTP channels and associated search tasks.
+     * 2. Simulates task completion (sometimes even before channel association).
+     * 3. Confirms that no orphaned tasks remain in the tracking map.
      */
     public void testCompletedTasks() throws Exception {
         final var testClient = new TestClient(Settings.EMPTY, threadPool, false);
@@ -88,15 +104,20 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         for (Future<?> future : futures) {
             future.get();
         }
-        // no channels get closed in this test, hence we expect as many channels as we created in the map
+        
+        // Invariant: Completed tasks must be removed from the tracker regardless of channel state.
         assertEquals(initialHttpChannels + numChannels, RestCancellableNodeClient.getNumChannels());
         assertEquals(0, RestCancellableNodeClient.getNumTasks());
         assertEquals(totalSearches, testClient.searchRequests.get());
     }
 
     /**
-     * This test verifies the behaviour when the channel gets closed. The channel is expected to be
-     * removed and all of its corresponding tasks get cancelled.
+     * testCancelledTasks - Verifies that closing a channel aborts all associated tasks.
+     * 
+     * Logic: 
+     * 1. Associates multiple tasks with several HTTP channels.
+     * 2. Closes each channel.
+     * 3. Validates that the tracker successfully triggered cancellation for every task.
      */
     public void testCancelledTasks() throws Exception {
         final var nodeClient = new TestClient(Settings.EMPTY, threadPool, true);
@@ -119,16 +140,15 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         for (TestHttpChannel channel : channels) {
             channel.awaitClose();
         }
+        
+        // Invariant: Closing the channel must purge it from the tracker and cancel pending work.
         assertEquals(initialHttpChannels, RestCancellableNodeClient.getNumChannels());
         assertEquals(totalSearches, nodeClient.searchRequests.get());
         assertEquals(totalSearches, nodeClient.cancelledTasks.size());
     }
 
     /**
-     * This test verified what happens when a request comes through yet its corresponding http channel is already closed.
-     * The close listener is straight-away executed, the task is cancelled. This can even happen multiple times, it's the only case
-     * where we may end up registering a close listener multiple times to the channel, but the channel is already closed hence only
-     * the newly added listener will be invoked at registration time.
+     * testChannelAlreadyClosed - Validates immediate cancellation for dead channels.
      */
     public void testChannelAlreadyClosed() {
         final var testClient = new TestClient(Settings.EMPTY, threadPool, true);
@@ -137,13 +157,12 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         int totalSearches = 0;
         for (int i = 0; i < numChannels; i++) {
             TestHttpChannel channel = new TestHttpChannel();
-            // no need to wait here, there will be no close listener registered, nothing to wait for.
             channel.close();
             int numTasks = randomIntBetween(1, 5);
             totalSearches += numTasks;
             RestCancellableNodeClient client = new RestCancellableNodeClient(testClient, channel);
             for (int j = 0; j < numTasks; j++) {
-                // here the channel will be first registered, then straight-away removed from the map as the close listener is invoked
+                // Logic: Client must detect the closed state and cancel the task upon execution.
                 client.execute(TransportSearchAction.TYPE, new SearchRequest(), null);
             }
         }
@@ -152,6 +171,9 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         assertEquals(totalSearches, testClient.cancelledTasks.size());
     }
 
+    /**
+     * testConcurrentExecuteAndClose - Validates thread-safety during simultaneous execution and shutdown.
+     */
     public void testConcurrentExecuteAndClose() {
         final var testClient = new TestClient(Settings.EMPTY, threadPool, true);
         int initialHttpChannels = RestCancellableNodeClient.getNumChannels();
@@ -171,6 +193,7 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         }
         threadPool.generic().execute(() -> {
             try {
+                // Synchronization: Ensure at least one task has started before closing the channel.
                 safeAwait(startLatch);
                 channel.awaitClose();
             } catch (InterruptedException e) {
@@ -185,6 +208,10 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         assertEquals(expectedTasks, testClient.cancelledTasks);
     }
 
+    /**
+     * @class TestClient
+     * @brief Mock implementation of NodeClient for tracking request counts and cancellations.
+     */
     private static class TestClient extends NodeClient {
         private final LongSupplier searchTaskIdGenerator = new AtomicLong(0)::getAndIncrement;
         private final LongSupplier cancelTaskIdGenerator = new AtomicLong(1000)::getAndIncrement;
@@ -205,6 +232,7 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         ) {
             switch (action.name()) {
                 case TransportCancelTasksAction.NAME -> {
+                    // Logic: Validates that cancellation is only triggered once per task.
                     assertTrue(
                         "tried to cancel the same task more than once",
                         cancelledTasks.add(asInstanceOf(CancelTasksRequest.class, request).getTargetTaskId())
@@ -219,7 +247,6 @@ public class RestCancellableNodeClientTests extends ESTestCase {
                     if (randomBoolean()) {
                         listener.onResponse(null);
                     } else {
-                        // test that cancel tasks is best effort, failure received are not propagated
                         listener.onFailure(new IllegalStateException());
                     }
                     return task;
@@ -235,7 +262,6 @@ public class RestCancellableNodeClientTests extends ESTestCase {
                     );
                     if (timeout == false) {
                         if (rarely()) {
-                            // make sure that search is sometimes also called from the same thread before the task is returned
                             listener.onResponse(null);
                         } else {
                             threadPool().generic().submit(() -> listener.onResponse(null));
@@ -254,6 +280,10 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         }
     }
 
+    /**
+     * @class TestHttpChannel
+     * @brief Mock HTTP channel implementation with subscribable close notifications.
+     */
     private class TestHttpChannel implements HttpChannel {
         private final AtomicBoolean open = new AtomicBoolean(true);
         private final SubscribableListener<ActionListener<Void>> closeListener = new SubscribableListener<>();
@@ -274,6 +304,7 @@ public class RestCancellableNodeClientTests extends ESTestCase {
 
         @Override
         public void close() {
+            // Synchronization: Atomic transition to closed state.
             assertTrue("HttpChannel is already closed", open.compareAndSet(true, false));
             closeListener.andThenAccept(listener -> {
                 boolean failure = randomBoolean();
@@ -300,7 +331,7 @@ public class RestCancellableNodeClientTests extends ESTestCase {
 
         @Override
         public void addCloseListener(ActionListener<Void> listener) {
-            // if the channel is already closed, the listener gets notified immediately, from the same thread.
+            // Logic: Immediate execution if the channel is already dead.
             if (open.get() == false) {
                 listener.onResponse(null);
             } else {

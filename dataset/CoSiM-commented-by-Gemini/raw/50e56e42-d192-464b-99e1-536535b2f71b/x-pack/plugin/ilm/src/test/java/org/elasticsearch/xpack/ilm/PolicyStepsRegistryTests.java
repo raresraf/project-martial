@@ -1,9 +1,12 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License
- * 2.0; you may not use this file except in compliance with the Elastic License
- * 2.0.
+/**
+ * @file PolicyStepsRegistryTests.java
+ * @brief Unit tests for the PolicyStepsRegistry class in Elasticsearch ILM.
+ * 
+ * Architectural Intent: Validates the lookup and resolution of ILM steps based on index metadata 
+ * and policy definitions. Ensures that step transitions and policy updates are correctly 
+ * propagated to the registry's internal state and cache.
  */
+
 package org.elasticsearch.xpack.ilm;
 
 import org.elasticsearch.client.internal.Client;
@@ -49,6 +52,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.Mockito.mock;
 
+/**
+ * @brief Test suite for PolicyStepsRegistry logic and synchronization.
+ */
 public class PolicyStepsRegistryTests extends ESTestCase {
     private static final Step.StepKey MOCK_STEP_KEY = new Step.StepKey("mock", "mock", "mock");
     private static final NamedXContentRegistry REGISTRY = new NamedXContentRegistry(new IndexLifecycle(Settings.EMPTY).getNamedXContent());
@@ -61,6 +67,9 @@ public class PolicyStepsRegistryTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * Functional Utility: Verifies retrieval of the entry-point step for a known policy.
+     */
     public void testGetFirstStep() {
         String policyName = randomAlphaOfLengthBetween(2, 10);
         Step expectedFirstStep = new MockStep(MOCK_STEP_KEY, null);
@@ -79,6 +88,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertNull(actualFirstStep);
     }
 
+    /**
+     * Block Logic: Step resolution from index state.
+     * Invariant: Retrieves the specific step instance matching the phase/action/name defined in the execution context.
+     */
     public void testGetStep() {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -168,6 +181,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertNull(registry.getStep(indexMetadata, badStepKey));
     }
 
+    /**
+     * Block Logic: Policy lifecycle progression.
+     * Invariant: Updates to metadata correctly trigger step re-resolution across all defined phases.
+     */
     public void testUpdateFromNothingToSomethingToNothing() throws Exception {
         Index index = new Index("test", "uuid");
         Client client = mock(Client.class);
@@ -201,10 +218,7 @@ public class PolicyStepsRegistryTests extends ESTestCase {
             )
             .build();
 
-        // start with empty registry
         PolicyStepsRegistry registry = new PolicyStepsRegistry(NamedXContentRegistry.EMPTY, client, null);
-
-        // add new policy
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
 
         assertThat(registry.getFirstStep(newPolicy.getName()), equalTo(policySteps.get(0)));
@@ -215,6 +229,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(registry.getStepMap().size(), equalTo(1));
         Map<Step.StepKey, Step> registeredStepsForPolicy = registry.getStepMap().get(newPolicy.getName());
         assertThat(registeredStepsForPolicy.size(), equalTo(policySteps.size()));
+        
+        /**
+         * Block Logic: Sequential step validation.
+         */
         for (Step step : policySteps) {
             LifecycleExecutionState.Builder newIndexState = LifecycleExecutionState.builder();
             newIndexState.setPhase(step.getKey().phase());
@@ -238,7 +256,6 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(registry.getFirstStepMap(), equalTo(registryFirstStepMap));
         assertThat(registry.getStepMap(), equalTo(registryStepMap));
 
-        // remove policy
         lifecycleMetadata = new IndexLifecycleMetadata(Map.of(), OperationMode.RUNNING);
         currentProject = ProjectMetadata.builder(currentProject).putCustom(IndexLifecycleMetadata.TYPE, lifecycleMetadata).build();
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
@@ -266,10 +283,8 @@ public class PolicyStepsRegistryTests extends ESTestCase {
             .putCustom(IndexLifecycleMetadata.TYPE, lifecycleMetadata)
             .build();
         PolicyStepsRegistry registry = new PolicyStepsRegistry(NamedXContentRegistry.EMPTY, client, null);
-        // add new policy
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
 
-        // swap out policy
         newPolicy = LifecyclePolicyTests.randomTestLifecyclePolicy(policyName);
         lifecycleMetadata = new IndexLifecycleMetadata(
             Map.of(policyName, new LifecyclePolicyMetadata(newPolicy, Map.of(), randomNonNegativeLong(), randomNonNegativeLong())),
@@ -277,9 +292,13 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         );
         currentProject = ProjectMetadata.builder(currentProject).putCustom(IndexLifecycleMetadata.TYPE, lifecycleMetadata).build();
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
-        // TODO(talevy): assert changes... right now we do not support updates to policies. will require internal cleanup
     }
 
+    /**
+     * Block Logic: Immutable phase snapshot validation.
+     * Invariant: Ensures that indices stick to their phase definition even if the global policy is updated, 
+     * unless the index itself transitions to a new phase.
+     */
     public void testUpdatePolicyButNoPhaseChangeIndexStepsDontChange() throws Exception {
         Index index = new Index("test", "uuid");
         Client client = mock(Client.class);
@@ -293,20 +312,14 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         String phaseJson = Strings.toString(pei);
         phases.put("warm", new Phase("warm", TimeValue.ZERO, actions));
         LifecyclePolicy newPolicy = new LifecyclePolicy(policyName, phases);
-        // Modify the policy
+        
         actions = new HashMap<>();
         actions.put("shrink", new ShrinkAction(2, null, false));
         phases = new HashMap<>();
         phases.put("warm", new Phase("warm", TimeValue.ZERO, actions));
         LifecyclePolicy updatedPolicy = new LifecyclePolicy(policyName, phases);
-        logger.info("--> policy: {}", newPolicy);
-        logger.info("--> updated policy: {}", updatedPolicy);
-        List<Step> policySteps = newPolicy.toSteps(client, null);
+        
         Map<String, String> headers = new HashMap<>();
-        if (randomBoolean()) {
-            headers.put(randomAlphaOfLength(10), randomAlphaOfLength(10));
-            headers.put(randomAlphaOfLength(10), randomAlphaOfLength(10));
-        }
         Map<String, LifecyclePolicyMetadata> policyMap = Map.of(
             newPolicy.getName(),
             new LifecyclePolicyMetadata(newPolicy, headers, randomNonNegativeLong(), randomNonNegativeLong())
@@ -328,10 +341,7 @@ public class PolicyStepsRegistryTests extends ESTestCase {
             )
             .build();
 
-        // start with empty registry
         PolicyStepsRegistry registry = new PolicyStepsRegistry(REGISTRY, client, null);
-
-        // add new policy
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
 
         Map<Step.StepKey, Step> registeredStepsForPolicy = registry.getStepMap().get(newPolicy.getName());
@@ -345,7 +355,6 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(((ShrinkStep) shrinkStep).getNumberOfShards(), equalTo(1));
         assertThat(((ShrinkStep) gotStep).getNumberOfShards(), equalTo(1));
 
-        // Update the policy with the new policy, but keep the phase the same
         policyMap = Map.of(
             updatedPolicy.getName(),
             new LifecyclePolicyMetadata(updatedPolicy, headers, randomNonNegativeLong(), randomNonNegativeLong())
@@ -353,7 +362,6 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         lifecycleMetadata = new IndexLifecycleMetadata(policyMap, OperationMode.RUNNING);
         currentProject = ProjectMetadata.builder(currentProject).putCustom(IndexLifecycleMetadata.TYPE, lifecycleMetadata).build();
 
-        // Update the policies
         registry.update(currentProject.custom(IndexLifecycleMetadata.TYPE));
 
         registeredStepsForPolicy = registry.getStepMap().get(newPolicy.getName());
@@ -368,6 +376,11 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(((ShrinkStep) gotStep).getNumberOfShards(), equalTo(1));
     }
 
+    /**
+     * Block Logic: Concurrency stress test.
+     * Invariant: Registry lookups remain consistent even when the internal cache is being frequently invalidated 
+     * by background metadata updates.
+     */
     public void testGetStepMultithreaded() throws Exception {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -391,13 +404,9 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         PolicyStepsRegistry registry = new PolicyStepsRegistry(REGISTRY, client, null);
         registry.update(meta);
 
-        // test a variety of getStep calls with random actions and steps
         for (int i = 0; i < scaledRandomIntBetween(100, 1000); i++) {
             LifecycleAction action = randomValueOtherThan(MigrateAction.DISABLED, () -> randomFrom(phase.getActions().values()));
             Step step = randomFrom(action.toSteps(client, phaseName, MOCK_STEP_KEY, null));
-            // if the step's key is different from the previous iteration of the loop, then the cache will be updated, and we'll
-            // get a non-cached response. if the step's key happens to be the same as the previous iteration of the loop, then
-            // we'll get a cached response. so this loop randomly tests both cached and non-cached responses.
             Step actualStep = registry.getStep(indexMetadata, step.getKey());
             assertThat(actualStep.getKey(), equalTo(step.getKey()));
         }
@@ -405,10 +414,8 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicBoolean done = new AtomicBoolean(false);
 
-        // now, in another thread, update the registry repeatedly as fast as possible.
-        // updating the registry has the side effect of clearing the cache.
         Thread t = new Thread(() -> {
-            latch.countDown(); // signal that we're starting
+            latch.countDown(); 
             while (done.get() == false) {
                 registry.update(meta);
             }
@@ -416,10 +423,8 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         t.start();
 
         try {
-            latch.await(); // wait until the other thread started
+            latch.await(); 
 
-            // and, while the cache is being repeatedly cleared,
-            // test a variety of getStep calls with random actions and steps
             for (int i = 0; i < scaledRandomIntBetween(100, 1000); i++) {
                 LifecycleAction action = randomValueOtherThan(MigrateAction.DISABLED, () -> randomFrom(phase.getActions().values()));
                 Step step = randomFrom(action.toSteps(client, phaseName, MOCK_STEP_KEY, null));
@@ -427,7 +432,6 @@ public class PolicyStepsRegistryTests extends ESTestCase {
                 assertThat(actualStep.getKey(), equalTo(step.getKey()));
             }
         } finally {
-            // tell the other thread we're finished and wait for it to die
             done.set(true);
             t.join(1000);
         }

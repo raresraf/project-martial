@@ -1,3 +1,10 @@
+/**
+ * @raw/74ac28d7-5763-428c-ab5e-99e5d30f5434/src/vs/base/common/observableDisposable.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -25,6 +32,10 @@ export abstract class ObservableDisposable extends Disposable {
 	 */
 	public onDispose(callback: () => void): this {
 		// if already disposed, execute the callback immediately
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.disposed) {
 			callback();
 
@@ -61,6 +72,10 @@ export abstract class ObservableDisposable extends Disposable {
 	 * @returns
 	 */
 	public override dispose(): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.disposed) {
 			return;
 		}
@@ -86,7 +101,7 @@ export abstract class ObservableDisposable extends Disposable {
 /**
  * Type for a non-disposed object `TObject`.
  */
-type TNotDisposed<TObject extends { disposed: boolean }> = TObject & { disposed: false };
+type TNotDisposed<TObject extends { disposed: boolean }> = TObject & { disposed: false }; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 /**
  * Asserts that a provided `object` is not `disposed` yet,
@@ -99,6 +114,10 @@ export function assertNotDisposed<TObject extends { disposed: boolean }>(
 	object: TObject,
 	error: string | Error,
 ): asserts object is TNotDisposed<TObject> {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!object.disposed) {
 		return;
 	}

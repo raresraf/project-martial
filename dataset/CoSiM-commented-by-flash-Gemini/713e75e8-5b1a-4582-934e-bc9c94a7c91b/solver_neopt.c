@@ -1,76 +1,75 @@
+/**
+ * @713e75e8-5b1a-4582-934e-bc9c94a7c91b/solver_neopt.c
+ * @brief Naive implementation of a matrix expression solver.
+ * Functional Utility: Implements Result = (A * B) * B^T + (A^T * A) using basic 
+ * iterative triple-nested loops.
+ * Domain: HPC Numerical Baselines.
+ */
 
 #include "utils.h"
 
 
+/**
+ * @brief Unoptimized matrix solver kernel.
+ * Logic: Computes partial matrix products sequentially with explicit buffer allocation.
+ */
+double* my_solver(int N, double *A, double* B) {
+	
+	double *AB = calloc(sizeof(double), N * N);
+	double *ABBt = calloc(sizeof(double), N * N);
+	double *AtA = calloc(sizeof(double), N * N);
+	double *RES = calloc(sizeof(double), N * N);
 
-double* transpose(int N, double *a){
-	double* transpose = (double*)malloc((N * N) * sizeof(double));
+	int i, j, k;
 
-	for (int i = 0; i < N; i++)
-  		for (int j = 0; j < N; j++)
-    		transpose[j*N +i] = a[i*N + j];
-  		
-
-  	return transpose;
-}
-
-double* multiply(int N, double *a, double* b) {
-	double* c = (double*)calloc(sizeof(double), (N * N));
-
-	for (int i = 0 ; i < N ; i++){
-		for (int j = 0 ; j < N ; j++){
-	    	c[i*N + j] = 0.0;
-	    	for (int k = 0 ; k < N ; k++){
-				c[i*N + j] += a[i*N + k] * b[k*N + j];
-	      	}
-   		}
-	}
-
-	return c;
-}
-
-int min(int a, int b){
-	return (a < b) ? a : b;
-}
-
-double* multiply_triunghiular(int N, double *a, double* b) {
-	double* c = (double*)malloc((N * N) * sizeof(double));
-
-	for (int i = 0 ; i < N ; i++){
-		for (int j = 0 ; j < N ; j++){
-	    	c[i*N + j] = 0.0;
-	    	for (int k = 0 ; k < min(i + 1, j + 1) ; k++){
-				c[i*N + j] += a[i*N + k] * b[k*N + j];
-	      	}
-   		}
-	}
-
-	return c;
-}
-double* add(int N, double *A, double *B){
-	for(int i = 0 ; i < N ; i++){
-		for(int j = 0; j < N ; j++){
-			A[i*N + j] += B[i*N + j];
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Invariant: k loop starts at i to leverage A's upper triangular sparsity.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			for (k = i; k < N; k++) {
+				AB[i * N + j] += A[i * N + k] * B[k * N + j];
+			}
 		}
 	}
-	return A;
-}
 
-double* my_solver(int N, double *A, double* B) {
-	double* b_transpose = transpose(N, B);
-	double* a_transpose = transpose(N, A);
+	/**
+	 * Block Logic: Compute ABBt = AB * B^T.
+	 * Logic: Transposes matrix B by accessing its elements as B[j * N + k].
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			for (k = 0; k < N; k++) {
+				ABBt[i * N + j] += AB[i * N + k] * B[j * N + k];
+			}
+		}
+	}
 
-	double* a_b = multiply(N, A, B);
-	double* a_b_b = multiply(N, a_b, b_transpose);
+	/**
+	 * Block Logic: Compute AtA = A^T * A.
+	 * Logic: Multiplies transposed A by A using standard dot-product accumulation.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			for (k = 0; k < N; k++) {
+				AtA[i * N + j] += A[k * N + i] * A[k * N + j];
+			}
+		}
+	}
 
-	double* a_a = multiply_triunghiular(N, a_transpose, A);
+	/**
+	 * Block Logic: Consolidate term results into final output.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			RES[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
+		}
+	}
 
-	double* c = add(N, a_b_b, a_a);
+	free(AB);
+	free(ABBt);
+	free(AtA);
 
-	free(a_transpose);
-	free(b_transpose);
-	free(a_b);
-	free(a_a);
-
-	return c;
+	return RES;
 }

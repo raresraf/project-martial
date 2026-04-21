@@ -14,6 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @package deviceplugin
+ * @description This package provides unit tests for the Device Plugin Manager, 
+ * focusing on registration logic, device allocation, checkpointing, and capacity updates.
+ * Architectural Intent: Verify that the Kubelet can discover and allocate hardware-specialized 
+ * resources via gRPC-based device plugins while maintaining state consistency across restarts.
+ */
+
 package deviceplugin
 
 import (
@@ -46,19 +54,26 @@ const (
 	testResourceName = "fake-domain/resource"
 )
 
+// TestNewManagerImpl verifies the initialization of a new Manager instance.
 func TestNewManagerImpl(t *testing.T) {
 	_, err := newManagerImpl(socketName)
 	require.NoError(t, err)
 }
 
+// TestNewManagerImplStart verifies the startup sequence of the Manager with empty devices.
 func TestNewManagerImplStart(t *testing.T) {
 	m, p := setup(t, []*pluginapi.Device{}, func(n string, a, u, r []pluginapi.Device) {})
 	cleanup(t, m, p)
 }
 
-// Tests that the device plugin manager correctly handles registration and re-registration by
-// making sure that after registration, devices are correctly updated and if a re-registration
-// happens, we will NOT delete devices; and no orphaned devices left.
+/**
+ * @test TestDevicePluginReRegistration
+ * @description Handles complex registration scenarios where a plugin may restart or change its identity.
+ * Logic:
+ * 1. Register a plugin with 2 devices.
+ * 2. Re-register a different instance with the same name.
+ * 3. Ensure that the total device count remains consistent and orphaned devices are purged.
+ */
 func TestDevicePluginReRegistration(t *testing.T) {
 	devs := []*pluginapi.Device{
 		{ID: "Dev1", Health: pluginapi.Healthy},
@@ -125,6 +140,10 @@ func TestDevicePluginReRegistration(t *testing.T) {
 
 }
 
+/**
+ * @function setup
+ * @description Helper to initialize a Manager and a Mock Device Plugin Stub.
+ */
 func setup(t *testing.T, devs []*pluginapi.Device, callback monitorCallback) (Manager, *Stub) {
 	m, err := newManagerImpl(socketName)
 	require.NoError(t, err)
@@ -144,11 +163,17 @@ func setup(t *testing.T, devs []*pluginapi.Device, callback monitorCallback) (Ma
 	return m, p
 }
 
+// cleanup stops both the manager and the plugin stub.
 func cleanup(t *testing.T, m Manager, p *Stub) {
 	p.Stop()
 	m.Stop()
 }
 
+/**
+ * @test TestUpdateCapacity
+ * @description Verifies that node capacity updates correctly as devices become unhealthy or are deleted.
+ * Logic: Tracks ResourceName quantities by counting only 'Healthy' devices reported by the plugin.
+ */
 func TestUpdateCapacity(t *testing.T) {
 	testManager, err := newManagerImpl(socketName)
 	as := assert.New(t)
@@ -260,6 +285,12 @@ func constructAllocResp(devices, mounts, envs map[string]string) *pluginapi.Allo
 	return resp
 }
 
+/**
+ * @test TestCheckpoint
+ * @description Verifies that the Manager can serialize and deserialize its allocation state to disk.
+ * Architectural Intent: Ensures that the Kubelet can recover device assignments after a crash 
+ * without requiring pod restarts or causing resource conflicts.
+ */
 func TestCheckpoint(t *testing.T) {
 	resourceName1 := "domain1.com/resource1"
 	resourceName2 := "domain2.com/resource2"
@@ -486,6 +517,11 @@ type TestResource struct {
 	devs             []string
 }
 
+/**
+ * @test TestPodContainerDeviceAllocation
+ * @description Simulates multiple pods requesting various device resources and verifies correct allocation.
+ * Logic: Validates that the Manager tracks 'allocated' vs 'available' devices correctly across multiple requests.
+ */
 func TestPodContainerDeviceAllocation(t *testing.T) {
 	flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
 	var logLevel string
@@ -581,6 +617,12 @@ func TestPodContainerDeviceAllocation(t *testing.T) {
 
 }
 
+/**
+ * @test TestInitContainerDeviceAllocation
+ * @description Verifies resource reuse between Init Containers and normal Containers.
+ * Logic: Devices allocated to Init Containers should be available for reallocation to the 
+ * pod's primary containers once the init phase is complete.
+ */
 func TestInitContainerDeviceAllocation(t *testing.T) {
 	// Requesting to create a pod that requests resourceName1 in init containers and normal containers
 	// should succeed with devices allocated to init containers reallocated to normal containers.
@@ -670,6 +712,11 @@ func TestInitContainerDeviceAllocation(t *testing.T) {
 	as.Equal(0, normalCont1Devices.Intersection(normalCont2Devices).Len())
 }
 
+/**
+ * @test TestSanitizeNodeAllocatable
+ * @description Ensures that the node's allocatable resource list accurately reflects device plugin availability.
+ * Logic: If the scheduler's cached node info shows fewer resources than the Manager has allocated, update the cache.
+ */
 func TestSanitizeNodeAllocatable(t *testing.T) {
 	resourceName1 := "domain1.com/resource1"
 	devID1 := "dev1"

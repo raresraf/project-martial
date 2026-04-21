@@ -1,5 +1,18 @@
 
 >>>> file: helper.cpp
+/**
+ * @file helper.cpp
+ * @brief OpenCL Infrastructure and ETC1 Texture Compression Utilities.
+ * 
+ * This module serves as a bridge between host-side OpenCL management and 
+ * device-side kernel execution. It provides robust error handling mechanisms,
+ * kernel source ingestion, and a complete ETC1 compression suite.
+ * 
+ * The utilities are designed for high-performance graphics pipelines where 
+ * texture compression is offloaded to the GPU to minimize host CPU overhead 
+ * and optimize memory bandwidth.
+ */
+
 #include 
 #include 
 #include 
@@ -11,7 +24,14 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Validates OpenCL API return codes.
+ * 
+ * Acts as a first-line diagnostic tool for OpenCL host-side calls. 
+ * If a non-success code is encountered, it translates the error code 
+ * into a human-readable string and reports it to standard output.
+ * 
+ * @param cl_ret The return code from an OpenCL function.
+ * @return int 0 if success, 1 if an error occurred.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +43,16 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Specialized error handler for OpenCL program compilation.
+ * 
+ * Beyond standard error reporting, this function extracts the build log
+ * from the OpenCL device when compilation fails, which is critical for 
+ * debugging kernel syntax or resource constraint issues.
+ * 
+ * @param cl_ret The return code from clBuildProgram.
+ * @param program The OpenCL program object being compiled.
+ * @param device The target device for which the program was compiled.
+ * @return int 0 if success, 1 if compilation failed.
  */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
@@ -38,8 +67,14 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Loads OpenCL kernel source code from a file.
+ * 
+ * Uses a stringstream buffer to efficiently ingest the entire content of 
+ * a kernel file into a string for use with clCreateProgramWithSource.
+ * 
+ * @param file_name Path to the .cl source file.
+ * @param str_kernel [out] String to be populated with the kernel source.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -53,7 +88,13 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Map OpenCL error codes to descriptive labels.
+ * 
+ * Provides a comprehensive lookup table for the OpenCL specification's
+ * error constants, facilitating rapid identification of failure modes.
+ * 
+ * @param err The OpenCL error code.
+ * @return const char* A human-readable string representation of the error.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -108,7 +149,14 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves and prints the OpenCL compiler build log.
+ * 
+ * When kernel compilation fails, this function queries the device for 
+ * the detailed build log. It performs a two-step query: first to 
+ * determine the required buffer size, and second to retrieve the log content.
+ * 
+ * @param program The OpenCL program object.
+ * @param device The target OpenCL device.
  */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
@@ -128,6 +176,11 @@ void cl_get_compiler_err_log(cl_program program,
 	cout << endl << build_log << endl;
 }
 >>>> file: helper.hpp
+/**
+ * @file helper.hpp
+ * @brief Declarations for OpenCL host-side utilities and diagnostic macros.
+ */
+
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
@@ -150,6 +203,12 @@ void cl_get_compiler_err_log(cl_program program,
 
 void read_kernel(string file_name, string &str_kernel);
 
+/**
+ * @brief Critical error assertion macro.
+ * 
+ * If the assertion is true, prints the line number and error description,
+ * then terminates the process with a failure status.
+ */
 #define DIE(assertion, call_description)                    \
 do {                                                        \
     if (assertion) {                                        \
@@ -164,11 +223,27 @@ do {                                                        \
 
 #endif
 >>>> file: sol_device.cl
+/**
+ * @file sol_device.cl
+ * @brief High-performance ETC1 Texture Compression Kernel.
+ * 
+ * This kernel implements the Ericsson Texture Compression (ETC1) algorithm,
+ * optimized for GPU execution. It includes support for both individual 
+ * and differential coding modes, sub-block flipping, and luminance modulation.
+ * 
+ * The implementation focuses on minimizing the error metric (MSE or perceived)
+ * between the original and compressed representations.
+ */
+
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
 #define UINT_MAX  0xffffffff
 #define INT32_MAX 2147483647
 
+/**
+ * @struct Color
+ * @brief Represents a 32-bit BGRA color with multiple access modes.
+ */
 union Color {
 	struct BgraColorType {
 		uchar b;
@@ -180,6 +255,9 @@ union Color {
 	unsigned int bits;
 };
 
+/**
+ * @brief Custom memory copy from global to private memory.
+ */
 void  my_memcpy(void* dst, __global const void* src, int num) {
 	uchar* d = (uchar*)dst;
 	__global uchar* s = (__global uchar*)src;
@@ -190,6 +268,9 @@ void  my_memcpy(void* dst, __global const void* src, int num) {
 	}
 }
 
+/**
+ * @brief Custom memory copy from private to global memory.
+ */
 void my_memcpy2(__global void* dst, const void* src, int num) {
 	__global uchar* d = (__global uchar*)dst;
 	uchar* s = (uchar*)src;
@@ -200,6 +281,9 @@ void my_memcpy2(__global void* dst, const void* src, int num) {
 	}
 }
 
+/**
+ * @brief Efficient memset implementation for global memory buffers.
+ */
 void my_memset(__global void *b, int c, int len)
 {
   int i;
@@ -213,16 +297,24 @@ void my_memset(__global void *b, int c, int len)
     }
 }
 
+/**
+ * @brief Quantizes a float color component to 5 bits.
+ */
 inline uchar round_to_5_bits(float val) {
 	return clamp((uchar)(val * 31.0f / 255.0f + 0.5f), (uchar)0, (uchar)31);
 }
 
+/**
+ * @brief Quantizes a float color component to 4 bits.
+ */
 inline uchar round_to_4_bits(float val) {
 	return clamp((uchar)(val * 15.0f / 255.0f + 0.5f), (uchar)0, (uchar)15);
 }
 
-// Codeword tables.
-// See: Table 3.17.2
+/**
+ * @brief ETC1 Codeword tables for luminance modulation.
+ * Defined by the ETC1 specification (Table 3.17.2).
+ */
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -237,26 +329,12 @@ ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 // See: Table 3.17.3
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
-// The ETC1 specification index texels as follows:
-// [a][e][i][m]     [ 0][ 4][ 8][12]
-// [b][f][j][n]  [ 1][ 5][ 9][13]
-// [c][g][k][o]     [ 2][ 6][10][14]
-// [d][h][l][p]     [ 3][ 7][11][15]
-
-// [ 0][ 1][ 2][ 3]     [ 0][ 1][ 4][ 5]
-// [ 4][ 5][ 6][ 7]  [ 8][ 9][12][13]
-// [ 8][ 9][10][11]     [ 2][ 3][ 6][ 7]
-// [12][13][14][15]     [10][11][14][15]
-
-// However, when extracting sub blocks from BGRA data the natural array
-// indexing order ends up different:
-// vertical0: [a][e][b][f]  horizontal0: [a][e][i][m]
-//            [c][g][d][h]               [b][f][j][n]
-// vertical1: [i][m][j][n]  horizontal1: [c][g][k][o]
-//            [k][o][l][p]               [d][h][l][p]
-
-// In order to translate from the natural array indices in a sub block to the
-// indices (number) used by specification and hardware we use this table.
+/**
+ * @brief Coordinate translation table for sub-block extraction.
+ * 
+ * Maps natural array indices to the specific texel numbering 
+ * required by the ETC1 hardware specification.
+ */
 __constant uchar g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        // Vertical block 0.
 	{8, 12, 9, 13, 10, 14, 11, 15},  // Vertical block 1.
@@ -266,7 +344,9 @@ __constant uchar g_idx_to_num[4][8] = {
 	{2, 6, 10, 14, 3, 7, 11, 15}     // Horizontal block 1.
 };
 
-// Constructs a color from a given base color and luminance value.
+/**
+ * @brief Applies luminance modulation to a base color.
+ */
 inline union Color makeColor(const union Color* base, short lum) {
 	int b = (uchar)(base->channels.b) + lum;
 	int g = (uchar)(base->channels.g) + lum;
@@ -280,8 +360,12 @@ inline union Color makeColor(const union Color* base, short lum) {
 	return color;
 }
 
-// Calculates the error metric for two colors. A small error signals that the
-// colors are similar to each other, a large error the signals the opposite.
+/**
+ * @brief Calculates the squared Euclidean distance between two colors.
+ * 
+ * Used as the error metric for determining the quality of the compression.
+ * Optionally supports perceived error weighting.
+ */
 inline uint getColorError(const union Color* u, const union Color* v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)(u->channels.b) - v.channels.b;
@@ -298,6 +382,9 @@ inline uint getColorError(const union Color* u, const union Color* v) {
 #endif
 }
 
+/**
+ * @brief Writes colors in 444 format (Individual mode).
+ */
 inline void WriteColors444(__global uchar* block,
 						   const union Color* color0,
 						   const union Color* color1) {
@@ -307,6 +394,9 @@ inline void WriteColors444(__global uchar* block,
 	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
 }
 
+/**
+ * @brief Writes colors in 555 format with 3-bit differential (Differential mode).
+ */
 inline void WriteColors555(__global uchar* block,
 						   const union Color* color0,
 						   const union Color* color1) {
@@ -422,6 +512,21 @@ void getAverageColor(const union Color* src, float* avg_color)
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
 	
+/**
+ * @brief Determines the optimal luminance modulation for a sub-block.
+ * 
+ * Iterates through all possible ETC1 codeword tables and modifiers to 
+ * find the combination that minimizes the error between the original 
+ * pixels and the modulated base color.
+ * 
+ * @param block Pointer to the destination compressed block.
+ * @param src Original 8 pixels of the sub-block.
+ * @param base Base color for the sub-block.
+ * @param sub_block_id ID of the sub-block (0 or 1).
+ * @param idx_to_num_tab Index mapping table for texel numbering.
+ * @param threshold Current best error threshold.
+ * @return unsigned long The minimum error achieved for this sub-block.
+ */
 unsigned long computeLuminance(__global uchar* block,
 						   union Color* src,
 						   union Color* base,
@@ -710,6 +815,15 @@ __kernel void mmul(const int width,	const int height,
 	
 	*ans += compressBlock(dst + offset_dst, ver_blocks, hor_blocks, INT32_MAX);
 }>>>> file: texture_compress_skl.cpp
+/**
+ * @file texture_compress_skl.cpp
+ * @brief Host-side implementation of the TextureCompressor.
+ * 
+ * This file contains the TextureCompressor class which encapsulates 
+ * the OpenCL environment initialization, resource management, and 
+ * execution of the compression kernel.
+ */
+
 #include "compress.hpp"
 
 #include 
@@ -722,6 +836,13 @@ __kernel void mmul(const int width,	const int height,
 
 using namespace std;
 
+/**
+ * @brief Constructor for TextureCompressor.
+ * 
+ * Initializes the OpenCL environment by selecting a GPU platform and device,
+ * creating a context and command queue, loading and compiling the compression
+ * kernel, and creating the kernel object.
+ */
 TextureCompressor::TextureCompressor() { 
 	uint platform_select = 0;
 	uint device_select = 0;
@@ -862,6 +983,19 @@ TextureCompressor::~TextureCompressor()
 	clReleaseContext(context);
 }
 
+/**
+ * @brief Offloads texture compression to the GPU.
+ * 
+ * This method manages the data transfer between host and device, 
+ * sets kernel arguments, executes the compression kernel, and 
+ * retrieves the compressed texture and cumulative error metric.
+ * 
+ * @param src Pointer to the source BGRA8888 texture data.
+ * @param dst Pointer to the destination buffer for ETC1 compressed data.
+ * @param width Width of the texture in pixels.
+ * @param height Height of the texture in pixels.
+ * @return unsigned long Cumulative compression error.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,

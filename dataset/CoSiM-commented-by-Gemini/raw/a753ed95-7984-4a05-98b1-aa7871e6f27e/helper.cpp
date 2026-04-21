@@ -1,17 +1,24 @@
 
 >>>> file: helper.cpp
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file helper.cpp
+ * @brief OpenCL utility implementations for runtime error handling and kernel ingestion.
+ */
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "helper.hpp"
 
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Validates OpenCL runtime API return codes.
+ * @param cl_ret The status code from an OpenCL function.
+ * @return 1 if an error occurred, 0 otherwise.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +30,11 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Validates OpenCL compilation and reports build logs on failure.
+ * @param cl_ret The status code from clBuildProgram.
+ * @param program The program object.
+ * @param device The target device.
+ * @return 1 if compilation failed, 0 otherwise.
  */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
@@ -36,8 +47,10 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Reads OpenCL kernel source from a file into a string.
+ * @param file_name Path to the .cl file.
+ * @param str_kernel Reference to store the kernel source.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -51,7 +64,9 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Lookup table for OpenCL error codes.
+ * @param err OpenCL error code.
+ * @return String description of the error.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -106,7 +121,7 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves and logs the compiler build output.
  */
 void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 {
@@ -125,13 +140,18 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 	cout << endl << build_log << endl;
 }
 >>>> file: helper.hpp
+/**
+ * @file helper.hpp
+ * @brief Interface definitions for OpenCL utilities.
+ */
+
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
+   #include <OpenCL/opencl.h>
 #else
-   #include 
+   #include <CL/cl.h>
 #endif
 
 using namespace std;
@@ -144,6 +164,9 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device);
 
 void read_kernel(string file_name, string &str_kernel);
 
+/**
+ * @brief Macro for error-checked process termination.
+ */
 #define DIE(assertion, call_description)  \
 do { \
 	if (assertion) { \
@@ -155,6 +178,11 @@ do { \
 
 #endif
 >>>> file: skl_device.cl
+/**
+ * @file skl_device.cl
+ * @brief OpenCL C kernel for hardware-accelerated texture compression.
+ */
+
 #define UINT32_MAX 4294967295
 #define INT32_MAX 2147483647
 
@@ -163,6 +191,10 @@ typedef unsigned short uint16_t;
 typedef signed short int16_t;
 typedef unsigned int uint32_t;
 
+/**
+ * @union Color
+ * @brief Memory-aligned BGRA color representation for fast bitwise access.
+ */
 typedef union Color {
 	struct BgraColorType {
 		uint8_t b;
@@ -174,14 +206,20 @@ typedef union Color {
 	uint32_t bits;
 } Color;
 
+/**
+ * @brief Arithmetic clamping to [min, max] range.
+ */
 inline uint8_t clamp1(float val, float min, float max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
 inline uint8_t clamp2(int val, int min, int max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * @brief Quantization functions for reduced bit-depth color representation.
+ */
 inline uint8_t round_to_5_bits(float val) {
 	return clamp1(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
@@ -195,6 +233,9 @@ void my_memset(__global uint8_t* dst, int n) {
 		*(dst + i) = 0;
 }
 
+/**
+ * @brief ETC-standard luminance modifier tables.
+ */
 __attribute__((aligned(16))) __constant int16_t g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -208,9 +249,8 @@ __attribute__((aligned(16))) __constant int16_t g_codeword_tables[8][4] = {
 __constant uint8_t g_mod_to_pix[4] = {3, 2, 0, 1};
 
 /**
- * In order to translate from the natural array indices in a sub block to the
- * indices (number) used by specification and hardware we use this table.
-*/
+ * @brief Mapping from logical block indices to standard hardware texel positions.
+ */
 __constant uint8_t g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        // Vertical block 0.
 	{8, 12, 9, 13, 10, 14, 11, 15},  // Vertical block 1.
@@ -220,7 +260,9 @@ __constant uint8_t g_idx_to_num[4][8] = {
 	{2, 6, 10, 14, 3, 7, 11, 15}     // Horizontal block 1.
 };
 
-/* Constructs a color from a given base color and luminance value. */
+/**
+ * @brief Applies luminance modulation to a base color.
+ */
 inline Color makeColor(const Color base, int16_t lum) {
 	int b = (int)(base.channels.b) + lum;
 	int g = (int)(base.channels.g) + lum;
@@ -235,8 +277,7 @@ inline Color makeColor(const Color base, int16_t lum) {
 }
 
 /** 
- * Calculates the error metric for two colors. A small error signals that the
- * colors are similar to each other, a large error the signals the opposite.
+ * @brief Color error metric (Euclidean distance).
  */
 inline uint32_t getColorError(const Color u, const Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
@@ -256,6 +297,9 @@ inline uint32_t getColorError(const Color u, const Color v) {
 #endif
 }
 
+/**
+ * @brief Packing functions for individual channels in 444/555 formats.
+ */
 inline void WriteColors444(__global uint8_t* block,
 						   const Color color0,
 						   const Color color1) {
@@ -323,10 +367,7 @@ inline void WriteDiff(__global uint8_t* block, bool diff) {
 }
 
 /**
- * Compress and rounds BGR888 into BGR444. The resulting BGR444 color is
- * expanded to BGR888 as it would be in hardware after decompression. The
- * actual 444-bit data is available in the four most significant bits of each
- * channel.
+ * @brief Color conversion and scaling for hardware simulation.
  */
 inline Color makeColor444(const float* bgr) {
 	uint8_t b4 = round_to_4_bits(bgr[0]);
@@ -341,12 +382,6 @@ inline Color makeColor444(const float* bgr) {
 	return bgr444;
 }
 
-/**
- * Compress and rounds BGR888 into BGR555. The resulting BGR555 color is
- * expanded to BGR888 as it would be in hardware after decompression. The
- * actual 555-bit data is available in the five most significant bits of each
- * channel.
- */
 inline Color makeColor555(const float* bgr) {
 	uint8_t b5 = round_to_5_bits(bgr[0]);
 	uint8_t g5 = round_to_5_bits(bgr[1]);
@@ -456,9 +491,7 @@ unsigned long computeLuminance(__global uint8_t* block,
 }
 
 /**
- * Tries to compress the block under the assumption that it's a single color
- * block. If it's not the function will bail out without writing anything to
- * the destination buffer.
+ * @brief Optimization for blocks with uniform color.
  */
 bool tryCompressSolidBlock(__global uint8_t* dst,
 						   const Color* src,
@@ -532,6 +565,9 @@ bool tryCompressSolidBlock(__global uint8_t* dst,
 }
 
 
+/**
+ * @brief High-level block compression logic with sub-block partitioning.
+ */
 unsigned long compressBlock (__global uint8_t* dst,
 							const Color* ver_src,
 							const Color* hor_src,
@@ -563,7 +599,7 @@ unsigned long compressBlock (__global uint8_t* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -622,7 +658,9 @@ unsigned long compressBlock (__global uint8_t* dst,
 	return lumi_error1 + lumi_error2;
 }
 
-/* Copiaza in dst din src n octeti */
+/**
+ * @brief Memory management utilities for device-side buffer manipulation.
+ */
 void my_memcpy(Color *dst, Color *src, size_t n)
 {
 	char *cdst = (char *) dst;
@@ -632,7 +670,6 @@ void my_memcpy(Color *dst, Color *src, size_t n)
 		cdst[i] = csrc[i];
 }
 
-/* Copiaza o line in dst (4 * 4 = 16 octeti) din src */
 void copySrcToRow(Color *dst, const __global uint8_t *src, size_t n)
 {
 	char *cdst = (char *) dst;
@@ -642,6 +679,9 @@ void copySrcToRow(Color *dst, const __global uint8_t *src, size_t n)
 		cdst[i] = csrc[i];
 }
 
+/**
+ * @brief OpenCL Kernel mapping work-items to image blocks.
+ */
 __kernel void
 my_compress(const __global uint8_t* src,
         	__global uint8_t* dst,
@@ -659,27 +699,17 @@ my_compress(const __global uint8_t* src,
 
 	Color row0[4], row1[4], row2[4], row3[4];
 
-	/* pozitiile de inceput ale fiecarei linii din blocul curent */
+	/* Calculate memory offsets for the 4x4 block in the source image */
 	int start_row0 = (width / 4) * 16 * 4 * i + j * 16;
 	int start_row1 = start_row0 + 4 * width;
 	int start_row2 = start_row0 + 4 * 2 * width;
 	int start_row3 = start_row0 + 4 * 3 * width;
 
-	/**
-	 * se copiaza din src cei 4 pixeli corespunzatori fiecarei linii
-	 * pentru fiecare pixel se copiaza 4 octeti: campurile
-	 * channels.b, channels.g, channels.r, channels.a din union Color 
-	 */
 	copySrcToRow(row0, src + start_row0, 16);
 	copySrcToRow(row1, src + start_row1, 16);
 	copySrcToRow(row2, src + start_row2, 16);
 	copySrcToRow(row3, src + start_row3, 16);
 
-	/**
-	 * se copiaza in ver_blocks cele 2 blocuri verticale, iar in
-	 * hor_blocks cele 2 blocuri orizontale, fiecare bloc avand 8
-	 * pixeli de tipul union Color
-	 */
 	my_memcpy(ver_blocks, row0, 8);
 	my_memcpy(ver_blocks + 2, row1, 8);
 	my_memcpy(ver_blocks + 4, row2, 8);
@@ -699,21 +729,28 @@ my_compress(const __global uint8_t* src,
 }
 
 >>>> file: texture_compress_skl.cpp
+/**
+ * @file texture_compress_skl.cpp
+ * @brief Host-side orchestration for the OpenCL compression pipeline.
+ */
+
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <math.h>
 #include "helper.hpp"
 
 using namespace std;
 
-/* determina device-ul pe care va rula codul */
+/**
+ * @brief Selects the optimal GPU device for OpenCL tasks.
+ */
 void gpu_find(cl_device_id &device) {
 	cl_platform_id platform;
 	cl_uint platform_num = 0;
@@ -725,12 +762,10 @@ void gpu_find(cl_device_id &device) {
 	size_t attr_size = 0;
 	cl_char* attr_data = NULL;
 
-	/* determina nr de platforme OpenCL disponibile */
 	clGetPlatformIDs(0, NULL, &platform_num);
 	platform_list = new cl_platform_id[platform_num];
 	DIE(platform_list == NULL, "alloc platform_list");
 
-	/* creeaza o lista cu toate platformele disponibile */
 	clGetPlatformIDs(platform_num, platform_list, NULL);
 
 	for(uint platf = 0; platf < platform_num; platf++) {
@@ -738,7 +773,6 @@ void gpu_find(cl_device_id &device) {
 		platform = platform_list[platf];
 		DIE(platform == 0, "platform selection");
 		
-		/* determina nr de device-uri GPU disponibile pe platforma selectata */
 		if(clGetDeviceIDs(platform, 
 			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
 			device_num = 0;
@@ -747,7 +781,6 @@ void gpu_find(cl_device_id &device) {
 		device_list = new cl_device_id[device_num];
 		DIE(device_list == NULL, "alloc devices");
 
-		/* creeaza o lista cu device-urile disponibile pe platforma selectata */
 		clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
 			device_num, device_list, NULL);
 
@@ -766,6 +799,9 @@ TextureCompressor::TextureCompressor() {
 TextureCompressor::~TextureCompressor() { }
 
 
+/**
+ * @brief Main entry point for texture compression on GPU.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,
@@ -776,70 +812,58 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	int size = width * height * 4;
 	int compressed_size = width * height * 4 / 8;
 
-	/* initializare context */
-
-
+	/* Setup OpenCL environment */
 	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
 	CL_ERR(ret);
 
-	/* initializare coada de executie unde vor fi trimise
-	comenzile catre GPU */
 	command_queue = clCreateCommandQueue(context, device, 0, &ret);
 	CL_ERR(ret);
 
-	/* aloca memorie pentru buffer-ul sursa din device (GPU) */
+	/* Prepare device buffers */
 	cl_mem srcDevice = clCreateBuffer(context, CL_MEM_READ_ONLY,
 				  size, NULL, &ret);
 	CL_ERR(ret);
 
-	/* aloca memorie pentru buffer-ul destinatie din device (GPU) */
 	cl_mem dstDevice = clCreateBuffer(context, CL_MEM_READ_WRITE,
 				  compressed_size, NULL, &ret);
 	CL_ERR(ret);
 
-	/* copiaza buffer-ul sursa in VRAM (transfer de memorie
-	de la host la device) */
+	/* Upload source image to device */
 	clEnqueueWriteBuffer(command_queue, srcDevice, CL_TRUE, 0,
 		 size, src, 0, NULL, NULL);
 
-	/* citeste in kernel_src sursa din skl_device.cl */
+	/* Compile and build OpenCL kernel */
 	read_kernel("skl_device.cl", kernel_src);
 	const char* kernel_c_str = kernel_src.c_str();
 
-	/* creaza programul kernel din sursa */
 	program = clCreateProgramWithSource(context, 1,
 		  &kernel_c_str, NULL, &ret);
 	CL_ERR(ret);
 
-	/* compileaza programul */
 	ret = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
 	CL_COMPILE_ERR(ret, program, device);
 
-	/* selecteaza codul kernel */
 	kernel = clCreateKernel(program, "my_compress", &ret);
 	CL_ERR(ret);
 
-	/* seteaza argumentele care vor fi pasate functiei my_compress din kernel */
+	/* Set execution parameters and dispatch */
 	CL_ERR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&srcDevice));
 	CL_ERR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dstDevice));
-
-
 	CL_ERR(clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *)&width));
 	CL_ERR(clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *)&height));
 
-	/* nr de blocuri va fi (width / 4) * (height / 4) */
 	size_t globalSize[2] = {(size_t)height / 4, (size_t)width / 4};
 	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, 
 		NULL, globalSize, 0, 0, NULL, NULL);
 	CL_ERR(ret);
 
-	/* copiaza in memoria RAM (in dst) datele generate de catre device (dstDevice) */
+	/* Download results from device */
 	clEnqueueReadBuffer(command_queue, dstDevice, CL_TRUE, 0,
 		compressed_size, dst, 0, NULL, NULL);
 
 	CL_ERR(clFinish(command_queue)); 
 
-	/* elibereaza memoria alocata pe GPU */
+	/* Clean up resources */
 	clReleaseMemObject(srcDevice);
 	clReleaseMemObject(dstDevice);
 	clReleaseCommandQueue(command_queue);

@@ -1,3 +1,10 @@
+/**
+ * @raw/9492b632-c4a2-4170-ba08-6b30725af326/components/script/dom/bindings/buffer_source.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -55,11 +62,11 @@ use crate::script_runtime::{CanGc, JSContext};
 pub(crate) enum BufferSource {
     /// Represents an `ArrayBufferView` (e.g., `Uint8Array`, `DataView`).
     /// See: <https://webidl.spec.whatwg.org/#ArrayBufferView>
-    ArrayBufferView(Box<Heap<*mut JSObject>>),
+    ArrayBufferView(Box<Heap<*mut JSObject>>), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
     /// Represents an `ArrayBuffer`, a fixed-length binary data buffer.
     /// See: <https://webidl.spec.whatwg.org/#idl-ArrayBuffer>
-    ArrayBuffer(Box<Heap<*mut JSObject>>),
+    ArrayBuffer(Box<Heap<*mut JSObject>>), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 pub(crate) fn new_initialized_heap_buffer_source<T>(
@@ -79,6 +86,10 @@ where
             rooted!(in (*cx) let mut array = ptr::null_mut::<JSObject>());
             let typed_array_result =
                 create_buffer_source_with_length::<T>(cx, len as usize, array.handle_mut(), can_gc);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if typed_array_result.is_err() {
                 return Err(());
             }
@@ -219,7 +230,11 @@ where
         }
     }
 
-    pub(crate) fn typed_array_to_option(&self) -> Option<TypedArray<T, *mut JSObject>> {
+    pub(crate) fn typed_array_to_option(&self) -> Option<TypedArray<T, *mut JSObject>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.is_initialized() {
             self.get_typed_array().ok()
         } else {
@@ -342,7 +357,7 @@ where
             },
         });
         let data = if let Ok(array) =
-            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()>
+            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         {
             let data = array.to_vec();
             let _ = self.detach_buffer(cx);
@@ -374,7 +389,7 @@ where
             },
         });
         let Ok(array) =
-            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()>
+            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         else {
             return Err(());
         };
@@ -388,7 +403,7 @@ where
     pub(crate) fn copy_data_from(
         &self,
         cx: JSContext,
-        source: CustomAutoRooterGuard<TypedArray<T, *mut JSObject>>,
+        source: CustomAutoRooterGuard<TypedArray<T, *mut JSObject>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         dest_start: usize,
         length: usize,
     ) -> Result<(), ()> {
@@ -400,7 +415,7 @@ where
             },
         });
         let Ok(mut array) =
-            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()>
+            array as Result<CustomAutoRooterGuard<'_, TypedArray<T, *mut JSObject>>, &mut ()> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         else {
             return Err(());
         };
@@ -436,11 +451,15 @@ where
         cx: JSContext,
         byte_offset: usize,
         byte_length: usize,
-    ) -> Option<HeapBufferSource<ArrayBufferU8>> {
+    ) -> Option<HeapBufferSource<ArrayBufferU8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         match &self.buffer_source {
             BufferSource::ArrayBufferView(heap) | BufferSource::ArrayBuffer(heap) => {
                 let result =
                     unsafe { ArrayBufferClone(*cx, heap.handle(), byte_offset, byte_length) };
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if result.is_null() {
                     None
                 } else {
@@ -477,6 +496,10 @@ where
                     BufferSource::ArrayBufferView(from_heap) |
                     BufferSource::ArrayBuffer(from_heap) => {
                         unsafe {
+                            /**
+                             * Block Logic: Conditional evaluation for divergent control flow.
+                             * Invariant: Taken branch maintains control flow invariants.
+                             */
                             if heap.handle() == from_heap.handle() {
                                 return false;
                             }
@@ -487,21 +510,37 @@ where
         }
 
         // If ! IsDetachedBuffer(toBuffer) is true, return false.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.is_detached_buffer(cx) {
             return false;
         }
 
         // If ! IsDetachedBuffer(fromBuffer) is true, return false.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if from_buffer.is_detached_buffer(cx) {
             return false;
         }
 
         // If toIndex + count > toBuffer.[[ArrayBufferByteLength]], return false.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if to_index + bytes_to_copy > self.byte_length() {
             return false;
         }
 
         // If fromIndex + count > fromBuffer.[[ArrayBufferByteLength]], return false.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if from_index + bytes_to_copy > from_buffer.byte_length() {
             return false;
         }
@@ -542,6 +581,10 @@ where
         assert!(self.is_array_buffer_object());
 
         // If ! IsDetachedBuffer(O) is true, return false.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.is_detached_buffer(cx) {
             return false;
         }
@@ -551,6 +594,10 @@ where
         let mut is_defined = false;
         match &self.buffer_source {
             BufferSource::ArrayBufferView(heap) | BufferSource::ArrayBuffer(heap) => unsafe {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if !HasDefinedArrayBufferDetachKey(*cx, heap.handle(), &mut is_defined) {
                     return false;
                 }
@@ -564,7 +611,7 @@ where
     pub(crate) fn transfer_array_buffer(
         &self,
         cx: JSContext,
-    ) -> Fallible<HeapBufferSource<ArrayBufferU8>> {
+    ) -> Fallible<HeapBufferSource<ArrayBufferU8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         assert!(self.is_array_buffer_object());
 
         // Assert: ! IsDetachedBuffer(O) is false.
@@ -585,6 +632,10 @@ where
         // Perform ? DetachArrayBuffer(O).
         // This will throw an exception if O has an [[ArrayBufferDetachKey]] that is not undefined,
         // such as a WebAssembly.Memory’s buffer. [WASM-JS-API-1]
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !self.detach_buffer(cx) {
             rooted!(in(*cx) let mut rval = UndefinedValue());
             unsafe {
@@ -629,6 +680,10 @@ where
 {
     let res = unsafe { TypedArray::<T, *mut JSObject>::create(*cx, CreateWith::Slice(data), dest) };
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if res.is_err() {
         Err(())
     } else {
@@ -647,6 +702,10 @@ where
 {
     let res = unsafe { TypedArray::<T, *mut JSObject>::create(*cx, CreateWith::Length(len), dest) };
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if res.is_err() {
         Err(())
     } else {
@@ -681,7 +740,7 @@ pub(crate) fn create_buffer_source_with_constructor(
     buffer_source: &HeapBufferSource<ArrayBufferU8>,
     byte_offset: usize,
     byte_length: usize,
-) -> Fallible<HeapBufferSource<ArrayBufferViewU8>> {
+) -> Fallible<HeapBufferSource<ArrayBufferViewU8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     let buffer = unsafe {
         Heap::boxed(
             *buffer_source
@@ -713,7 +772,7 @@ fn construct_typed_array(
     buffer_source: &HeapBufferSource<ArrayBufferU8>,
     byte_offset: usize,
     byte_length: i64,
-) -> Fallible<HeapBufferSource<ArrayBufferViewU8>> {
+) -> Fallible<HeapBufferSource<ArrayBufferViewU8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     let buffer = unsafe {
         Heap::boxed(
             *buffer_source
@@ -765,8 +824,12 @@ fn construct_typed_array(
 pub(crate) fn create_array_buffer_with_size(
     cx: JSContext,
     size: usize,
-) -> Fallible<HeapBufferSource<ArrayBufferU8>> {
+) -> Fallible<HeapBufferSource<ArrayBufferU8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     let result = unsafe { NewArrayBuffer(*cx, size) };
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if result.is_null() {
         rooted!(in(*cx) let mut rval = UndefinedValue());
         unsafe {
@@ -786,7 +849,7 @@ pub(crate) fn create_array_buffer_with_size(
 #[derive(JSTraceable, MallocSizeOf)]
 pub(crate) struct DataBlock {
     #[ignore_malloc_size_of = "Arc"]
-    data: Arc<Box<[u8]>>,
+    data: Arc<Box<[u8]>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Data views (mutable subslices of data)
     data_views: Vec<DataView>,
 }
@@ -826,6 +889,10 @@ impl DataBlock {
 
     /// Returns error if requested range is already mapped
     pub(crate) fn view(&mut self, range: Range<usize>, _can_gc: CanGc) -> Result<&DataView, ()> {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self
             .data_views
             .iter()

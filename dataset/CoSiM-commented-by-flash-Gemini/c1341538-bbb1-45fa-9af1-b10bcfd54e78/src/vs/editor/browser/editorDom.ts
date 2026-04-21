@@ -3,6 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file editorDom.ts
+ * @brief DOM and Coordinate utilities for the VS Code editor.
+ * 
+ * Functional Intent: Provides high-level abstractions for handling mouse and pointer 
+ * events within the editor. It specializes in coordinate transformations that 
+ * account for CSS scale transforms, ensuring that internal editor metrics remain 
+ * consistent regardless of UI scaling. Additionally, it manages a reference-counted 
+ * dynamic CSS injection system to prevent stylesheet pollution during rapid UI updates.
+ * 
+ * Domain: Production Systems, UI Frameworks, Browser Interoperability.
+ */
+
 import * as dom from '../../base/browser/dom.js';
 import * as domStylesheetsJs from '../../base/browser/domStylesheets.js';
 import { GlobalPointerMoveMonitor } from '../../base/browser/globalPointerMoveMonitor.js';
@@ -14,7 +27,8 @@ import { asCssVariable } from '../../platform/theme/common/colorRegistry.js';
 import { ThemeColor } from '../../base/common/themables.js';
 
 /**
- * Coordinates relative to the whole document (e.g. mouse event's pageX and pageY)
+ * @class PageCoordinates
+ * @brief Represents a position relative to the entire document.
  */
 export class PageCoordinates {
 	_pageCoordinatesBrand: void = undefined;
@@ -30,11 +44,8 @@ export class PageCoordinates {
 }
 
 /**
- * Coordinates within the application's client area (i.e. origin is document's scroll position).
- *
- * For example, clicking in the top-left corner of the client area will
- * always result in a mouse event with a client.x value of 0, regardless
- * of whether the page is scrolled horizontally.
+ * @class ClientCoordinates
+ * @brief Represents a position relative to the document's visible viewport.
  */
 export class ClientCoordinates {
 	_clientCoordinatesBrand: void = undefined;
@@ -50,7 +61,8 @@ export class ClientCoordinates {
 }
 
 /**
- * The position of the editor in the page.
+ * @class EditorPagePosition
+ * @brief Geometric bounds of the editor container within the page context.
  */
 export class EditorPagePosition {
 	_editorPagePositionBrand: void = undefined;
@@ -64,10 +76,11 @@ export class EditorPagePosition {
 }
 
 /**
- * Coordinates relative to the the (top;left) of the editor that can be used safely with other internal editor metrics.
- * **NOTE**: This position is obtained by taking page coordinates and transforming them relative to the
- * editor's (top;left) position in a way in which scale transformations are taken into account.
- * **NOTE**: These coordinates could be negative if the mouse position is outside the editor.
+ * @class CoordinatesRelativeToEditor
+ * @brief Normalized coordinates for internal editor arithmetic.
+ * 
+ * Logic: Transformed relative to the editor's top-left corner, adjusting for 
+ * any scale transformations detected in the DOM layout.
  */
 export class CoordinatesRelativeToEditor {
 	_positionRelativeToEditorBrand: void = undefined;
@@ -83,49 +96,34 @@ export function createEditorPagePosition(editorViewDomNode: HTMLElement): Editor
 	return new EditorPagePosition(editorPos.left, editorPos.top, editorPos.width, editorPos.height);
 }
 
+/**
+ * createCoordinatesRelativeToEditor - Normalizes raw page coordinates to editor-local space.
+ * 
+ * Algorithm: Scale-aware coordinate translation.
+ * Logic: Computes the effective X/Y scaling factor by comparing the bounding 
+ * client rect (physical pixels) against offset dimensions (layout pixels), 
+ * then applies the inverse transformation to the delta.
+ */
 export function createCoordinatesRelativeToEditor(editorViewDomNode: HTMLElement, editorPagePosition: EditorPagePosition, pos: PageCoordinates) {
-	// The editor's page position is read from the DOM using getBoundingClientRect().
-	//
-	// getBoundingClientRect() returns the actual dimensions, while offsetWidth and offsetHeight
-	// reflect the unscaled size. We can use this difference to detect a transform:scale()
-	// and we will apply the transformation in inverse to get mouse coordinates that make sense inside the editor.
-	//
-	// This could be expanded to cover rotation as well maybe by walking the DOM up from `editorViewDomNode`
-	// and computing the effective transformation matrix using getComputedStyle(element).transform.
-	//
 	const scaleX = editorPagePosition.width / editorViewDomNode.offsetWidth;
 	const scaleY = editorPagePosition.height / editorViewDomNode.offsetHeight;
 
-	// Adjust mouse offsets if editor appears to be scaled via transforms
+	// Invariant: Returns coordinates that map correctly to the editor's internal buffer even if the UI is zoomed or scaled.
 	const relativeX = (pos.x - editorPagePosition.x) / scaleX;
 	const relativeY = (pos.y - editorPagePosition.y) / scaleY;
 	return new CoordinatesRelativeToEditor(relativeX, relativeY);
 }
 
+/**
+ * @class EditorMouseEvent
+ * @brief Specialized mouse event wrapper containing multi-coordinate context.
+ */
 export class EditorMouseEvent extends StandardMouseEvent {
 	_editorMouseEventBrand: void = undefined;
 
-	/**
-	 * If the event is a result of using `setPointerCapture`, the `event.target`
-	 * does not necessarily reflect the position in the editor.
-	 */
 	public readonly isFromPointerCapture: boolean;
-
-	/**
-	 * Coordinates relative to the whole document.
-	 */
 	public readonly pos: PageCoordinates;
-
-	/**
-	 * Editor's coordinates relative to the whole document.
-	 */
 	public readonly editorPos: EditorPagePosition;
-
-	/**
-	 * Coordinates relative to the (top;left) of the editor.
-	 * *NOTE*: These coordinates are preferred because they take into account transformations applied to the editor.
-	 * *NOTE*: These coordinates could be negative if the mouse position is outside the editor.
-	 */
 	public readonly relativePos: CoordinatesRelativeToEditor;
 
 	constructor(e: MouseEvent, isFromPointerCapture: boolean, editorViewDomNode: HTMLElement) {
@@ -137,6 +135,10 @@ export class EditorMouseEvent extends StandardMouseEvent {
 	}
 }
 
+/**
+ * @class EditorMouseEventFactory
+ * @brief Convenience builder for binding DOM events to EditorMouseEvent handlers.
+ */
 export class EditorMouseEventFactory {
 
 	private readonly _editorViewDomNode: HTMLElement;
@@ -219,6 +221,13 @@ export class EditorPointerEventFactory {
 	}
 }
 
+/**
+ * @class GlobalEditorPointerMoveMonitor
+ * @brief Orchestrates document-level pointer tracking with cancellation logic.
+ * 
+ * Logic: Tracks movement across the entire document until a keypress or release 
+ * occurs. Blocks non-modifier keys to prevent state conflicts during drag operations.
+ */
 export class GlobalEditorPointerMoveMonitor extends Disposable {
 
 	private readonly _editorViewDomNode: HTMLElement;
@@ -240,12 +249,11 @@ export class GlobalEditorPointerMoveMonitor extends Disposable {
 		onStopCallback: (browserEvent?: PointerEvent | KeyboardEvent) => void
 	): void {
 
-		// Add a <<capture>> keydown event listener that will cancel the monitoring
-		// if something other than a modifier key is pressed
+		// Block Logic: Cancellation guard.
+		// Invariant: Terminate monitoring if any non-modifier key is pressed.
 		this._keydownListener = dom.addStandardDisposableListener(<any>initialElement.ownerDocument, 'keydown', (e) => {
 			const chord = e.toKeyCodeChord();
 			if (chord.isModifierKey()) {
-				// Allow modifier keys
 				return;
 			}
 			this._globalPointerMoveMonitor.stopMonitoring(true, e.browserEvent);
@@ -272,22 +280,28 @@ export class GlobalEditorPointerMoveMonitor extends Disposable {
 
 
 /**
- * A helper to create dynamic css rules, bound to a class name.
- * Rules are reused.
- * Reference counting and delayed garbage collection ensure that no rules leak.
-*/
+ * @class DynamicCssRules
+ * @brief Reference-counted manager for dynamically generated CSS classes.
+ * 
+ * Functional Intent: Minimizes stylesheet updates by caching and reusing 
+ * rules with identical properties. Implements a delayed garbage collection 
+ * cycle to avoid performance jitter during rapid decoration changes.
+ */
 export class DynamicCssRules {
 	private static _idPool = 0;
 	private readonly _instanceId = ++DynamicCssRules._idPool;
 	private _counter = 0;
 	private readonly _rules = new Map<string, RefCountedCssRule>();
 
-	// We delay garbage collection so that hanging rules can be reused.
+	// Logic: Debounced cleanup to allow rule reuse within a 1000ms window.
 	private readonly _garbageCollectionScheduler = new RunOnceScheduler(() => this.garbageCollect(), 1000);
 
 	constructor(private readonly _editor: ICodeEditor) {
 	}
 
+	/**
+	 * createClassNameRef - Requests a CSS class for a set of properties.
+	 */
 	public createClassNameRef(options: CssProperties): ClassNameReference {
 		const rule = this.getOrCreateRule(options);
 		rule.increaseRefCount();
@@ -295,6 +309,7 @@ export class DynamicCssRules {
 		return {
 			className: rule.className,
 			dispose: () => {
+				// Functional Utility: Automatic cleanup when the consumer is disposed.
 				rule.decreaseRefCount();
 				this._garbageCollectionScheduler.schedule();
 			}
@@ -322,6 +337,10 @@ export class DynamicCssRules {
 	}
 
 	private garbageCollect() {
+		/**
+		 * Block Logic: Rule eviction sweep.
+		 * Invariant: Deletes only rules that have zero active consumers.
+		 */
 		for (const rule of this._rules.values()) {
 			if (!rule.hasReferences()) {
 				this._rules.delete(rule.key);
@@ -357,6 +376,10 @@ export interface CssProperties {
 	display?: string;
 }
 
+/**
+ * @class RefCountedCssRule
+ * @brief Encapsulates a single CSS rule with lifecycle tracking.
+ */
 class RefCountedCssRule {
 	private _referenceCount: number = 0;
 	private _styleElement: HTMLStyleElement | undefined;
@@ -373,11 +396,15 @@ class RefCountedCssRule {
 		this._styleElement.textContent = this.getCssText(this.className, this.properties);
 	}
 
+	/**
+	 * getCssText - Serializes TS properties into valid CSS text.
+	 */
 	private getCssText(className: string, properties: CssProperties): string {
 		let str = `.${className} {`;
 		for (const prop in properties) {
 			const value = (properties as any)[prop] as string | ThemeColor;
 			let cssValue;
+			// Logic: Resolve ThemeColor references to CSS variables.
 			if (typeof value === 'object') {
 				cssValue = asCssVariable(value.id);
 			} else {
@@ -409,6 +436,9 @@ class RefCountedCssRule {
 	}
 }
 
+/**
+ * camelToDashes - Converts JS property names to CSS standard kebab-case.
+ */
 function camelToDashes(str: string): string {
 	return str.replace(/(^[A-Z])/, ([first]) => first.toLowerCase())
 		.replace(/([A-Z])/g, ([letter]) => `-${letter.toLowerCase()}`);

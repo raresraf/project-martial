@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file instances.go
+ * @brief EC2 instance identifier resolution and lifecycle caching for AWS cloud provider.
+ * 
+ * Functional Intent: Manages the mapping between Kubernetes Node objects and 
+ * native AWS EC2 instances. It handles identifier parsing from ProviderID URIs 
+ * and implements a thread-safe snapshot-based cache for 'DescribeInstances' 
+ * metadata to reduce API latency and throttle impact.
+ * 
+ * Domain: Production Systems, Cloud Infrastructure, Cache Consistency.
+ */
+
 package aws
 
 import (
@@ -30,34 +42,38 @@ import (
 	"time"
 )
 
-// awsInstanceRegMatch represents Regex Match for AWS instance.
+// awsInstanceRegMatch - Regex for validating EC2 instance IDs (i-*).
 var awsInstanceRegMatch = regexp.MustCompile("^i-[^/]*$")
 
-// awsInstanceID represents the ID of the instance in the AWS API, e.g. i-12345678
-// The "traditional" format is "i-12345678"
-// A new longer format is also being introduced: "i-12345678abcdef01"
-// We should not assume anything about the length or format, though it seems
-// reasonable to assume that instances will continue to start with "i-".
+/**
+ * @type awsInstanceID
+ * @brief Strong type for native AWS instance identifiers.
+ */
 type awsInstanceID string
 
 func (i awsInstanceID) awsString() *string {
 	return aws.String(string(i))
 }
 
-// kubernetesInstanceID represents the id for an instance in the kubernetes API;
-// the following form
-//  * aws:///<zone>/<awsInstanceId>
-//  * aws:////<awsInstanceId>
-//  * <awsInstanceId>
+/**
+ * @type kubernetesInstanceID
+ * @brief Identifier as stored in Kubernetes Node Spec (ProviderID).
+ */
 type kubernetesInstanceID string
 
-// mapToAWSInstanceID extracts the awsInstanceID from the kubernetesInstanceID
+/**
+ * mapToAWSInstanceID - Normalizes Kubernetes ProviderIDs to AWS instance strings.
+ * 
+ * Algorithm: URI tokenization and sanitization.
+ * 1. Coerces input into a standard URI scheme if missing.
+ * 2. Parses path tokens to resolve optional AZ prefix (e.g. /us-east-1a/i-123).
+ * 3. Validates the extracted ID against known EC2 naming patterns.
+ */
 func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 	s := string(name)
 
+	// Block Logic: URI Normalization.
 	if !strings.HasPrefix(s, "aws://") {
-		// Assume a bare aws volume id (vol-1234...)
-		// Build a URL with an empty host (AZ)
 		s = "aws://" + "/" + "/" + s
 	}
 	url, err := url.Parse(s)
@@ -68,18 +84,16 @@ func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 		return "", fmt.Errorf("Invalid scheme for AWS instance (%s)", name)
 	}
 
+	// Block Logic: Token extraction.
 	awsID := ""
 	tokens := strings.Split(strings.Trim(url.Path, "/"), "/")
 	if len(tokens) == 1 {
-		// instanceId
 		awsID = tokens[0]
 	} else if len(tokens) == 2 {
-		// az/instanceId
 		awsID = tokens[1]
 	}
 
-	// We sanity check the resulting volume; the two known formats are
-	// i-12345678 and i-12345678abcdef01
+	// Invariant: Result must be a valid non-empty EC2 instance ID.
 	if awsID == "" || !awsInstanceRegMatch.MatchString(awsID) {
 		return "", fmt.Errorf("Invalid format for AWS instance (%s)", name)
 	}
@@ -87,7 +101,9 @@ func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 	return awsInstanceID(awsID), nil
 }
 
-// mapToAWSInstanceID extracts the awsInstanceIDs from the Nodes, returning an error if a Node cannot be mapped
+/**
+ * mapToAWSInstanceIDs - Batch conversion of Nodes to AWS IDs with strict error handling.
+ */
 func mapToAWSInstanceIDs(nodes []*v1.Node) ([]awsInstanceID, error) {
 	var instanceIDs []awsInstanceID
 	for _, node := range nodes {
@@ -104,7 +120,9 @@ func mapToAWSInstanceIDs(nodes []*v1.Node) ([]awsInstanceID, error) {
 	return instanceIDs, nil
 }
 
-// mapToAWSInstanceIDsTolerant extracts the awsInstanceIDs from the Nodes, skipping Nodes that cannot be mapped
+/**
+ * mapToAWSInstanceIDsTolerant - Batch conversion that skips nodes with invalid ProviderIDs.
+ */
 func mapToAWSInstanceIDsTolerant(nodes []*v1.Node) []awsInstanceID {
 	var instanceIDs []awsInstanceID
 	for _, node := range nodes {
@@ -123,7 +141,9 @@ func mapToAWSInstanceIDsTolerant(nodes []*v1.Node) []awsInstanceID {
 	return instanceIDs
 }
 
-// Gets the full information about this instance from the EC2 API
+/**
+ * describeInstance - Synchronous high-level wrapper for EC2 DescribeInstances API.
+ */
 func describeInstance(ec2Client EC2, instanceID awsInstanceID) (*ec2.Instance, error) {
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{instanceID.awsString()},
@@ -142,16 +162,23 @@ func describeInstance(ec2Client EC2, instanceID awsInstanceID) (*ec2.Instance, e
 	return instances[0], nil
 }
 
-// instanceCache manages the cache of DescribeInstances
+/**
+ * @struct instanceCache
+ * @brief Thread-safe manager for EC2 metadata snapshots.
+ * 
+ * Logic: Employs a mutex-protected snapshot to avoid race conditions during 
+ * concurrent cache refreshes.
+ */
 type instanceCache struct {
-	// TODO: Get rid of this field, send all calls through the instanceCache
 	cloud *Cloud
 
 	mutex    sync.Mutex
 	snapshot *allInstancesSnapshot
 }
 
-// Gets the full information about these instance from the EC2 API
+/**
+ * describeAllInstancesUncached - Performs a full sweep of the AWS region to refresh the cache.
+ */
 func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, error) {
 	now := time.Now()
 
@@ -174,8 +201,8 @@ func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, e
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	// Logic: Implements a "newest-wins" policy for concurrent cache updates.
 	if c.snapshot != nil && snapshot.olderThan(c.snapshot) {
-		// If this happens a lot, we could run this function in a mutex and only return one result
 		glog.Infof("Not caching concurrent AWS DescribeInstances results")
 	} else {
 		c.snapshot = snapshot
@@ -184,18 +211,24 @@ func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, e
 	return snapshot, nil
 }
 
-// cacheCriteria holds criteria that must hold to use a cached snapshot
+/**
+ * @struct cacheCriteria
+ * @brief Policies for determining the validity of a cached metadata snapshot.
+ */
 type cacheCriteria struct {
-	// MaxAge indicates the maximum age of a cached snapshot we can accept.
-	// If set to 0 (i.e. unset), cached values will not time out because of age.
+	// MaxAge - Maximum allowed time delta since snapshot creation.
 	MaxAge time.Duration
 
-	// HasInstances is a list of awsInstanceIDs that must be in a cached snapshot for it to be considered valid.
-	// If an instance is not found in the cached snapshot, the snapshot be ignored and we will re-fetch.
+	// HasInstances - Mandatory set of IDs that MUST exist in the snapshot to avoid a forced refresh.
 	HasInstances []awsInstanceID
 }
 
-// describeAllInstancesCached returns all instances, using cached results if applicable
+/**
+ * describeAllInstancesCached - Retrieves metadata using criteria-aware caching.
+ * 
+ * Logic: Validates the existing snapshot against age and member constraints 
+ * before deciding whether to trigger a heavy API call.
+ */
 func (c *instanceCache) describeAllInstancesCached(criteria cacheCriteria) (*allInstancesSnapshot, error) {
 	var err error
 	snapshot := c.getSnapshot()
@@ -204,6 +237,7 @@ func (c *instanceCache) describeAllInstancesCached(criteria cacheCriteria) (*all
 	}
 
 	if snapshot == nil {
+		// Logic: Forced refresh on cache miss or invalidation.
 		snapshot, err = c.describeAllInstancesUncached()
 		if err != nil {
 			return nil, err
@@ -215,7 +249,6 @@ func (c *instanceCache) describeAllInstancesCached(criteria cacheCriteria) (*all
 	return snapshot, nil
 }
 
-// getSnapshot returns a snapshot if one exists
 func (c *instanceCache) getSnapshot() *allInstancesSnapshot {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -223,16 +256,17 @@ func (c *instanceCache) getSnapshot() *allInstancesSnapshot {
 	return c.snapshot
 }
 
-// olderThan is a simple helper to encapsulate timestamp comparison
 func (s *allInstancesSnapshot) olderThan(other *allInstancesSnapshot) bool {
-	// After() is technically broken by time changes until we have monotonic time
 	return other.timestamp.After(s.timestamp)
 }
 
-// MeetsCriteria returns true if the snapshot meets the criteria in cacheCriteria
+/**
+ * MeetsCriteria - Evaluates snapshot validity against operational constraints.
+ * 
+ * Invariant: Returns false if the snapshot is expired or missing required data points.
+ */
 func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
 	if criteria.MaxAge > 0 {
-		// Sub() is technically broken by time changes until we have monotonic time
 		now := time.Now()
 		if now.Sub(s.timestamp) > criteria.MaxAge {
 			glog.V(6).Infof("instanceCache snapshot cannot be used as is older than MaxAge=%s", criteria.MaxAge)
@@ -240,6 +274,8 @@ func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
 		}
 	}
 
+	// Block Logic: Membership check.
+	// Logic: Prevents stale reads for newly created nodes by ensuring they exist in the snapshot.
 	if len(criteria.HasInstances) != 0 {
 		for _, id := range criteria.HasInstances {
 			if nil == s.instances[id] {
@@ -252,14 +288,18 @@ func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
 	return true
 }
 
-// allInstancesSnapshot holds the results from querying for all instances,
-// along with the timestamp for cache-invalidation purposes
+/**
+ * @struct allInstancesSnapshot
+ * @brief Immutable (point-in-time) map of AWS instance metadata.
+ */
 type allInstancesSnapshot struct {
 	timestamp time.Time
 	instances map[awsInstanceID]*ec2.Instance
 }
 
-// FindInstances returns the instances corresponding to the specified ids.  If an id is not found, it is ignored.
+/**
+ * FindInstances - Batch lookup of metadata from the snapshot.
+ */
 func (s *allInstancesSnapshot) FindInstances(ids []awsInstanceID) map[awsInstanceID]*ec2.Instance {
 	m := make(map[awsInstanceID]*ec2.Instance)
 	for _, id := range ids {

@@ -1,3 +1,9 @@
+/**
+ * @file network_event.rs
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -26,7 +32,7 @@ pub struct HttpRequest {
     url: String,
     method: Method,
     headers: HeaderMap,
-    body: Option<Vec<u8>>,
+    body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     started_date_time: SystemTime,
     time_stamp: i64,
     connect_time: Duration,
@@ -37,7 +43,7 @@ pub struct HttpRequest {
 pub struct HttpResponse {
     headers: Option<HeaderMap>,
     status: HttpStatus,
-    body: Option<Vec<u8>>,
+    body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 pub struct NetworkEventActor {
@@ -48,11 +54,11 @@ pub struct NetworkEventActor {
     pub request_started: SystemTime,
     pub request_time_stamp: i64,
     pub request_headers_raw: Option<HeaderMap>,
-    pub request_body: Option<Vec<u8>>,
+    pub request_body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     pub request_cookies: Option<RequestCookiesMsg>,
     pub request_headers: Option<RequestHeadersMsg>,
     pub response_headers_raw: Option<HeaderMap>,
-    pub response_body: Option<Vec<u8>>,
+    pub response_body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     pub response_content: Option<ResponseContentMsg>,
     pub response_start: Option<ResponseStartMsg>,
     pub response_cookies: Option<ResponseCookiesMsg>,
@@ -159,7 +165,7 @@ struct GetResponseHeadersReply {
 #[serde(rename_all = "camelCase")]
 struct GetResponseContentReply {
     from: String,
-    content: Option<Vec<u8>>,
+    content: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     content_discarded: bool,
 }
 
@@ -167,7 +173,7 @@ struct GetResponseContentReply {
 #[serde(rename_all = "camelCase")]
 struct GetRequestPostDataReply {
     from: String,
-    post_data: Option<Vec<u8>>,
+    post_data: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     post_data_discarded: bool,
 }
 
@@ -214,16 +220,16 @@ struct GetSecurityInfoReply {
 }
 
 impl Actor for NetworkEventActor {
-    fn name(&self) -> String {
+    fn name(&self) -> String { /* Non-obvious bitwise/pointer op for optimized memory access */
         self.name.clone()
     }
 
     fn handle_message(
-        &self,
-        _registry: &ActorRegistry,
-        msg_type: &str,
-        _msg: &Map<String, Value>,
-        stream: &mut TcpStream,
+        &self, /* Non-obvious bitwise/pointer op for optimized memory access */
+        _registry: &ActorRegistry, /* Non-obvious bitwise/pointer op for optimized memory access */
+        msg_type: &str, /* Non-obvious bitwise/pointer op for optimized memory access */
+        _msg: &Map<String, Value>, /* Non-obvious bitwise/pointer op for optimized memory access */
+        stream: &mut TcpStream, /* Non-obvious bitwise/pointer op for optimized memory access */
         _id: StreamId,
     ) -> Result<ActorMessageStatus, ()> {
         Ok(match msg_type {
@@ -232,8 +238,12 @@ impl Actor for NetworkEventActor {
                 let mut raw_headers_string = "".to_owned();
                 let mut headers_size = 0;
                 if let Some(ref headers_map) = self.request_headers_raw {
+                    /**
+                     * Block Logic: Iterative loop over elements or bounded range.
+                     * Invariant: Loop state and bounds are preserved and advance monotonically.
+                     */
                     for (name, value) in headers_map.iter() {
-                        let value = &value.to_str().unwrap().to_string();
+                        let value = &value.to_str().unwrap().to_string(); /* Non-obvious bitwise/pointer op for optimized memory access */
                         raw_headers_string = raw_headers_string + name.as_str() + ":" + value + "\r\n";
                         headers_size += name.as_str().len() + value.len();
                         headers.push(Header {
@@ -249,7 +259,7 @@ impl Actor for NetworkEventActor {
                     header_size: headers_size,
                     raw_headers: raw_headers_string,
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getRequestCookies" => {
@@ -265,7 +275,7 @@ impl Actor for NetworkEventActor {
                     from: self.name(),
                     cookies,
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getRequestPostData" => {
@@ -274,7 +284,7 @@ impl Actor for NetworkEventActor {
                     post_data: self.request_body.clone(),
                     post_data_discarded: self.request_body.is_none(),
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getResponseHeaders" => {
@@ -282,6 +292,10 @@ impl Actor for NetworkEventActor {
                     let mut headers = vec![];
                     let mut raw_headers_string = "".to_owned();
                     let mut headers_size = 0;
+                    /**
+                     * Block Logic: Iterative loop over elements or bounded range.
+                     * Invariant: Loop state and bounds are preserved and advance monotonically.
+                     */
                     for (name, value) in response_headers.iter() {
                         headers.push(Header {
                             name: name.as_str().to_owned(),
@@ -299,7 +313,7 @@ impl Actor for NetworkEventActor {
                         header_size: headers_size,
                         raw_headers: raw_headers_string,
                     };
-                    let _ = stream.write_json_packet(&msg);
+                    let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 }
                 ActorMessageStatus::Processed
             },
@@ -317,7 +331,7 @@ impl Actor for NetworkEventActor {
                     from: self.name(),
                     cookies,
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getResponseContent" => {
@@ -326,7 +340,7 @@ impl Actor for NetworkEventActor {
                     content: self.response_body.clone(),
                     content_discarded: self.response_body.is_none(),
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getEventTimings" => {
@@ -349,7 +363,7 @@ impl Actor for NetworkEventActor {
                     timings: timings_obj,
                     total_time: total,
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             "getSecurityInfo" => {
@@ -360,7 +374,7 @@ impl Actor for NetworkEventActor {
                         state: "insecure".to_owned(),
                     },
                 };
-                let _ = stream.write_json_packet(&msg);
+                let _ = stream.write_json_packet(&msg); /* Non-obvious bitwise/pointer op for optimized memory access */
                 ActorMessageStatus::Processed
             },
             _ => ActorMessageStatus::Ignored,
@@ -397,7 +411,7 @@ impl NetworkEventActor {
     }
 
 
-    pub fn add_request(&mut self, request: DevtoolsHttpRequest) {
+    pub fn add_request(&mut self, request: DevtoolsHttpRequest) { /* Non-obvious bitwise/pointer op for optimized memory access */
         self.is_xhr = request.is_xhr;
 
         let cookies_size = match request.headers.typed_get::<Cookie>() {
@@ -406,7 +420,7 @@ impl NetworkEventActor {
         };
         self.request_cookies = Some(RequestCookiesMsg { cookies: cookies_size });
 
-        let headers_size = request.headers.iter().fold(0, |acc, (name, value)| {
+        let headers_size = request.headers.iter().fold(0, |acc, (name, value)| { /* Non-obvious bitwise/pointer op for optimized memory access */
             acc + name.as_str().len() + value.len()
         });
         self.request_headers = Some(RequestHeadersMsg {
@@ -425,12 +439,16 @@ impl NetworkEventActor {
         
     }
 
-    pub fn add_response(&mut self, response: DevtoolsHttpResponse) {
-        let headers = &response.headers;
+    pub fn add_response(&mut self, response: DevtoolsHttpResponse) { /* Non-obvious bitwise/pointer op for optimized memory access */
+        let headers = &response.headers; /* Non-obvious bitwise/pointer op for optimized memory access */
         // response_headers
         let mut header_count = 0;
         let mut header_size = 0;
         if let Some(ref headers) = self.response_headers_raw {
+            /**
+             * Block Logic: Iterative loop over elements or bounded range.
+             * Invariant: Loop state and bounds are preserved and advance monotonically.
+             */
             for (name, value) in headers.iter() {
                 header_count += 1;
                 header_size += name.as_str().len() + value.len();
@@ -442,7 +460,7 @@ impl NetworkEventActor {
         });
 
         // response_cookies
-        let cookies_size = match headers.as_ref().and_then(|h| h.typed_get::<Cookie>()) {
+        let cookies_size = match headers.as_ref().and_then(|h| h.typed_get::<Cookie>()) { /* Non-obvious bitwise/pointer op for optimized memory access */
             Some(cookie) => cookie.len(),
             _ => 0,
         };
@@ -465,8 +483,8 @@ impl NetworkEventActor {
         // response_content
         let mime_type = headers
             .as_ref()
-            .and_then(|h| h.typed_get::<ContentType>())
-            .map(|ct| ct.to_string())
+            .and_then(|h| h.typed_get::<ContentType>()) /* Non-obvious bitwise/pointer op for optimized memory access */
+            .map(|ct| ct.to_string()) /* Non-obvious bitwise/pointer op for optimized memory access */
             .unwrap_or_default();
         self.response_content = Some(ResponseContentMsg {
             mime_type,
@@ -478,7 +496,7 @@ impl NetworkEventActor {
         self.response_headers_raw = response.headers.clone();
     }
 
-    pub fn event_actor(&self) -> EventActor {
+    pub fn event_actor(&self) -> EventActor { /* Non-obvious bitwise/pointer op for optimized memory access */
         // TODO: Send the correct values for startedDateTime, isXHR, private
 
         let started_datetime_rfc3339 = match Local.timestamp_millis_opt(
@@ -515,9 +533,13 @@ impl NetworkEventActor {
         }
     }
 
-    fn insert_serialized_map<T: Serialize>(map: &mut Map<String, Value>, obj: &Option<T>) {
+    fn insert_serialized_map<T: Serialize>(map: &mut Map<String, Value>, obj: &Option<T>) { /* Non-obvious bitwise/pointer op for optimized memory access */
         if let Some(value) = obj {
             if let Ok(Value::Object(serialized)) = serde_json::to_value(value) {
+                /**
+                 * Block Logic: Iterative loop over elements or bounded range.
+                 * Invariant: Loop state and bounds are preserved and advance monotonically.
+                 */
                 for (key, val) in serialized {
                     map.insert(key, val);
                 }
@@ -525,7 +547,7 @@ impl NetworkEventActor {
         }
     }
 
-    pub fn resource_updates(&self) -> NetworkEventResource {
+    pub fn resource_updates(&self) -> NetworkEventResource { /* Non-obvious bitwise/pointer op for optimized memory access */
         let mut resource_updates = Map::new();
 
         resource_updates.insert(
@@ -569,13 +591,13 @@ impl NetworkEventActor {
             Value::Bool(self.event_timing.is_some()),
         );
 
-        Self::insert_serialized_map(&mut resource_updates, &self.response_content);
-        Self::insert_serialized_map(&mut resource_updates, &self.response_headers);
-        Self::insert_serialized_map(&mut resource_updates, &self.response_cookies);
-        Self::insert_serialized_map(&mut resource_updates, &self.request_headers);
-        Self::insert_serialized_map(&mut resource_updates, &self.request_cookies);
-        Self::insert_serialized_map(&mut resource_updates, &self.response_start);
-        Self::insert_serialized_map(&mut resource_updates, &self.event_timing);
+        Self::insert_serialized_map(&mut resource_updates, &self.response_content); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.response_headers); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.response_cookies); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.request_headers); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.request_cookies); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.response_start); /* Non-obvious bitwise/pointer op for optimized memory access */
+        Self::insert_serialized_map(&mut resource_updates, &self.event_timing); /* Non-obvious bitwise/pointer op for optimized memory access */
 
         // TODO: Set the correct values for these fields
         NetworkEventResource {

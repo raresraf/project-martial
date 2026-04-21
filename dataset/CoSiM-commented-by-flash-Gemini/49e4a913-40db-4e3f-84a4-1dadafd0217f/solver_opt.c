@@ -1,11 +1,36 @@
 
 #include "utils.h"
 
-double* my_solver(int N, double *A, double* B) {
+/**
+ * @file solver_opt.c
+ * @brief Manually optimized matrix solver implementation using pre-transposition and pointer arithmetic.
+ * 
+ * Functional Intent: Computes the resulting matrix for the expression:
+ * Result = (A^T * A) + (A * B) * B^T
+ * where A is an upper triangular matrix.
+ * 
+ * Performance Optimization: Employs several manual C tuning strategies:
+ * 1. Explicit Pre-transposition: Pre-computes A^T and B^T to convert strided 
+ *    column access into sequential row-major increments, maximizing spatial 
+ *    locality and cache hit rates.
+ * 2. Pointer Arithmetic: Replaces array indexing with direct increments 
+ *    (A_line++, B_t_col += N) to reduce instruction latency.
+ * 3. Register Caching: Caches frequently used row base pointers and 
+ *    accumulators in CPU registers.
+ * 4. Triangular Property Awareness: Minimizes work by restricting ranges 
+ *    for products involving triangular matrix A.
+ * 
+ * Domain: HPC, Linear Algebra, Manual Performance Tuning.
+ */
+
+/**
+ * my_solver - Optimized matrix solver with cache-aware traversal and register hints.
+ */
+double* my_solver(int N, double *A, double *B) {
 	double * C, *AB, *ABB_t, *A_t, *B_t;
 	int i, j, k;
 
-	
+	// Logic: Workspace allocation for partial products and transposed operands.
 	A_t = calloc(N * N, sizeof(double));
 	if(A_t == NULL)
 		printf("Probleme la alocarea memoriei\n");
@@ -22,7 +47,10 @@ double* my_solver(int N, double *A, double* B) {
 	if(ABB_t == NULL)
 		printf("Probleme la alocarea memoriei\n");
 
-	
+	/**
+	 * Block Logic: Pre-compute B_t = B^T.
+	 * Optimization: Sequential-to-Strided memory copy.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *B_t_col = B_t + i;
 		register double *B_line = B + i * N;
@@ -33,6 +61,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 	
+	/**
+	 * Block Logic: Pre-compute A_t = A^T.
+	 * Optimization: Sparse triangular copy.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *A_t_col = A_t + i * N + i;
 		register double *A_line = A + i * N;
@@ -42,6 +74,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 	
+	/**
+	 * Block Logic: Compute C = A^T * A.
+	 * Optimization: Uses pre-computed A_t to enable dual pointer dot products.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *C_line = C + i * N;
 		register double *A_t_line = A_t + i * N;
@@ -56,6 +92,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 	
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Optimization: Exploits upper triangularity of A by skipping k < i.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *AB_line = AB + i * N;
 		register double *A_line = A + i * N;
@@ -71,6 +111,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 	
+	/**
+	 * Block Logic: Compute ABB_t = AB * B^T.
+	 * Optimization: Leverages pre-computed B_t for cache-friendly sequential access.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *ABB_t_line = ABB_t + i * N;
 		register double *AB_line = AB + i * N;
@@ -86,7 +130,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Final aggregation C = C + ABB_t.
+	 * Optimization: Linear memory traversal for summation.
+	 */
 	for(i = 0; i < N; i++) {
 		register double *C_line = C + i * N;
 		register double *ABB_t_line = ABB_t + i * N;

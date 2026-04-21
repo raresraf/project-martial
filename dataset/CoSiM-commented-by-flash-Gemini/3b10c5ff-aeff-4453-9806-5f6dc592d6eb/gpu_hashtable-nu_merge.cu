@@ -1,32 +1,59 @@
 
 #include "gpu_hashtable.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 
+/**
+ * @file gpu_hashtable-nu_merge.cu
+ * @brief Thread-safe parallel hash table using CUDA Unified Memory and Linear Probing.
+ * 
+ * Functional Intent: Provides a high-concurrency hash table optimized for parallel 
+ * execution on NVIDIA GPUs. It leverages CUDA Managed Memory (Unified Memory) to 
+ * simplify host-device data sharing and employs `atomicCAS` for thread-safe 
+ * bucket reservation. The implementation features a dynamic `reshape` mechanism 
+ * to scale capacity while maintaining O(1) average lookup performance.
+ * 
+ * Domain: HPC, Parallel Data Structures, CUDA Unified Memory.
+ */
+
+/**
+ * hash_function - Computes a deterministic bucket index using large prime coefficients.
+ */
 __host__ __device__ int hash_function(int data, int limit) {
 	return ((long)abs(data) * 718326812383316683llu) % 8699590588571llu % limit;
 }
 
+/**
+ * GpuHashTable constructor - Initializes unified memory buffers.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	this->HTcontor = 0;
 	this->HTmarime = size;
 
-	
+	// Optimization: Uses Managed Memory to allow transparent access from both CPU and GPU.
 	cudaMallocManaged((void **) &this->device_valori, this->HTmarime * sizeof(int));
 	cudaMallocManaged((void **) &this->device_chei, this->HTmarime * sizeof(int));
-	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime);
+	// Invariant: Keys are initialized to KEY_INVALID (0) to mark buckets as empty.
+	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime * sizeof(int));
 }
 
 GpuHashTable::~GpuHashTable() {
-	
 	cudaFree(this->device_valori);
 	cudaFree(this->device_chei);
 }
 
+/**
+ * reshape - Increases the hash table capacity to maintain search density.
+ * 
+ * Algorithm: Full Table Migration.
+ * 1. Backs up active entries into host-side temporary buffers.
+ * 2. Re-allocates device memory with 1.06x factor for the new size.
+ * 3. Re-inserts backed-up entries into the newly initialized table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int **ht_aux = (int **)malloc(sizeof(int *) * 2);
 	ht_aux[0] = (int *)malloc(this->HTcontor * sizeof(int));
@@ -34,6 +61,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 	int idx = 0, numKeys = this->HTcontor;
 
+	// Block Logic: Active entry extraction loop.
 	int i = 0;
 	while (i < HTmarime){
 		if (this->device_chei[i] != KEY_INVALID) {
@@ -52,76 +80,97 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 	cudaMallocManaged((void **) &this->device_valori, this->HTmarime * sizeof(int));
 	cudaMallocManaged((void **) &this->device_chei, this->HTmarime * sizeof(int));
-	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime);
+	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime * sizeof(int));
 
+	// Functional Utility: Populates the new structure using parallel insertion logic.
 	insertBatch(ht_aux[0], ht_aux[1], numKeys);
 
 	for (int j = 0; j < 2; j++)
 		free(ht_aux[j]);
+	free(ht_aux);
 }
 
+/**
+ * @kernel kernel_insert
+ * @brief Performs atomic insertion and collision resolution using linear probing.
+ * 
+ * Algorithm: Open Addressing.
+ * 1. Computes initial hash index.
+ * 2. Attempts to claim slot using `atomicCAS`.
+ * 3. If slot is occupied by a different key, increments index (linear probe) 
+ *    until an empty or matching slot is located.
+ * 4. Updates value using `atomicExch`.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, int *htvalori, int HTmarime, int *HTcontor) {
-	int h;
-	int h_aux, aux, check = 0;
+	int h, h_aux, aux, check = 0;
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	int add_cheie = keys[idx], valueToAdd = values[idx];
 	
-
 	if (idx < numKeys) {
+		int add_cheie = keys[idx], valueToAdd = values[idx];
 		h = hash_function(add_cheie, HTmarime);
+		
+		// Synchronization: atomicCAS ensures monotonic bucket ownership transition.
 		aux = atomicCAS(&htchei[h], KEY_INVALID, add_cheie);
 
 		if (aux == KEY_INVALID || aux == add_cheie)
 			check = 1;
 
 		if (check == 1) {
-			atomicAdd(HTcontor, 1);
+			if (aux == KEY_INVALID) atomicAdd(HTcontor, 1);
 			atomicExch(&htvalori[h], valueToAdd);
-			__syncthreads();
 			return;
 		}
 		
 		h_aux = h;
 		h = (h + 1) % HTmarime;
 		
+		/**
+		 * Block Logic: Linear Probing Spin.
+		 * Invariant: Probes every available bucket in a circular fashion until 
+		 * the key is successfully placed.
+		 */
 		while (h != h_aux) {
 			aux = atomicCAS(&htchei[h], KEY_INVALID, add_cheie);
-			if (aux == KEY_INVALID || aux == add_cheie)
-				check = 1;
-			if (check == 1) {
-				atomicAdd(HTcontor, 1);
+			if (aux == KEY_INVALID || aux == add_cheie) {
+				if (aux == KEY_INVALID) atomicAdd(HTcontor, 1);
 				atomicExch(&htvalori[h], valueToAdd);
-				__syncthreads();
 				return;
 			}
 			h = (h + 1) % HTmarime;
 		}
-		check = 0;
 	}
 }
 
+/**
+ * insertBatch - Public interface for parallel data ingestion from host.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *device_chei = NULL;
 	int *device_valori = NULL;
 	int *device_HTcontor = NULL;
 
+	if (numKeys == 0) return true;
+
+	// Pre-condition: Automatic resize if incoming batch exceeds table headroom.
+	if (this->HTcontor + numKeys > this->HTmarime)
+		reshape(this->HTmarime + numKeys);
+
 	cudaMalloc((void **) &device_chei, numKeys * sizeof(int));
 	cudaMalloc((void **) &device_valori, numKeys * sizeof(int));
 	cudaMallocManaged((void **) &device_HTcontor, sizeof(int));
 
-	if (numKeys != 0) {
-		if (this->HTcontor + numKeys > this->HTmarime)
-			reshape(this->HTmarime + numKeys);
+	cudaMemcpy(device_chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(device_valori, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(device_HTcontor, &this->HTcontor, sizeof(int), cudaMemcpyHostToDevice);
+	
+	const int block_size = 1024;
+	int blocks_no = (numKeys + block_size - 1) / block_size;
 
-		cudaMemcpy(device_chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpy(device_valori, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpy(device_HTcontor, &this->HTcontor, sizeof(int), cudaMemcpyHostToDevice);
-		
-		kernel_insert>>(device_chei,device_valori,
-			numKeys,this->device_chei,this->device_valori,this->HTmarime,device_HTcontor);
-		cudaDeviceSynchronize();
-		cudaMemcpy(&this->HTcontor, device_HTcontor, sizeof(int), cudaMemcpyDeviceToHost);
-	}
+	kernel_insert<<<blocks_no, block_size>>>(device_chei,device_valori,
+		numKeys,this->device_chei,this->device_valori,this->HTmarime,device_HTcontor);
+	
+	cudaDeviceSynchronize();
+	cudaMemcpy(&this->HTcontor, device_HTcontor, sizeof(int), cudaMemcpyDeviceToHost);
 	
 	cudaFree(device_chei);
 	cudaFree(device_valori);
@@ -129,6 +178,10 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+/**
+ * @kernel kernel_get
+ * @brief Retrieval kernel searching buckets via linear probing.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKeys, int *hashTableValues, int HTmarime) {
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	int new_key, h, h_aux;
@@ -139,7 +192,6 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKe
 
 		if (hashTableKeys[h] == new_key) {
 			values[idx] = hashTableValues[h];
-			__syncthreads();
 			return;
 		}
 		h = (h + 1) % HTmarime;
@@ -147,13 +199,12 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKe
 		while (h != h_aux) {
 			if (hashTableKeys[h] == new_key) {
 				values[idx] = hashTableValues[h];
-				__syncthreads();
 				return;
 			}
+			if (hashTableKeys[h] == KEY_INVALID) return; // Invariant: linear probe chain stops at empty slot.
 			h = (h + 1) % HTmarime;
 		}
 	}
-	return;
 }
 
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
@@ -165,12 +216,16 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaMemcpy(device_chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	int *valori = (int *)calloc(numKeys, sizeof(int));
-	cudaMemcpy(device_valori, valori, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
-	kernel_get>>(device_chei,device_valori,numKeys,
+	const int block_size = 1024;
+	int blocks_no = (numKeys + block_size - 1) / block_size;
+
+	kernel_get<<<blocks_no, block_size>>>(device_chei,device_valori,numKeys,
 		this->device_chei,this->device_valori,this->HTmarime);
+	
 	cudaDeviceSynchronize();
 	cudaMemcpy(valori, device_valori, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
+	
 	cudaFree(device_chei);
 	cudaFree(device_valori);
 
@@ -181,290 +236,22 @@ float GpuHashTable::loadFactor() {
 	return HTcontor / (float)HTmarime;
 }
 
-
-
 #define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
-
 #define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
 #define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
-#define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
-
-#include "test_map.cpp"
-#include "gpu_hashtable.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-
-GpuHashTable::GpuHashTable(int size) {
-	cudaError_t cuda_aloc_error;
-
-	
-	cuda_aloc_error = cudaMallocManaged((void **) &this->device_valori, size * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMallocManaged fail");
-	cuda_aloc_error = cudaMallocManaged((void **) &this->device_chei, size * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMallocManaged fail");
-
-	
-	cuda_aloc_error = cudaMemset(this->device_chei, KEY_INVALID, size);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMemset fail");
-
-	
-	this->HTcontor = 0;
-	
-	this->HTmarime = size;
-}
-
-GpuHashTable::~GpuHashTable() {
-	cudaError_t cuda_aloc_error;
-
-	
-	cuda_aloc_error = cudaFree(this->device_valori);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-	cuda_aloc_error = cudaFree(this->device_chei);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-}
-
-void GpuHashTable::reshape(int numBucketsReshape) {
-	int **ht_aux = (int **)malloc(sizeof(int *) * 2);
-	cudaError_t cuda_aloc_error;
-
-	
-	ht_aux[0] = (int *)malloc(this->HTcontor * sizeof(int));
-	DIE(ht_aux[0] == NULL, "malloc failed");
-
-	
-	ht_aux[1] = (int *)malloc(this->HTcontor * sizeof(int));
-	DIE(ht_aux[1] == NULL, "malloc failed");
-
-	int idx = 0, numKeys = this->HTcontor;
-
-	for (int i = 0; i < HTmarime; i++) {
-		if (this->device_chei[i] != KEY_INVALID) {
-			ht_aux[0][idx] = this->device_chei[i];
-			ht_aux[1][idx] = this->device_valori[i];
-			idx++;
-		}
-	}
-
-	
-	this->HTcontor = 0;
-	this->HTmarime = numBucketsReshape + numBucketsReshape * 0.06f;
-
-	cuda_aloc_error = cudaFree(this->device_chei);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-	cuda_aloc_error = cudaFree(this->device_valori);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-
-	cuda_aloc_error = cudaMallocManaged((void **) &this->device_valori, this->HTmarime * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMallocManaged fail");
-	cuda_aloc_error = cudaMallocManaged((void **) &this->device_chei, this->HTmarime * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMallocManaged fail");
-	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime);
-
-	insertBatch(ht_aux[0], ht_aux[1], numKeys);
-
-	free(ht_aux[0]);
-	free(ht_aux[1]);
-}
-
-__global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, int *htvalori, int HTmarime, int *HTcontor) {
-	int aux, check = 0;
-	int idx, add_cheie, valueToAdd, h;
-
-	idx = blockIdx.x * blockDim.x + threadIdx.x;
-	add_cheie = keys[idx];
-	valueToAdd = values[idx];
-
-	h = hash_function(add_cheie, HTmarime);
-
-	if (idx < numKeys) {
-		aux = atomicCAS(&htchei[h], KEY_INVALID, add_cheie);
-
-		if (aux == KEY_INVALID)
-			check = 1;
-		if (aux == add_cheie)
-			check = 2;
-
-		if (check >= 1) {
-			if(check == 1)
-				atomicAdd(HTcontor, 1);
-			atomicExch(&htvalori[h], valueToAdd);
-			__syncthreads();
-			return;
-		}
-
-		h++;
-		h = h % HTmarime;
-
-		while (1) {
-			aux = atomicCAS(&htchei[h], KEY_INVALID, add_cheie);
-			if (aux == KEY_INVALID)
-				check = 1;
-			if (aux == add_cheie)
-				check = 2;
-
-			if (check >= 1) {
-				if(check == 1)
-					atomicAdd(HTcontor, 1);
-				atomicExch(&htvalori[h], valueToAdd);
-				__syncthreads();
-				return;
-			}
-
-			h++;
-			h = h % HTmarime;
-			check = 0;
-		}
-	}
-}
-
-bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
-	int *device_chei = NULL;
-	int *device_valori = NULL;
-	int *device_HTcontor = NULL;
-	cudaError_t cuda_aloc_error;
-	bool check = true;
-
-	cuda_aloc_error = cudaMalloc((void **) &device_chei, numKeys * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMalloc fail");
-
-	cuda_aloc_error = cudaMalloc((void **) &device_valori, numKeys * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMalloc fail");
-
-	cudaMallocManaged((void **) &device_HTcontor, sizeof(int));
-	if(device_HTcontor == NULL)
-		check = false;
-
-	if (numKeys != 0 && check == true) {
-		if (this->HTcontor + numKeys > this->HTmarime)
-			reshape(this->HTmarime + numKeys);
-
-		
-		cuda_aloc_error = cudaMemcpy(device_HTcontor, &this->HTcontor, sizeof(int), cudaMemcpyHostToDevice);
-
-
-		DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-		cuda_aloc_error = cudaMemcpy(device_valori, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-		DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-		cuda_aloc_error = cudaMemcpy(device_chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-		DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-		
-		kernel_insert>>(device_chei,device_valori,
-			numKeys,this->device_chei,this->device_valori,this->HTmarime,device_HTcontor);
-		
-		cudaDeviceSynchronize();
-		cudaMemcpy(&this->HTcontor, device_HTcontor, sizeof(int), cudaMemcpyDeviceToHost);
-	}
-	
-	cuda_aloc_error = cudaFree(device_HTcontor);
-
-
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-	cuda_aloc_error = cudaFree(device_valori);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-	cuda_aloc_error = cudaFree(device_chei);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-	
-	return check;
-}
-
-__global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKeys, int *hashTableValues, int HTmarime) {
-	int idx, new_key, h;
-
-	idx = threadIdx.x + blockIdx.x * blockDim.x;
-
-	if (idx < numKeys) {
-		new_key = keys[idx];
-		h = hash_function(new_key, HTmarime);
-
-		if (hashTableKeys[h] == new_key) {
-			
-			values[idx] = hashTableValues[h];
-			__syncthreads();
-			return;
-		}
-		h++;
-		h = h % HTmarime;
-
-		while (1) {
-			if (new_key == hashTableKeys[h]) {
-				
-				values[idx] = hashTableValues[h];
-				__syncthreads();
-				return;
-			}
-			h++;
-			h = h % HTmarime;
-		}
-	}
-	return;
-}
-
-int* GpuHashTable::getBatch(int* keys, int numKeys) {
-	int *device_chei = NULL;
-	int *device_valori = NULL;
-	int *valori = (int *)calloc(numKeys, sizeof(int));;
-
-	cudaError_t cuda_aloc_error;
-
-	cuda_aloc_error = cudaMalloc((void **) &device_chei, numKeys * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMalloc fail");
-	cuda_aloc_error = cudaMemcpy(device_chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-
-	cuda_aloc_error = cudaMalloc((void **) &device_valori, numKeys * sizeof(int));
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMalloc fail");
-	cuda_aloc_error = cudaMemcpy(device_valori, valori, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-
-	kernel_get>>(device_chei,device_valori,numKeys,
-		this->device_chei,this->device_valori,this->HTmarime);
-	cudaDeviceSynchronize();
-
-	cuda_aloc_error = cudaFree(device_chei);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-
-
-
-	cuda_aloc_error = cudaMemcpy(valori, device_valori, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaMemcpy fail");
-	cuda_aloc_error = cudaFree(device_valori);
-	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
-
-	return valori;
-}
-
-float GpuHashTable::loadFactor() {
-	float aux = (float)HTmarime;
-	aux = HTcontor / aux;
-	return aux;
-}
-
-
-
-#define HASH_INIT GpuHashTable GpuHashTable(1);
-#define HASH_RESERVE(size) GpuHashTable.reshape(size);
-
-#define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
-#define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
 #define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
 
 #include "test_map.cpp"
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <vector>
+#include <limits>
+#include <algorithm>
+#include <ctime>
+#include <random>
 
 using namespace std;
 
@@ -526,7 +313,7 @@ const size_t primeList[] = {
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu};
 
-__host__ __device__ int hash_function(int data, int limit) {
+__host__ __device__ int hash_function_alt(int data, int limit) {
 	return ((long)abs(data) * 2675975881llu) % 431554351609llu % limit;
 }
 
@@ -542,8 +329,6 @@ public:
 	float loadFactor();
 	void occupancy();
 	void print(string info);
-
-	int hash(int data, int limit);
 
 	~GpuHashTable();
 

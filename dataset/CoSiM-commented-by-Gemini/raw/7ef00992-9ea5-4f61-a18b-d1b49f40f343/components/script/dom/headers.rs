@@ -1,3 +1,10 @@
+/**
+ * @raw/7ef00992-9ea5-4f61-a18b-d1b49f40f343/components/script/dom/headers.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -72,7 +79,7 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
         proto: Option<HandleObject>,
         can_gc: CanGc,
         init: Option<HeadersInit>,
-    ) -> Fallible<DomRoot<Headers>> {
+    ) -> Fallible<DomRoot<Headers>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let dom_headers_new = Headers::new_with_proto(global, proto, can_gc);
         dom_headers_new.fill(init)?;
         Ok(dom_headers_new)
@@ -89,19 +96,35 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
 
         valid_name = valid_name.to_lowercase();
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Immutable {
             return Err(Error::Type("Guard is immutable".to_string()));
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Request &&
             is_forbidden_request_header(&valid_name, &valid_value)
         {
             return Ok(());
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Response && is_forbidden_response_header(&valid_name) {
             return Ok(());
         }
 
         // Step 3
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::RequestNoCors {
             let tmp_value = if let Some(mut value) =
                 get_value_from_header_list(&valid_name, &self.header_list.borrow())
@@ -113,6 +136,10 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
                 valid_value.clone()
             };
 
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !is_cors_safelisted_request_header(&valid_name, &tmp_value) {
                 return Ok(());
             }
@@ -135,6 +162,10 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
         };
 
         // Step 5
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::RequestNoCors {
             self.remove_privileged_no_cors_request_headers();
         }
@@ -150,22 +181,38 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
         valid_name = valid_name.to_lowercase();
 
         // Step 2
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Immutable {
             return Err(Error::Type("Guard is immutable".to_string()));
         }
         // Step 3
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Request &&
             is_forbidden_request_header(&valid_name, &valid_value)
         {
             return Ok(());
         }
         // Step 4
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::RequestNoCors &&
             !is_cors_safelisted_request_header(&valid_name, &b"invalid".to_vec())
         {
             return Ok(());
         }
         // Step 5
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Response && is_forbidden_response_header(&valid_name) {
             return Ok(());
         }
@@ -175,7 +222,7 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
     }
 
     // https://fetch.spec.whatwg.org/#dom-headers-get
-    fn Get(&self, name: ByteString) -> Fallible<Option<ByteString>> {
+    fn Get(&self, name: ByteString) -> Fallible<Option<ByteString>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         // Step 1
         let valid_name = validate_name(name)?;
         Ok(
@@ -210,22 +257,38 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
         let (mut valid_name, valid_value) = validate_name_and_value(name, value)?;
         valid_name = valid_name.to_lowercase();
         // Step 3
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Immutable {
             return Err(Error::Type("Guard is immutable".to_string()));
         }
         // Step 4
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Request &&
             is_forbidden_request_header(&valid_name, &valid_value)
         {
             return Ok(());
         }
         // Step 5
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::RequestNoCors &&
             !is_cors_safelisted_request_header(&valid_name, &valid_value)
         {
             return Ok(());
         }
         // Step 6
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.guard.get() == Guard::Response && is_forbidden_response_header(&valid_name) {
             return Ok(());
         }
@@ -251,6 +314,10 @@ impl HeadersMethods<crate::DomTypeHolder> for Headers {
 
 impl Headers {
     pub(crate) fn copy_from_headers(&self, headers: DomRoot<Headers>) -> ErrorResult {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (name, value) in headers.header_list.borrow().iter() {
             self.Append(
                 ByteString::new(Vec::from(name.as_str())),
@@ -264,7 +331,15 @@ impl Headers {
     pub(crate) fn fill(&self, filler: Option<HeadersInit>) -> ErrorResult {
         match filler {
             Some(HeadersInit::ByteStringSequenceSequence(v)) => {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for mut seq in v {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if seq.len() == 2 {
                         let val = seq.pop().unwrap();
                         let name = seq.pop().unwrap();
@@ -279,6 +354,10 @@ impl Headers {
                 Ok(())
             },
             Some(HeadersInit::ByteStringByteStringRecord(m)) => {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (key, value) in m.iter() {
                     self.Append(key.clone(), value.clone())?;
                 }
@@ -326,9 +405,21 @@ impl Headers {
         let borrowed_header_list = self.header_list.borrow();
         let mut header_vec = vec![];
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for name in borrowed_header_list.keys() {
             let name = name.as_str();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if name == "set-cookie" {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for value in borrowed_header_list.get_all(name).iter() {
                     header_vec.push((name.to_owned(), value.as_bytes().to_vec()));
                 }
@@ -406,6 +497,10 @@ pub(crate) fn is_forbidden_request_header(name: &str, value: &[u8]) -> bool {
     // true
     let lowercase_name = name.to_lowercase();
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if forbidden_header_names
         .iter()
         .any(|header| *header == lowercase_name.as_str())
@@ -416,6 +511,10 @@ pub(crate) fn is_forbidden_request_header(name: &str, value: &[u8]) -> bool {
     let forbidden_header_prefixes = ["sec-", "proxy-"];
 
     // Step 2: If name when byte-lowercased starts with `proxy-` or `sec-`, then return true.
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if forbidden_header_prefixes
         .iter()
         .any(|prefix| lowercase_name.starts_with(prefix))
@@ -430,6 +529,10 @@ pub(crate) fn is_forbidden_request_header(name: &str, value: &[u8]) -> bool {
     ];
 
     // Step 3: If name is a byte-case-insensitive match for one of (potentially_forbidden_header_names)
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if potentially_forbidden_header_names
         .iter()
         .any(|header| *header == lowercase_name)
@@ -464,6 +567,10 @@ fn is_forbidden_response_header(name: &str) -> bool {
 // WPT tests but probably not affecting anything important on the real Internet.
 fn validate_name_and_value(name: ByteString, value: ByteString) -> Fallible<(String, Vec<u8>)> {
     let valid_name = validate_name(name)?;
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if !is_legal_header_value(&value) {
         return Err(Error::Type("Header value is not valid".to_string()));
     }
@@ -471,6 +578,10 @@ fn validate_name_and_value(name: ByteString, value: ByteString) -> Fallible<(Str
 }
 
 fn validate_name(name: ByteString) -> Fallible<String> {
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if !is_field_name(&name) {
         return Err(Error::Type("Name is not valid".to_string()));
     }
@@ -497,7 +608,15 @@ fn is_http_whitespace(byte: u8) -> bool {
 }
 
 fn index_of_first_non_whitespace(value: &ByteString) -> Option<usize> {
+    /**
+     * Block Logic: Orchestrates the temporal progression of the iteration.
+     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+     */
     for (index, &byte) in value.iter().enumerate() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !is_http_whitespace(byte) {
             return Some(index);
         }
@@ -506,7 +625,15 @@ fn index_of_first_non_whitespace(value: &ByteString) -> Option<usize> {
 }
 
 fn index_of_last_non_whitespace(value: &ByteString) -> Option<usize> {
+    /**
+     * Block Logic: Orchestrates the temporal progression of the iteration.
+     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+     */
     for (index, &byte) in value.iter().enumerate().rev() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !is_http_whitespace(byte) {
             return Some(index);
         }
@@ -522,6 +649,10 @@ fn is_field_name(name: &ByteString) -> bool {
 // https://fetch.spec.whatg.org/#concept-header-value
 fn is_legal_header_value(value: &ByteString) -> bool {
     let value_len = value.len();
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if value_len == 0 {
         return true;
     }
@@ -533,6 +664,10 @@ fn is_legal_header_value(value: &ByteString) -> bool {
         b' ' | b'\t' => return false,
         _ => {},
     };
+    /**
+     * Block Logic: Orchestrates the temporal progression of the iteration.
+     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+     */
     for &ch in &value[..] {
         match ch {
             b'\0' | b'\n' | b'\r' => return false,

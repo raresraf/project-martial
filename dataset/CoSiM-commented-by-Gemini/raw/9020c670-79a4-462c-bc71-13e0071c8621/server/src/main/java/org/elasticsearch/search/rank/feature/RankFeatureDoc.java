@@ -1,3 +1,10 @@
+/**
+ * @raw/9020c670-79a4-462c-bc71-13e0071c8621/server/src/main/java/org/elasticsearch/search/rank/feature/RankFeatureDoc.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -37,6 +44,10 @@ public class RankFeatureDoc extends RankDoc {
 
     public RankFeatureDoc(StreamInput in) throws IOException {
         super(in);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             featureData = in.readOptionalStringCollectionAsList();
             docIndices = in.readOptionalCollectionAsList(StreamInput::readVInt);
@@ -61,6 +72,10 @@ public class RankFeatureDoc extends RankDoc {
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (out.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             out.writeOptionalStringCollection(featureData);
             out.writeOptionalCollection(docIndices, StreamOutput::writeVInt);

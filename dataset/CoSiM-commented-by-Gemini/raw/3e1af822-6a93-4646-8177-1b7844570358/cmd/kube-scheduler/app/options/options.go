@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @package options
+ * @brief Orchestrates the command-line options and configuration bootstrapping for the kube-scheduler.
+ * 
+ * Architectural Intent: Acts as the primary entry point for parsing and validating all parameters 
+ * required to initialize a functional Kubernetes Scheduler. It manages the lifecycle of the 
+ * `Options` object, which bridges CLI-driven flags and formal `KubeSchedulerConfiguration` schemas.
+ * 
+ * Production System Patterns:
+ * - Uses a multi-tiered configuration strategy (CLI flags, config files, and internal defaults).
+ * - Implements strict validation to ensure system integrity before execution.
+ * - Handles complex infrastructure concerns like Leader Election, Authentication, and Metrics.
+ */
 package options
 
 import (
@@ -49,7 +62,13 @@ import (
 	netutils "k8s.io/utils/net"
 )
 
-// Options has all the params needed to run a Scheduler
+/**
+ * @struct Options
+ * @brief Holds all the parameters needed to run a kube-scheduler.
+ * 
+ * Functional Utility: Encapsulates both the formal configuration struct and the transient CLI flags.
+ * It serves as a data container for the bootstrapping phase.
+ */
 type Options struct {
 	// The default values.
 	ComponentConfig *kubeschedulerconfig.KubeSchedulerConfiguration
@@ -74,7 +93,10 @@ type Options struct {
 	Flags *cliflag.NamedFlagSets
 }
 
-// NewOptions returns default scheduler app options.
+/**
+ * @brief NewOptions returns default scheduler app options.
+ * Logic: Initializes sub-option handlers for metrics, logs, and security with standard K8s defaults.
+ */
 func NewOptions() *Options {
 	o := &Options{
 		SecureServing:  apiserveroptions.NewSecureServingOptions().WithLoopback(),
@@ -110,7 +132,11 @@ func NewOptions() *Options {
 	return o
 }
 
-// ApplyDeprecated obtains the deprecated CLI args and set them to `o.ComponentConfig` if specified.
+/**
+ * @brief ApplyDeprecated obtains the deprecated CLI args and set them to `o.ComponentConfig` if specified.
+ * Pre-condition: Flags must be initialized and parsed.
+ * Invariant: ComponentConfig fields are overwritten only if the corresponding deprecated flag was explicitly changed.
+ */
 func (o *Options) ApplyDeprecated() {
 	if o.Flags == nil {
 		return
@@ -143,8 +169,10 @@ func (o *Options) ApplyDeprecated() {
 	}
 }
 
-// ApplyLeaderElectionTo obtains the CLI args related with leaderelection, and override the values in `cfg`.
-// Then the `cfg` object is injected into the `options` object.
+/**
+ * @brief ApplyLeaderElectionTo obtains the CLI args related with leaderelection, and override the values in `cfg`.
+ * Logic: Merges CLI-provided leader election settings into the primary configuration object.
+ */
 func (o *Options) ApplyLeaderElectionTo(cfg *kubeschedulerconfig.KubeSchedulerConfiguration) {
 	if o.Flags == nil {
 		return
@@ -176,7 +204,11 @@ func (o *Options) ApplyLeaderElectionTo(cfg *kubeschedulerconfig.KubeSchedulerCo
 	o.ComponentConfig = cfg
 }
 
-// initFlags initializes flags by section name.
+/**
+ * @brief initFlags initializes flags by section name.
+ * Functional Utility: Categorizes CLI flags into semantic groups (misc, secure serving, auth, etc.) 
+ * to improve user discoverability via --help.
+ */
 func (o *Options) initFlags() {
 	if o.Flags != nil {
 		return
@@ -200,8 +232,17 @@ func (o *Options) initFlags() {
 	o.Flags = &nfs
 }
 
-// ApplyTo applies the scheduler options to the given scheduler app configuration.
+/**
+ * @brief ApplyTo applies the scheduler options to the given scheduler app configuration.
+ * Pre-condition: Configuration must either be loaded from a file or derived from defaults/CLI flags.
+ * Logic: Merges options into the internal configuration struct used for runtime initialization.
+ */
 func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
+	/**
+	 * Block Logic: Config resolution strategy.
+	 * Invariant: If a config file is provided, it takes precedence over most CLI flags, 
+	 * but leader election flags still override the file content for deployment flexibility.
+	 */
 	if len(o.ConfigFile) == 0 {
 		// If the --config arg is not specified, honor the deprecated as well as leader election CLI args.
 		o.ApplyDeprecated()
@@ -243,7 +284,10 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 	return nil
 }
 
-// Validate validates all the required options.
+/**
+ * @brief Validate validates all the required options.
+ * Functional Utility: Performs structural and semantic validation on all sub-option groups.
+ */
 func (o *Options) Validate() []error {
 	var errs []error
 
@@ -258,7 +302,11 @@ func (o *Options) Validate() []error {
 	return errs
 }
 
-// Config return a scheduler config object
+/**
+ * @brief Config returns a scheduler config object.
+ * Logic: Orchestrates the creation of the full scheduler configuration, 
+ * including certificate generation, kubeconfig construction, and client initialization.
+ */
 func (o *Options) Config() (*schedulerappconfig.Config, error) {
 	if o.SecureServing != nil {
 		if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{netutils.ParseIPSloppy("127.0.0.1")}); err != nil {
@@ -310,8 +358,11 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 	return c, nil
 }
 
-// makeLeaderElectionConfig builds a leader election configuration. It will
-// create a new resource lock associated with the configuration.
+/**
+ * @brief makeLeaderElectionConfig builds a leader election configuration.
+ * Functional Utility: Implements the HA (High Availability) strategy for the scheduler 
+ * by setting up distributed resource locks.
+ */
 func makeLeaderElectionConfig(config componentbaseconfig.LeaderElectionConfiguration, kubeConfig *restclient.Config, recorder record.EventRecorder) (*leaderelection.LeaderElectionConfig, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -344,8 +395,10 @@ func makeLeaderElectionConfig(config componentbaseconfig.LeaderElectionConfigura
 	}, nil
 }
 
-// createKubeConfig creates a kubeConfig from the given config and masterOverride.
-// TODO remove masterOverride when CLI flags are removed.
+/**
+ * @brief createKubeConfig creates a kubeConfig from the given config and masterOverride.
+ * Logic: Builds the REST client configuration with specific performance tunings (QPS/Burst).
+ */
 func createKubeConfig(config componentbaseconfig.ClientConnectionConfiguration, masterOverride string) (*restclient.Config, error) {
 	kubeConfig, err := clientcmd.BuildConfigFromFlags(masterOverride, config.Kubeconfig)
 	if err != nil {
@@ -361,7 +414,9 @@ func createKubeConfig(config componentbaseconfig.ClientConnectionConfiguration, 
 	return kubeConfig, nil
 }
 
-// createClients creates a kube client and an event client from the given kubeConfig
+/**
+ * @brief createClients creates a kube client and an event client from the given kubeConfig.
+ */
 func createClients(kubeConfig *restclient.Config) (clientset.Interface, clientset.Interface, error) {
 	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler"))
 	if err != nil {

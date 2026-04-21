@@ -1,3 +1,10 @@
+/**
+ * @raw/1e503c83-36d6-4d09-b73d-381c24ec619c/server/src/main/java/org/elasticsearch/search/rank/feature/RankFeatureShardPhase.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -38,15 +45,27 @@ public final class RankFeatureShardPhase {
     private RankFeatureShardPhase() {}
 
     public static void prepareForFetch(SearchContext searchContext, RankFeatureShardRequest request) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (logger.isTraceEnabled()) {
             logger.trace("{}", new SearchContextSourcePrinter(searchContext));
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (searchContext.isCancelled()) {
             throw new TaskCancelledException("cancelled");
         }
 
         RankFeaturePhaseRankShardContext rankFeaturePhaseRankShardContext = shardContext(searchContext);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (rankFeaturePhaseRankShardContext != null) {
             assert rankFeaturePhaseRankShardContext.getField() != null : "field must not be null";
             searchContext.fetchFieldsContext(
@@ -59,10 +78,18 @@ public final class RankFeatureShardPhase {
     }
 
     public static void processFetch(SearchContext searchContext) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (logger.isTraceEnabled()) {
             logger.trace("{}", new SearchContextSourcePrinter(searchContext));
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (searchContext.isCancelled()) {
             throw new TaskCancelledException("cancelled");
         }
@@ -70,12 +97,20 @@ public final class RankFeatureShardPhase {
         RankFeaturePhaseRankShardContext rankFeaturePhaseRankShardContext = searchContext.request().source().rankBuilder() != null
             ? searchContext.request().source().rankBuilder().buildRankFeaturePhaseShardContext()
             : null;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (rankFeaturePhaseRankShardContext != null) {
             // TODO: here we populate the profile part of the fetchResult as well
             // we need to see what info we want to include on the overall profiling section. This is something that is per-shard
             // so most likely we will still care about the `FetchFieldPhase` profiling info as we could potentially
             // operate on `rank_window_size` instead of just `size` results, so this could be much more expensive.
             FetchSearchResult fetchSearchResult = searchContext.fetchResult();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (fetchSearchResult == null || fetchSearchResult.hits() == null) {
                 return;
             }
@@ -86,6 +121,10 @@ public final class RankFeatureShardPhase {
                 .buildRankFeatureShardResult(hits, searchContext.request().shardRequestIndex());
             // save the result in the search context
             // need to add profiling info as well available from fetch
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (featureRankShardResult != null) {
                 searchContext.rankFeatureResult().shardResult(featureRankShardResult);
             }

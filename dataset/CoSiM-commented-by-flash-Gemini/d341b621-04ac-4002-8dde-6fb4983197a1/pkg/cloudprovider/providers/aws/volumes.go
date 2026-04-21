@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file volumes.go
+ * @brief Utility functions for AWS EBS volume identifier resolution within Kubernetes.
+ * 
+ * Functional Intent: Provides a bridge between Kubernetes internal volume references 
+ * and native AWS EBS identifiers. It handles URI-style identifiers (which may 
+ * encode availability zone data) and sanitizes them into the "vol-*" format 
+ * required by the AWS SDK.
+ * 
+ * Domain: Production Systems, Cloud Providers, Infrastructure Orchestration.
+ */
+
 package aws
 
 import (
@@ -25,60 +37,64 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-// awsVolumeRegMatch represents Regex Match for AWS volume.
+// awsVolumeRegMatch - Regular expression for validating native EBS volume IDs.
+// Supports both 8-character and 17-character hexadecimal formats.
 var awsVolumeRegMatch = regexp.MustCompile("^vol-[^/]*$")
 
-// awsVolumeID represents the ID of the volume in the AWS API, e.g. vol-12345678
-// The "traditional" format is "vol-12345678"
-// A new longer format is also being introduced: "vol-12345678abcdef01"
-// We should not assume anything about the length or format, though it seems
-// reasonable to assume that volumes will continue to start with "vol-".
+/**
+ * @type awsVolumeID
+ * @brief Native representation of an AWS EBS volume ID.
+ */
 type awsVolumeID string
 
 func (i awsVolumeID) awsString() *string {
 	return aws.String(string(i))
 }
 
-// KubernetesVolumeID represents the id for a volume in the kubernetes API;
-// a few forms are recognized:
-//  * aws://<zone>/<awsVolumeId>
-//  * aws:///<awsVolumeId>
-//  * <awsVolumeId>
+/**
+ * @type KubernetesVolumeID
+ * @brief Abstract representation of a volume within the Kubernetes API.
+ * 
+ * Supported Formats:
+ * 1. Fully qualified: aws://<zone>/<awsVolumeId>
+ * 2. Unqualified URI: aws:///<awsVolumeId>
+ * 3. Bare ID: <awsVolumeId>
+ */
 type KubernetesVolumeID string
 
-// mapToAWSVolumeID extracts the awsVolumeID from the KubernetesVolumeID
+/**
+ * mapToAWSVolumeID - Extracts and validates the native AWS ID from a Kubernetes string.
+ * 
+ * Algorithm: URI-based identifier normalization.
+ * 1. Normalizes input to a pseudo-URL format.
+ * 2. Parses the URL to extract the path component.
+ * 3. Sanitizes and validates the extracted string against EBS naming conventions.
+ */
 func (name KubernetesVolumeID) mapToAWSVolumeID() (awsVolumeID, error) {
-	// name looks like aws://availability-zone/awsVolumeId
-
-	// The original idea of the URL-style name was to put the AZ into the
-	// host, so we could find the AZ immediately from the name without
-	// querying the API.  But it turns out we don't actually need it for
-	// multi-AZ clusters, as we put the AZ into the labels on the PV instead.
-	// However, if in future we want to support multi-AZ cluster
-	// volume-awareness without using PersistentVolumes, we likely will
-	// want the AZ in the host.
-
 	s := string(name)
 
+	// Block Logic: Normalization to URI scheme.
 	if !strings.HasPrefix(s, "aws://") {
-		// Assume a bare aws volume id (vol-1234...)
-		// Build a URL with an empty host (AZ)
+		// Logic: Implicitly convert bare IDs to null-zone URIs for consistent parsing.
 		s = "aws://" + "" + "/" + s
 	}
+	
 	url, err := url.Parse(s)
 	if err != nil {
-		// TODO: Maybe we should pass a URL into the Volume functions
 		return "", fmt.Errorf("Invalid disk name (%s): %v", name, err)
 	}
+	
+	// Pre-condition: Input must belong to the AWS cloud provider scheme.
 	if url.Scheme != "aws" {
 		return "", fmt.Errorf("Invalid scheme for AWS volume (%s)", name)
 	}
 
+	// Logic: Path extraction from the URI, removing leading/trailing separators.
 	awsID := url.Path
 	awsID = strings.Trim(awsID, "/")
 
-	// We sanity check the resulting volume; the two known formats are
-	// vol-12345678 and vol-12345678abcdef01
+	// Block Logic: Validation.
+	// Invariant: Resulting ID must start with "vol-" to be considered a valid EBS reference.
 	if !awsVolumeRegMatch.MatchString(awsID) {
 		return "", fmt.Errorf("Invalid format for AWS volume (%s)", name)
 	}

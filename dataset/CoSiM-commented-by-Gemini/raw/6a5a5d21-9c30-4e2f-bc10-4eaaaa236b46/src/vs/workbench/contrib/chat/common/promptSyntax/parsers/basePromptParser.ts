@@ -1,3 +1,10 @@
+/**
+ * @raw/6a5a5d21-9c30-4e2f-bc10-4eaaaa236b46/src/vs/workbench/contrib/chat/common/promptSyntax/parsers/basePromptParser.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -122,6 +129,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		// if already in the error state or stream has already ended,
 		// invoke the callback immediately but asynchronously
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (streamEnded || this.errorCondition) {
 			setTimeout(callback.bind(undefined, this.errorCondition));
 
@@ -158,6 +169,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Set to `undefined` if the `resolve` method hasn't been ever called yet.
 	 */
 	public get resolveFailed(): boolean | undefined {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.firstParseResult.gotFirstResult) {
 			return undefined;
 		}
@@ -188,12 +203,20 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		await this.firstParseResult.promise;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.errorCondition) {
 			return this;
 		}
 
 		// by the time when the `firstParseResult` promise is resolved,
 		// this object may have been already disposed, hence noop
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.disposed) {
 			return this;
 		}
@@ -206,6 +229,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		await this.stream.settled;
 
 		// if prompt header exists, also wait for it to be settled
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.promptHeader) {
 			await this.promptHeader.settled;
 		}
@@ -250,6 +277,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		// to prevent infinite file recursion, we keep track of all references in
 		// the current branch of the file reference tree and check if the current
 		// file reference has been already seen before
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (seenReferences.includes(this.uri.path)) {
 			seenReferences.push(this.uri.path);
 
@@ -318,6 +349,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		this.disposeReferences();
 
 		// if an error received, set up the error condition and stop
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (streamOrError instanceof ResolveError) {
 			this._errorCondition = streamOrError;
 			this._onUpdate.fire();
@@ -338,11 +373,19 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		// when some tokens received, process and store the references
 		this.stream.on('data', (token) => {
 			// store all markdown and prompt token references
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if ((token instanceof MarkdownToken) || (token instanceof PromptToken)) {
 				this.receivedTokens.push(token);
 			}
 
 			// if a prompt header token received, create a new prompt header instance
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (token instanceof FrontMatterHeader) {
 				this.promptHeader = new PromptHeader(
 					token.contentToken,
@@ -353,6 +396,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 			}
 
 			// try to convert a prompt variable with data token into a file reference
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (token instanceof PromptVariableWithData) {
 				try {
 					this.onReference(FileReference.from(token), [...seenReferences]);
@@ -363,12 +410,20 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 			// note! the `isURL` is a simple check and needs to be improved to truly
 			// 		 handle only file references, ignoring broken URLs or references
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (token instanceof MarkdownLink && !token.isURL) {
 				this.onReference(token, [...seenReferences]);
 			}
 		});
 
 		// calling `start` on a disposed stream throws, so we warn and return instead
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.stream.disposed) {
 			this.logService.warn(
 				`[prompt parser][${basename(this.uri)}] cannot start stream that has been already disposed, aborting`,
@@ -428,10 +483,18 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		// decoders can fire the 'end' event also when they are get disposed,
 		// but because we dispose them when a new stream is received, we can
 		// safely ignore the event in this case
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (stream.disposed === true) {
 			return this;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (error) {
 			this.logService.warn(
 				`[prompt parser][${basename(this.uri)}] received an error on the chat prompt decoder stream: ${error}`,
@@ -448,6 +511,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Dispose all currently held references.
 	 */
 	private disposeReferences(): void {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of [...this._references]) {
 			reference.dispose();
 		}
@@ -466,6 +533,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 */
 	public start(): this {
 		// if already started, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.started) {
 			return this;
 		}
@@ -474,6 +545,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		// if already in the error state that could be set
 		// in the constructor, then nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.errorCondition) {
 			return this;
 		}
@@ -497,6 +572,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * use a different folder URI based on the workspace state.
 	 */
 	public get parentFolder(): URI | null {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.uri.scheme === 'file') {
 			return dirname(this.uri);
 		}
@@ -504,6 +583,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		const { folders } = this.workspaceService.getWorkspace();
 
 		// single-root workspace, use root folder URI
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (folders.length === 1) {
 			return folders[0].uri;
 		}
@@ -526,9 +609,17 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get allReferences(): readonly TPromptReference[] {
 		const result: TPromptReference[] = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of this.references) {
 			result.push(reference);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (reference.type === 'file') {
 				result.push(...reference.allReferences);
 			}
@@ -547,11 +638,19 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 				const { errorCondition } = reference;
 
 				// include all references without errors
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!errorCondition) {
 					return true;
 				}
 
 				// filter out folder references from the list
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (errorCondition instanceof FolderReference) {
 					return false;
 				}
@@ -573,11 +672,19 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Valid metadata records defined in the prompt header.
 	 */
 	public get metadata(): IPromptMetadata {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.header === undefined) {
 			return {};
 		}
 
 		const { metadata } = this.header;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (metadata === undefined) {
 			return {};
 		}
@@ -608,6 +715,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		const { tools, mode } = this.metadata;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tools !== undefined) {
 			result.push(...tools);
 			hasTools = true;
@@ -619,13 +730,25 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 		// nested prompt references, therefore if mode of
 		// the top-level prompt is not equal to `agent`, then
 		// ignore all `tools` metadata of the nested references
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (isRootInAgentMode === false) {
 			return null;
 		}
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of this.references) {
 			const { allToolsMetadata } = reference;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (allToolsMetadata === null) {
 				continue;
 			}
@@ -634,6 +757,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 			hasTools = true;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (hasTools === false) {
 			return null;
 		}
@@ -648,9 +775,17 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get errors(): readonly ResolveError[] {
 		const childErrors: ResolveError[] = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of this.references) {
 			const { errorCondition } = reference;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (errorCondition && (!(errorCondition instanceof NotPromptFile))) {
 				childErrors.push(errorCondition);
 			}
@@ -666,9 +801,17 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get allErrors(): readonly IResolveError[] {
 		const result: IResolveError[] = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of this.references) {
 			const { errorCondition } = reference;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (errorCondition && (!(errorCondition instanceof NotPromptFile))) {
 				result.push({
 					originalError: errorCondition,
@@ -688,6 +831,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * possible child reference errors.
 	 */
 	public get topError(): ITopError | undefined {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.errorCondition) {
 			return new TopError({
 				errorSubject: 'root',
@@ -698,10 +845,18 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		const childErrors: ResolveError[] = [...this.errors];
 		const nestedErrors: IResolveError[] = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of this.references) {
 			nestedErrors.push(...reference.allErrors);
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (childErrors.length === 0 && nestedErrors.length === 0) {
 			return undefined;
 		}
@@ -756,6 +911,10 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * @inheritdoc
 	 */
 	public override dispose(): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.disposed) {
 			return;
 		}
@@ -803,11 +962,19 @@ export class PromptReference extends ObservableDisposable implements TPromptRefe
 	 */
 	public get linkRange(): IRange | undefined {
 		// `#file:` references
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof FileReference) {
 			return this.token.dataRange;
 		}
 
 		// `markdown link` references
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof MarkdownLink) {
 			return this.token.linkRange;
 		}
@@ -820,10 +987,18 @@ export class PromptReference extends ObservableDisposable implements TPromptRefe
 	 * or a `markdown link` reference (`[caption](/path/to/file.md)`).
 	 */
 	public get type(): 'file' {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof FileReference) {
 			return 'file';
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof MarkdownLink) {
 			return 'file';
 		}
@@ -839,10 +1014,18 @@ export class PromptReference extends ObservableDisposable implements TPromptRefe
 	 * or a `markdown link` reference (`[caption](/path/to/file.md)`).
 	 */
 	public get subtype(): 'prompt' | 'markdown' {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof FileReference) {
 			return 'prompt';
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.token instanceof MarkdownLink) {
 			return 'markdown';
 		}

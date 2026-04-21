@@ -1,3 +1,10 @@
+/**
+ * @raw/e996f34f-326e-440c-8030-1b961b883cc3/src/vs/workbench/contrib/chat/common/promptFileReference.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -101,6 +108,10 @@ export class PromptFileReference extends Disposable {
 	 * Set to `undefined` if the `resolve` method hasn't been ever called yet.
 	 */
 	public get resolveFailed(): boolean | undefined {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this._resolveAttempted) {
 			return undefined;
 		}
@@ -140,10 +151,18 @@ export class PromptFileReference extends Disposable {
 	): boolean {
 		const value = configService.getValue(PROMPT_SNIPPETS_CONFIG_KEY);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!value) {
 			return false;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (typeof value === 'string') {
 			return value.trim().toLowerCase() === 'true';
 		}
@@ -203,6 +222,10 @@ export class PromptFileReference extends Disposable {
 		const fileAdded = event.contains(this.uri, FileChangeType.ADDED);
 
 		// if the change does not relate to the current file, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!fileChanged && !fileDeleted && !fileAdded) {
 			return;
 		}
@@ -211,12 +234,20 @@ export class PromptFileReference extends Disposable {
 		// deleted, it does not matter if it was a prompt - we still need to handle it by
 		// calling the `resolve()` method, which will set an error condition if the file
 		// does not exist anymore, or of it is not a prompt snippet file
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (fileChanged && !this.isPromptSnippetFile) {
 			return;
 		}
 
 		// if we receive an `add` event, validate that the file was previously deleted, because
 		// that is the only way we could have end up in this state of the file reference object
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (fileAdded && (!this._errorCondition || !(this._errorCondition instanceof FileOpenFailed))) {
 			this.logService.warn(
 				[
@@ -244,6 +275,10 @@ export class PromptFileReference extends Disposable {
 
 			// if file exists but not a prompt snippet file, set appropriate error
 			// condition and return null so we don't resolve nested references in it
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this.uri.path.endsWith(PROMP_SNIPPET_FILE_EXTENSION) === false) {
 				this._errorCondition = new NonPromptSnippetFile(this.uri);
 
@@ -288,6 +323,10 @@ export class PromptFileReference extends Disposable {
 		// to prevent infinite file recursion, we keep track of all references in
 		// the current branch of the file reference tree and check if the current
 		// file reference has been already seen before
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (seenReferences.includes(this.uri.path)) {
 			seenReferences.push(this.uri.path);
 
@@ -309,6 +348,10 @@ export class PromptFileReference extends Disposable {
 		this._resolveAttempted = true;
 
 		// failed to open the file, nothing to resolve
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (fileStream === null) {
 			this._onUpdate.fire();
 
@@ -325,6 +368,10 @@ export class PromptFileReference extends Disposable {
 		//       the disposables store to be littered with already-disposed child instances due to
 		// 		 the fact that the `resolve` method can be called multiple times on target file changes
 		const childPromises = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const reference of references) {
 			const childUri = extUri.resolvePath(this.dirname, reference.path);
 
@@ -351,6 +398,10 @@ export class PromptFileReference extends Disposable {
 		}
 
 		// if should wait for all children to resolve, block here
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (waitForChildren) {
 			await Promise.all(childPromises);
 		}
@@ -364,6 +415,10 @@ export class PromptFileReference extends Disposable {
 	 * Dispose current child file references.
 	 */
 	private disposeChildren(): this {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of this.children) {
 			child.dispose();
 		}
@@ -384,6 +439,10 @@ export class PromptFileReference extends Disposable {
 		result.push(this);
 
 		// get flattened children references first
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of this.children) {
 			result.push(...child.flatten());
 		}
@@ -417,6 +476,10 @@ export class PromptFileReference extends Disposable {
 	 * Check if the current reference is equal to a given one.
 	 */
 	public equals(other: PromptFileReference): boolean {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.sameUri(other.uri)) {
 			return false;
 		}

@@ -1,3 +1,7 @@
+// @raw/6dcb79e5-8986-4dd2-a895-55e1775ff99d/staging/src/k8s.io/client-go/rest/request.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -112,14 +116,20 @@ type Request struct {
 // NewRequest creates a new request helper object for accessing runtime.Objects on a server.
 func NewRequest(c *RESTClient) *Request {
 	var backoff BackoffManager
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if c.createBackoffMgr != nil {
 		backoff = c.createBackoffMgr()
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if backoff == nil {
 		backoff = noBackoff
 	}
 
 	var pathPrefix string
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if c.base != nil {
 		pathPrefix = path.Join("/", c.base.Path, c.versionedAPIPath)
 	} else {
@@ -127,6 +137,8 @@ func NewRequest(c *RESTClient) *Request {
 	}
 
 	var timeout time.Duration
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if c.Client != nil {
 		timeout = c.Client.Timeout
 	}
@@ -168,6 +180,8 @@ func (r *Request) Verb(verb string) *Request {
 // items will be placed before the optional Namespace, Resource, or Name sections.
 // Setting AbsPath will clear any previously set Prefix segments
 func (r *Request) Prefix(segments ...string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
@@ -178,6 +192,8 @@ func (r *Request) Prefix(segments ...string) *Request {
 // Suffix appends segments to the end of the path. These items will be placed after the prefix and optional
 // Namespace, Resource, or Name sections.
 func (r *Request) Suffix(segments ...string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
@@ -187,13 +203,19 @@ func (r *Request) Suffix(segments ...string) *Request {
 
 // Resource sets the resource to access (<resource>/[ns/<namespace>/]<name>)
 func (r *Request) Resource(resource string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.resource) != 0 {
 		r.err = fmt.Errorf("resource already set to %q, cannot change to %q", r.resource, resource)
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if msgs := IsValidPathSegmentName(resource); len(msgs) != 0 {
 		r.err = fmt.Errorf("invalid resource %q: %v", resource, msgs)
 		return r
@@ -205,6 +227,8 @@ func (r *Request) Resource(resource string) *Request {
 // BackOff sets the request's backoff manager to the one specified,
 // or defaults to the stub implementation if nil is provided
 func (r *Request) BackOff(manager BackoffManager) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if manager == nil {
 		r.backoff = &NoBackoff{}
 		return r
@@ -223,15 +247,23 @@ func (r *Request) Throttle(limiter flowcontrol.RateLimiter) *Request {
 // SubResource sets a sub-resource path which can be multiple segments after the resource
 // name but before the suffix.
 func (r *Request) SubResource(subresources ...string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
 	subresource := path.Join(subresources...)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.subresource) != 0 {
 		r.err = fmt.Errorf("subresource already set to %q, cannot change to %q", r.resource, subresource)
 		return r
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, s := range subresources {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if msgs := IsValidPathSegmentName(s); len(msgs) != 0 {
 			r.err = fmt.Errorf("invalid subresource %q: %v", s, msgs)
 			return r
@@ -243,17 +275,25 @@ func (r *Request) SubResource(subresources ...string) *Request {
 
 // Name sets the name of a resource to access (<resource>/[ns/<namespace>/]<name>)
 func (r *Request) Name(resourceName string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(resourceName) == 0 {
 		r.err = fmt.Errorf("resource name may not be empty")
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.resourceName) != 0 {
 		r.err = fmt.Errorf("resource name already set to %q, cannot change to %q", r.resourceName, resourceName)
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if msgs := IsValidPathSegmentName(resourceName); len(msgs) != 0 {
 		r.err = fmt.Errorf("invalid resource name %q: %v", resourceName, msgs)
 		return r
@@ -264,13 +304,19 @@ func (r *Request) Name(resourceName string) *Request {
 
 // Namespace applies the namespace scope to a request (<resource>/[ns/<namespace>/]<name>)
 func (r *Request) Namespace(namespace string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.namespaceSet {
 		r.err = fmt.Errorf("namespace already set to %q, cannot change to %q", r.namespace, namespace)
 		return r
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if msgs := IsValidPathSegmentName(namespace); len(msgs) != 0 {
 		r.err = fmt.Errorf("invalid namespace %q: %v", namespace, msgs)
 		return r
@@ -282,6 +328,8 @@ func (r *Request) Namespace(namespace string) *Request {
 
 // NamespaceIfScoped is a convenience function to set a namespace if scoped is true
 func (r *Request) NamespaceIfScoped(namespace string, scoped bool) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if scoped {
 		return r.Namespace(namespace)
 	}
@@ -291,10 +339,14 @@ func (r *Request) NamespaceIfScoped(namespace string, scoped bool) *Request {
 // AbsPath overwrites an existing path with the segments provided. Trailing slashes are preserved
 // when a single segment is passed.
 func (r *Request) AbsPath(segments ...string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
 	r.pathPrefix = path.Join(r.c.base.Path, path.Join(segments...))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(segments) == 1 && (len(r.c.base.Path) > 1 || len(segments[0]) > 1) && strings.HasSuffix(segments[0], "/") {
 		// preserve any trailing slashes for legacy behavior
 		r.pathPrefix += "/"
@@ -305,19 +357,29 @@ func (r *Request) AbsPath(segments ...string) *Request {
 // RequestURI overwrites existing path and parameters with the value of the provided server relative
 // URI.
 func (r *Request) RequestURI(uri string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
 	locator, err := url.Parse(uri)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		r.err = err
 		return r
 	}
 	r.pathPrefix = locator.Path
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(locator.Query()) > 0 {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if r.params == nil {
 			r.params = make(url.Values)
 		}
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for k, v := range locator.Query() {
 			r.params[k] = v
 		}
@@ -327,6 +389,8 @@ func (r *Request) RequestURI(uri string) *Request {
 
 // Param creates a query parameter with the given string value.
 func (r *Request) Param(paramName, s string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
@@ -343,15 +407,23 @@ func (r *Request) VersionedParams(obj runtime.Object, codec runtime.ParameterCod
 }
 
 func (r *Request) SpecificallyVersionedParams(obj runtime.Object, codec runtime.ParameterCodec, version schema.GroupVersion) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
 	params, err := codec.EncodeParameters(obj, version)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		r.err = err
 		return r
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for k, v := range params {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if r.params == nil {
 			r.params = make(url.Values)
 		}
@@ -361,6 +433,8 @@ func (r *Request) SpecificallyVersionedParams(obj runtime.Object, codec runtime.
 }
 
 func (r *Request) setParam(paramName, value string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.params == nil {
 		r.params = make(url.Values)
 	}
@@ -369,10 +443,14 @@ func (r *Request) setParam(paramName, value string) *Request {
 }
 
 func (r *Request) SetHeader(key string, values ...string) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.headers == nil {
 		r.headers = http.Header{}
 	}
 	r.headers.Del(key)
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, value := range values {
 		r.headers.Add(key, value)
 	}
@@ -382,6 +460,8 @@ func (r *Request) SetHeader(key string, values ...string) *Request {
 // Timeout makes the request use the given duration as an overall timeout for the
 // request. Additionally, if set passes the value as "timeout" parameter in URL.
 func (r *Request) Timeout(d time.Duration) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
@@ -397,12 +477,16 @@ func (r *Request) Timeout(d time.Duration) *Request {
 // If obj is a runtime.Object and nil, do nothing.
 // Otherwise, set an error.
 func (r *Request) Body(obj interface{}) *Request {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return r
 	}
 	switch t := obj.(type) {
 	case string:
 		data, err := ioutil.ReadFile(t)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.err = err
 			return r
@@ -416,15 +500,21 @@ func (r *Request) Body(obj interface{}) *Request {
 		r.body = t
 	case runtime.Object:
 		// callers may pass typed interface pointers, therefore we must check nil with reflection
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if reflect.ValueOf(t).IsNil() {
 			return r
 		}
 		encoder, err := r.c.content.Negotiator.Encoder(r.c.content.ContentType, nil)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.err = err
 			return r
 		}
 		data, err := runtime.Encode(encoder, t)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.err = err
 			return r
@@ -448,31 +538,45 @@ func (r *Request) Context(ctx context.Context) *Request {
 // URL returns the current working URL.
 func (r *Request) URL() *url.URL {
 	p := r.pathPrefix
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.namespaceSet && len(r.namespace) > 0 {
 		p = path.Join(p, "namespaces", r.namespace)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.resource) != 0 {
 		p = path.Join(p, strings.ToLower(r.resource))
 	}
 	// Join trims trailing slashes, so preserve r.pathPrefix's trailing slash for backwards compatibility if nothing was changed
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.resourceName) != 0 || len(r.subpath) != 0 || len(r.subresource) != 0 {
 		p = path.Join(p, r.resourceName, r.subresource, r.subpath)
 	}
 
 	finalURL := &url.URL{}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.c.base != nil {
 		*finalURL = *r.c.base
 	}
 	finalURL.Path = p
 
 	query := url.Values{}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for key, values := range r.params {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for _, value := range values {
 			query.Add(key, value)
 		}
 	}
 
 	// timeout is handled specially here.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.timeout != 0 {
 		query.Set("timeout", r.timeout.String())
 	}
@@ -487,6 +591,8 @@ func (r *Request) URL() *url.URL {
 func (r Request) finalURLTemplate() url.URL {
 	newParams := url.Values{}
 	v := []string{"{value}"}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for k := range r.params {
 		newParams[k] = v
 	}
@@ -495,9 +601,13 @@ func (r Request) finalURLTemplate() url.URL {
 	segments := strings.Split(r.URL().Path, "/")
 	groupIndex := 0
 	index := 0
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.URL() != nil && r.c.base != nil && strings.Contains(r.URL().Path, r.c.base.Path) {
 		groupIndex += len(strings.Split(r.c.base.Path, "/"))
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if groupIndex >= len(segments) {
 		return *url
 	}
@@ -506,6 +616,8 @@ func (r Request) finalURLTemplate() url.URL {
 	const NamedGroupPrefix = "apis"
 	isCoreGroup := segments[groupIndex] == CoreGroupPrefix
 	isNamedGroup := segments[groupIndex] == NamedGroupPrefix
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if isCoreGroup {
 		// checking the case of core group with /api/v1/... format
 		index = groupIndex + 2
@@ -529,6 +641,8 @@ func (r Request) finalURLTemplate() url.URL {
 		// /$RESOURCE/$NAME: replace $NAME with {name}
 		segments[index+1] = "{name}"
 	case len(segments)-index == 3:
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if segments[index+2] == "finalize" || segments[index+2] == "status" {
 			// /$RESOURCE/$NAME/$SUBRESOURCE: replace $NAME with {name}
 			segments[index+1] = "{name}"
@@ -539,6 +653,8 @@ func (r Request) finalURLTemplate() url.URL {
 	case len(segments)-index >= 4:
 		segments[index+1] = "{namespace}"
 		// /namespace/$NAMESPACE/$RESOURCE/$NAME: replace $NAMESPACE with {namespace},  $NAME with {name}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if segments[index+3] != "finalize" && segments[index+3] != "status" {
 			// /$RESOURCE/$NAME/$SUBRESOURCE: replace $NAME with {name}
 			segments[index+3] = "{name}"
@@ -549,6 +665,8 @@ func (r Request) finalURLTemplate() url.URL {
 }
 
 func (r *Request) tryThrottle(ctx context.Context) error {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.rateLimiter == nil {
 		return nil
 	}
@@ -557,6 +675,8 @@ func (r *Request) tryThrottle(ctx context.Context) error {
 
 	err := r.rateLimiter.Wait(ctx)
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if latency := time.Since(now); latency > longThrottleLatency {
 		klog.V(3).Infof("Throttling request took %v, request: %s:%s", latency, r.verb, r.URL().String())
 	}
@@ -568,47 +688,67 @@ func (r *Request) tryThrottle(ctx context.Context) error {
 // Returns a watch.Interface, or an error.
 func (r *Request) Watch() (watch.Interface, error) {
 	ctx := context.Background()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.ctx != nil {
 		ctx = r.ctx
 	}
 
 	// We specifically don't want to rate limit watches, so we
 	// don't use r.rateLimiter here.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return nil, r.err
 	}
 
 	url := r.URL().String()
 	req, err := http.NewRequest(r.verb, url, r.body)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
 	req = req.WithContext(ctx)
 	req.Header = r.headers
 	client := r.c.Client
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if client == nil {
 		client = http.DefaultClient
 	}
 	r.backoff.Sleep(r.backoff.CalculateBackoff(r.URL()))
 	resp, err := client.Do(req)
 	updateURLMetrics(r, resp, err)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.c.base != nil {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.backoff.UpdateBackoff(r.c.base, err, 0)
 		} else {
 			r.backoff.UpdateBackoff(r.c.base, err, resp.StatusCode)
 		}
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		// The watch stream mechanism handles many common partial data errors, so closed
 		// connections can be retried in many cases.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if net.IsProbableEOF(err) {
 			return watch.NewEmptyWatch(), nil
 		}
 		return nil, err
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if result := r.transformResponse(resp, req); result.err != nil {
 			return nil, result.err
 		}
@@ -617,10 +757,14 @@ func (r *Request) Watch() (watch.Interface, error) {
 
 	contentType := resp.Header.Get("Content-Type")
 	mediaType, params, err := mime.ParseMediaType(contentType)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		klog.V(4).Infof("Unexpected content type from the server: %q: %v", contentType, err)
 	}
 	objectDecoder, streamingSerializer, framer, err := r.c.content.Negotiator.StreamDecoder(mediaType, params)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
@@ -640,12 +784,16 @@ func (r *Request) Watch() (watch.Interface, error) {
 // It also handles corner cases for incomplete/invalid request data.
 func updateURLMetrics(req *Request, resp *http.Response, err error) {
 	url := "none"
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if req.c.base != nil {
 		url = req.c.base.Host
 	}
 
 	// Errors can be arbitrary strings. Unbound label cardinality is not suitable for a metric
 	// system so we just report them as `<error>`.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		metrics.RequestResult.Increment("<error>", req.verb, url)
 	} else {
@@ -660,42 +808,60 @@ func updateURLMetrics(req *Request, resp *http.Response, err error) {
 // If we can, we return that as an error.  Otherwise, we create an error that lists the http status and the content of the response.
 func (r *Request) Stream() (io.ReadCloser, error) {
 	ctx := context.Background()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.ctx != nil {
 		ctx = r.ctx
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		return nil, r.err
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := r.tryThrottle(ctx); err != nil {
 		return nil, err
 	}
 
 	url := r.URL().String()
 	req, err := http.NewRequest(r.verb, url, nil)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.body != nil {
 		req.Body = ioutil.NopCloser(r.body)
 	}
 	req = req.WithContext(ctx)
 	req.Header = r.headers
 	client := r.c.Client
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if client == nil {
 		client = http.DefaultClient
 	}
 	r.backoff.Sleep(r.backoff.CalculateBackoff(r.URL()))
 	resp, err := client.Do(req)
 	updateURLMetrics(r, resp, err)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.c.base != nil {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.backoff.UpdateBackoff(r.URL(), err, 0)
 		} else {
 			r.backoff.UpdateBackoff(r.URL(), err, resp.StatusCode)
 		}
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
@@ -710,6 +876,8 @@ func (r *Request) Stream() (io.ReadCloser, error) {
 
 		result := r.transformResponse(resp, req)
 		err := result.Error()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err == nil {
 			err = fmt.Errorf("%d while accessing %v: %s", result.statusCode, url, string(result.body))
 		}
@@ -726,9 +894,13 @@ func (r *Request) Stream() (io.ReadCloser, error) {
 // to GET, PUT or DELETE a named resource(resourceName != ""), again, if
 // namespaceSet is true then namespace must not be empty.
 func (r *Request) requestPreflightCheck() error {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !r.namespaceSet {
 		return nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.namespace) > 0 {
 		return nil
 	}
@@ -737,6 +909,8 @@ func (r *Request) requestPreflightCheck() error {
 	case "POST":
 		return fmt.Errorf("an empty namespace may not be set during creation")
 	case "GET", "PUT", "DELETE":
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(r.resourceName) > 0 {
 			return fmt.Errorf("an empty namespace may not be set when a resource name is provided")
 		}
@@ -755,16 +929,22 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 		metrics.RequestLatency.Observe(r.verb, r.finalURLTemplate(), time.Since(start))
 	}()
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		klog.V(4).Infof("Error in request: %v", r.err)
 		return r.err
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := r.requestPreflightCheck(); err != nil {
 		return err
 	}
 
 	client := r.c.Client
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -772,10 +952,14 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 	// Throttle the first try before setting up the timeout configured on the
 	// client. We don't want a throttled client to return timeouts to callers
 	// before it makes a single request.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := r.tryThrottle(ctx); err != nil {
 		return err
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, r.timeout)
@@ -785,10 +969,14 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 	// Right now we make about ten retry attempts if we get a Retry-After response.
 	maxRetries := 10
 	retries := 0
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for {
 
 		url := r.URL().String()
 		req, err := http.NewRequest(r.verb, url, r.body)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return err
 		}
@@ -796,30 +984,42 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 		req.Header = r.headers
 
 		r.backoff.Sleep(r.backoff.CalculateBackoff(r.URL()))
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if retries > 0 {
 			// We are retrying the request that we already send to apiserver
 			// at least once before.
 			// This request should also be throttled with the client-internal rate limiter.
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if err := r.tryThrottle(ctx); err != nil {
 				return err
 			}
 		}
 		resp, err := client.Do(req)
 		updateURLMetrics(r, resp, err)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			r.backoff.UpdateBackoff(r.URL(), err, 0)
 		} else {
 			r.backoff.UpdateBackoff(r.URL(), err, resp.StatusCode)
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			// "Connection reset by peer", "Connection refused" or "apiserver is shutting down" are usually a transient errors.
 			// Thus in case of "GET" operations, we simply retry it.
 			// We are not automatically retrying "write" operations, as
 			// they are not idempotent.
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if r.verb != "GET" {
 				return err
 			}
 			// For connection errors and apiserver shutdown errors retry.
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if net.IsConnectionReset(err) || net.IsConnectionRefused(err) {
 				// For the purpose of retry, we set the artificial "retry-after" response.
 				// TODO: Should we clean the original response if it exists?
@@ -839,6 +1039,8 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 			// connection.
 			defer func() {
 				const maxBodySlurpSize = 2 << 10
+				// Block Logic: Conditional evaluation for divergent control flow.
+				// Invariant: Taken branch maintains control flow invariants.
 				if resp.ContentLength <= maxBodySlurpSize {
 					io.Copy(ioutil.Discard, &io.LimitedReader{R: resp.Body, N: maxBodySlurpSize})
 				}
@@ -846,9 +1048,15 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 			}()
 
 			retries++
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if seconds, wait := checkWait(resp); wait && retries < maxRetries {
+				// Block Logic: Conditional evaluation for divergent control flow.
+				// Invariant: Taken branch maintains control flow invariants.
 				if seeker, ok := r.body.(io.Seeker); ok && r.body != nil {
 					_, err := seeker.Seek(0, 0)
+					// Block Logic: Conditional evaluation for divergent control flow.
+					// Invariant: Taken branch maintains control flow invariants.
 					if err != nil {
 						klog.V(4).Infof("Could not retry request, can't Seek() back to beginning of body for %T", r.body)
 						fn(req, resp)
@@ -863,6 +1071,8 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 			fn(req, resp)
 			return true
 		}()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if done {
 			return nil
 		}
@@ -877,6 +1087,8 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 //  * http.Client.Do errors are returned directly.
 func (r *Request) Do() Result {
 	ctx := context.Background()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.ctx != nil {
 		ctx = r.ctx
 	}
@@ -885,6 +1097,8 @@ func (r *Request) Do() Result {
 	err := r.request(ctx, func(req *http.Request, resp *http.Response) {
 		result = r.transformResponse(resp, req)
 	})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return Result{err: err}
 	}
@@ -894,6 +1108,8 @@ func (r *Request) Do() Result {
 // DoRaw executes the request but does not process the response body.
 func (r *Request) DoRaw() ([]byte, error) {
 	ctx := context.Background()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.ctx != nil {
 		ctx = r.ctx
 	}
@@ -902,10 +1118,14 @@ func (r *Request) DoRaw() ([]byte, error) {
 	err := r.request(ctx, func(req *http.Request, resp *http.Response) {
 		result.body, result.err = ioutil.ReadAll(resp.Body)
 		glogBody("Response Body", result.body)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
 			result.err = r.transformUnstructuredResponseError(resp, req, result.body)
 		}
 	})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
@@ -915,6 +1135,8 @@ func (r *Request) DoRaw() ([]byte, error) {
 // transformResponse converts an API response into a structured API object
 func (r *Request) transformResponse(resp *http.Response, req *http.Request) Result {
 	var body []byte
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if resp.Body != nil {
 		data, err := ioutil.ReadAll(resp.Body)
 		switch err.(type) {
@@ -947,16 +1169,24 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 	// verify the content type is accurate
 	var decoder runtime.Decoder
 	contentType := resp.Header.Get("Content-Type")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(contentType) == 0 {
 		contentType = r.c.content.ContentType
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(contentType) > 0 {
 		var err error
 		mediaType, params, err := mime.ParseMediaType(contentType)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return Result{err: errors.NewInternalError(err)}
 		}
 		decoder, err = r.c.content.Negotiator.Decoder(mediaType, params)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			// if we fail to negotiate a decoder, treat this as an unstructured error
 			switch {
@@ -1010,6 +1240,8 @@ func truncateBody(body string) string {
 		max = 1024
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(body) <= max {
 		return body
 	}
@@ -1021,7 +1253,11 @@ func truncateBody(body string) string {
 // allocating a new string for the body output unless necessary. Uses a simple heuristic to determine
 // whether the body is printable.
 func glogBody(prefix string, body []byte) {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if klog.V(8) {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if bytes.IndexFunc(body, func(r rune) bool {
 			return r < 0x0a
 		}) != -1 {
@@ -1054,7 +1290,11 @@ const maxUnstructuredResponseTextBytes = 2048
 //
 // TODO: introduce transformation of generic http.Client.Do() errors that separates 4.
 func (r *Request) transformUnstructuredResponseError(resp *http.Response, req *http.Request, body []byte) error {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if body == nil && resp.Body != nil {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if data, err := ioutil.ReadAll(&io.LimitedReader{R: resp.Body, N: maxUnstructuredResponseTextBytes}); err == nil {
 			body = data
 		}
@@ -1066,15 +1306,21 @@ func (r *Request) transformUnstructuredResponseError(resp *http.Response, req *h
 // newUnstructuredResponseError instantiates the appropriate generic error for the provided input. It also logs the body.
 func (r *Request) newUnstructuredResponseError(body []byte, isTextResponse bool, statusCode int, method string, retryAfter int) error {
 	// cap the amount of output we create
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(body) > maxUnstructuredResponseTextBytes {
 		body = body[:maxUnstructuredResponseTextBytes]
 	}
 
 	message := "unknown"
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if isTextResponse {
 		message = strings.TrimSpace(string(body))
 	}
 	var groupResource schema.GroupResource
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.resource) > 0 {
 		groupResource.Group = r.c.content.GroupVersion.Group
 		groupResource.Resource = r.resource
@@ -1093,10 +1339,14 @@ func (r *Request) newUnstructuredResponseError(body []byte, isTextResponse bool,
 // isTextResponse returns true if the response appears to be a textual media type.
 func isTextResponse(resp *http.Response) bool {
 	contentType := resp.Header.Get("Content-Type")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(contentType) == 0 {
 		return true
 	}
 	media, _, err := mime.ParseMediaType(contentType)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return false
 	}
@@ -1119,7 +1369,11 @@ func checkWait(resp *http.Response) (int, bool) {
 // retryAfterSeconds returns the value of the Retry-After header and true, or 0 and false if
 // the header was missing or not a valid number.
 func retryAfterSeconds(resp *http.Response) (int, bool) {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if h := resp.Header.Get("Retry-After"); len(h) > 0 {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if i, err := strconv.Atoi(h); err == nil {
 			return i, true
 		}
@@ -1146,22 +1400,30 @@ func (r Result) Raw() ([]byte, error) {
 // If the returned object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
 func (r Result) Get() (runtime.Object, error) {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		// Check whether the result has a Status object in the body and prefer that.
 		return nil, r.Error()
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.decoder == nil {
 		return nil, fmt.Errorf("serializer for %s doesn't exist", r.contentType)
 	}
 
 	// decode, but if the result is Status return that as an error instead.
 	out, _, err := r.decoder.Decode(r.body, nil, nil)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
 	switch t := out.(type) {
 	case *metav1.Status:
 		// any status besides StatusSuccess is considered an error.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if t.Status != metav1.StatusSuccess {
 			return nil, errors.FromObject(t)
 		}
@@ -1180,19 +1442,27 @@ func (r Result) StatusCode(statusCode *int) Result {
 // If the returned object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
 func (r Result) Into(obj runtime.Object) error {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err != nil {
 		// Check whether the result has a Status object in the body and prefer that.
 		return r.Error()
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.decoder == nil {
 		return fmt.Errorf("serializer for %s doesn't exist", r.contentType)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(r.body) == 0 {
 		return fmt.Errorf("0-length response with status code: %d and content type: %s",
 			r.statusCode, r.contentType)
 	}
 
 	out, _, err := r.decoder.Decode(r.body, nil, obj)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil || out == obj {
 		return err
 	}
@@ -1201,6 +1471,8 @@ func (r Result) Into(obj runtime.Object) error {
 	switch t := out.(type) {
 	case *metav1.Status:
 		// any status besides StatusSuccess is considered an error.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if t.Status != metav1.StatusSuccess {
 			return errors.FromObject(t)
 		}
@@ -1222,6 +1494,8 @@ func (r Result) WasCreated(wasCreated *bool) Result {
 func (r Result) Error() error {
 	// if we have received an unexpected server error, and we have a body and decoder, we can try to extract
 	// a Status object.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if r.err == nil || !errors.IsUnexpectedServerError(r.err) || len(r.body) == 0 || r.decoder == nil {
 		return r.err
 	}
@@ -1229,6 +1503,8 @@ func (r Result) Error() error {
 	// attempt to convert the body into a Status object
 	// to be backwards compatible with old servers that do not return a version, default to "v1"
 	out, _, err := r.decoder.Decode(r.body, &schema.GroupVersionKind{Version: "v1"}, nil)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		klog.V(5).Infof("body was not decodable (unable to check for Status): %v", err)
 		return r.err
@@ -1236,6 +1512,8 @@ func (r Result) Error() error {
 	switch t := out.(type) {
 	case *metav1.Status:
 		// because we default the kind, we *must* check for StatusFailure
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if t.Status == metav1.StatusFailure {
 			return errors.FromObject(t)
 		}
@@ -1251,14 +1529,22 @@ var NameMayNotContain = []string{"/", "%"}
 
 // IsValidPathSegmentName validates the name can be safely encoded as a path segment
 func IsValidPathSegmentName(name string) []string {
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, illegalName := range NameMayNotBe {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if name == illegalName {
 			return []string{fmt.Sprintf(`may not be '%s'`, illegalName)}
 		}
 	}
 
 	var errors []string
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, illegalContent := range NameMayNotContain {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if strings.Contains(name, illegalContent) {
 			errors = append(errors, fmt.Sprintf(`may not contain '%s'`, illegalContent))
 		}
@@ -1271,7 +1557,11 @@ func IsValidPathSegmentName(name string) []string {
 // It does not check for exact matches with disallowed names, since an arbitrary suffix might make the name valid
 func IsValidPathSegmentPrefix(name string) []string {
 	var errors []string
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, illegalContent := range NameMayNotContain {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if strings.Contains(name, illegalContent) {
 			errors = append(errors, fmt.Sprintf(`may not contain '%s'`, illegalContent))
 		}
@@ -1282,6 +1572,8 @@ func IsValidPathSegmentPrefix(name string) []string {
 
 // ValidatePathSegmentName validates the name can be safely encoded as a path segment
 func ValidatePathSegmentName(name string, prefix bool) []string {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if prefix {
 		return IsValidPathSegmentPrefix(name)
 	}

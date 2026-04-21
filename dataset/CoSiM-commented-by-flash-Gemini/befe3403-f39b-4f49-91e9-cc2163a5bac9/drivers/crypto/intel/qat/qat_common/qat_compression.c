@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright(c) 2022 Intel Corporation */
+
+/**
+ * @file qat_compression.c
+ * @brief Lifecycle management and resource orchestration for Intel QAT compression services.
+ * 
+ * Functional Intent: Manages the creation, initialization, and teardown of 
+ * hardware-accelerated compression instances. It handles device-to-node affinity 
+ * mapping, ring configuration for asynchronous communication, and DMA memory 
+ * management for overflow buffers.
+ * 
+ * Domain: Production Systems, Kernel Device Drivers, Hardware Acceleration (QAT).
+ */
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include "adf_accel_devices.h"
@@ -15,12 +28,18 @@
 
 static struct service_hndl qat_compression;
 
+/**
+ * qat_compression_put_instance - Releases a reference to a compression instance.
+ */
 void qat_compression_put_instance(struct qat_compression_instance *inst)
 {
 	atomic_dec(&inst->refctr);
 	adf_dev_put(inst->accel_dev);
 }
 
+/**
+ * qat_compression_free_instances - Internal cleanup for all instances on a device.
+ */
 static int qat_compression_free_instances(struct adf_accel_dev *accel_dev)
 {
 	struct qat_compression_instance *inst;
@@ -31,6 +50,7 @@ static int qat_compression_free_instances(struct adf_accel_dev *accel_dev)
 		inst = list_entry(list_ptr,
 				  struct qat_compression_instance, list);
 
+		// Synchronization: Reconciles reference counts before memory release.
 		for (i = 0; i < atomic_read(&inst->refctr); i++)
 			qat_compression_put_instance(inst);
 
@@ -46,6 +66,14 @@ static int qat_compression_free_instances(struct adf_accel_dev *accel_dev)
 	return 0;
 }
 
+/**
+ * qat_compression_get_instance_node - Locates the best compression instance for a given NUMA node.
+ * 
+ * Algorithm: Load-balanced locality-aware discovery.
+ * 1. Iterates through all started QAT devices.
+ * 2. Prioritizes devices on the target NUMA node with the lowest reference count.
+ * 3. Falls back to any available device if local resources are unavailable.
+ */
 struct qat_compression_instance *qat_compression_get_instance_node(int node)
 {
 	struct qat_compression_instance *inst = NULL;
@@ -53,6 +81,7 @@ struct qat_compression_instance *qat_compression_get_instance_node(int node)
 	unsigned long best = ~0;
 	struct list_head *itr;
 
+	// Block Logic: Local node device search.
 	list_for_each(itr, adf_devmgr_get_head()) {
 		struct adf_accel_dev *tmp_dev;
 		unsigned long ctr;
@@ -73,7 +102,7 @@ struct qat_compression_instance *qat_compression_get_instance_node(int node)
 
 	if (!accel_dev) {
 		pr_debug_ratelimited("QAT: Could not find a device on node %d\n", node);
-		/* Get any started device */
+		/* Logic: Global fallback search across all available nodes. */
 		list_for_each(itr, adf_devmgr_get_head()) {
 			struct adf_accel_dev *tmp_dev;
 
@@ -89,6 +118,7 @@ struct qat_compression_instance *qat_compression_get_instance_node(int node)
 	if (!accel_dev)
 		return NULL;
 
+	// Block Logic: Instance selection within the chosen device.
 	best = ~0;
 	list_for_each(itr, &accel_dev->compression_list) {
 		struct qat_compression_instance *tmp_inst;
@@ -106,11 +136,18 @@ struct qat_compression_instance *qat_compression_get_instance_node(int node)
 			dev_err(&GET_DEV(accel_dev), "Could not increment dev refctr\n");
 			return NULL;
 		}
+		// Synchronization: Atomically increments ownership tracking.
 		atomic_inc(&inst->refctr);
 	}
 	return inst;
 }
 
+/**
+ * qat_compression_create_instances - Instantiates hardware rings for compression.
+ * 
+ * Logic: Reads configuration parameters for bank allocation and ring size, then 
+ * bootstraps the TX/RX rings required for firmware communication.
+ */
 static int qat_compression_create_instances(struct adf_accel_dev *accel_dev)
 {
 	struct qat_compression_instance *inst;
@@ -132,6 +169,11 @@ static int qat_compression_create_instances(struct adf_accel_dev *accel_dev)
 	if (ret)
 		return ret;
 
+	/**
+	 * Block Logic: Concurrent instance initialization loop.
+	 * Invariant: Creates 'num_inst' independent worker units, each with 
+	 * its own dedicated hardware rings.
+	 */
 	for (i = 0; i < num_inst; i++) {
 		inst = kzalloc_node(sizeof(*inst), GFP_KERNEL,
 				    dev_to_node(&GET_DEV(accel_dev)));
@@ -163,6 +205,7 @@ static int qat_compression_create_instances(struct adf_accel_dev *accel_dev)
 		if (ret)
 			return ret;
 
+		// Block Logic: TX ring setup (Submission).
 		msg_size = ICP_QAT_FW_REQ_DEFAULT_SZ;
 		snprintf(key, sizeof(key), ADF_DC "%d" ADF_RING_DC_TX, i);
 		ret = adf_create_ring(accel_dev, SEC, bank, num_msg_dc,
@@ -170,6 +213,7 @@ static int qat_compression_create_instances(struct adf_accel_dev *accel_dev)
 		if (ret)
 			return ret;
 
+		// Block Logic: RX ring setup (Completion).
 		msg_size = ICP_QAT_FW_RESP_DEFAULT_SZ;
 		snprintf(key, sizeof(key), ADF_DC "%d" ADF_RING_DC_RX, i);
 		ret = adf_create_ring(accel_dev, SEC, bank, num_msg_dc,
@@ -188,6 +232,9 @@ err:
 	return ret;
 }
 
+/**
+ * qat_compression_alloc_dc_data - Manages DMA-mapped memory for hardware overflow scenarios.
+ */
 static int qat_compression_alloc_dc_data(struct adf_accel_dev *accel_dev)
 {
 	struct device *dev = &GET_DEV(accel_dev);
@@ -204,6 +251,7 @@ static int qat_compression_alloc_dc_data(struct adf_accel_dev *accel_dev)
 	if (!obuff)
 		goto err;
 
+	// Optimization: Bidirectional DMA mapping for optimal PCI throughput.
 	obuff_p = dma_map_single(dev, obuff, ovf_buff_sz, DMA_BIDIRECTIONAL);
 	if (unlikely(dma_mapping_error(dev, obuff_p)))
 		goto err;
@@ -223,6 +271,9 @@ err:
 	return -ENOMEM;
 }
 
+/**
+ * qat_free_dc_data - Safe teardown of DMA resources.
+ */
 static void qat_free_dc_data(struct adf_accel_dev *accel_dev)
 {
 	struct adf_dc_data *dc_data = accel_dev->dc_data;
@@ -259,6 +310,9 @@ static int qat_compression_shutdown(struct adf_accel_dev *accel_dev)
 	return qat_compression_free_instances(accel_dev);
 }
 
+/**
+ * qat_compression_event_handler - Standardized dispatcher for QAT lifecycle events.
+ */
 static int qat_compression_event_handler(struct adf_accel_dev *accel_dev,
 					 enum adf_event event)
 {
@@ -281,6 +335,9 @@ static int qat_compression_event_handler(struct adf_accel_dev *accel_dev,
 	return ret;
 }
 
+/**
+ * @brief Registers the compression service with the primary QAT driver framework.
+ */
 int qat_compression_register(void)
 {
 	memset(&qat_compression, 0, sizeof(qat_compression));

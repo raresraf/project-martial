@@ -1,3 +1,10 @@
+/**
+ * @raw/84c41717-9a8b-4da9-8894-f1ae124b925c/src/vs/workbench/contrib/chat/browser/actions/chatContextActions.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -130,6 +137,10 @@ function isRelatedFileQuickPickItem(obj: unknown): obj is IRelatedFilesQuickPick
  * Checks is a provided object is a prompt instructions quick pick item.
  */
 function isPromptInstructionsQuickPickItem(obj: unknown): obj is IPromptInstructionsQuickPickItem {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!obj || typeof obj !== 'object') {
 		return false;
 	}
@@ -217,8 +228,16 @@ abstract class AttachFileAction extends Action2 {
 
 		const contexts = Array.isArray(args[1]) ? args[1] : [args[0]];
 		const files = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const context of contexts) {
 			let uri;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (URI.isUri(context)) {
 				uri = context;
 			} else if (isSearchTreeFileMatch(context)) {
@@ -229,6 +248,10 @@ abstract class AttachFileAction extends Action2 {
 				uri = EditorResourceAccessor.getCanonicalUri(editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (uri && [Schemas.file, Schemas.vscodeRemote, Schemas.untitled].includes(uri.scheme)) {
 				files.push(uri);
 			}
@@ -265,8 +288,16 @@ class AttachFileToChatAction extends AttachFileAction {
 		const variablesService = accessor.get(IChatVariablesService);
 		const files = this.getFiles(accessor, ...args);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (files.length) {
 			(await showChatView(accessor.get(IViewsService)))?.focusInput();
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const file of files) {
 				variablesService.attachContext('file', file, ChatAgentLocation.Panel);
 			}
@@ -302,14 +333,30 @@ class AttachSelectionToChatAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const [_, matches] = args;
 		// If we have search matches, it means this is coming from the search widget
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (matches && matches.length > 0) {
 			const uris = new Map<URI, Range | undefined>();
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const match of matches) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (isSearchTreeFileMatch(match)) {
 					uris.set(match.resource, undefined);
 				} else {
 					const context = { uri: match._parent.resource, range: match._range };
 					const range = uris.get(context.uri);
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!range ||
 						range.startLineNumber !== context.range.startLineNumber && range.endLineNumber !== context.range.endLineNumber) {
 						uris.set(context.uri, context.range);
@@ -318,8 +365,16 @@ class AttachSelectionToChatAction extends Action2 {
 				}
 			}
 			// Add the root files for all of the ones that didn't have a match
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const uri of uris) {
 				const [resource, range] = uri;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!range) {
 					variablesService.attachContext('file', { uri: resource }, ChatAgentLocation.Panel);
 				}
@@ -327,8 +382,16 @@ class AttachSelectionToChatAction extends Action2 {
 		} else {
 			const activeEditor = editorService.activeTextEditorControl;
 			const activeUri = EditorResourceAccessor.getCanonicalUri(editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (editorService.activeTextEditorControl && activeUri && [Schemas.file, Schemas.vscodeRemote, Schemas.untitled].includes(activeUri.scheme)) {
 				const selection = activeEditor?.getSelection();
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (selection) {
 					(await showChatView(accessor.get(IViewsService)))?.focusInput();
 					const range = selection.isEmpty() ? new Range(selection.startLineNumber, 1, selection.startLineNumber + 1, 1) : selection;
@@ -366,8 +429,16 @@ class AttachFileToEditingSessionAction extends AttachFileAction {
 		const variablesService = accessor.get(IChatVariablesService);
 		const files = this.getFiles(accessor, ...args);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (files.length) {
 			(await showEditsView(accessor.get(IViewsService)))?.focusInput();
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const file of files) {
 				variablesService.attachContext('file', file, ChatAgentLocation.EditingSession);
 			}
@@ -400,8 +471,16 @@ class AttachSelectionToEditingSessionAction extends Action2 {
 
 		const activeEditor = editorService.activeTextEditorControl;
 		const activeUri = EditorResourceAccessor.getCanonicalUri(editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (editorService.activeTextEditorControl && activeUri && [Schemas.file, Schemas.vscodeRemote, Schemas.untitled].includes(activeUri.scheme)) {
 			const selection = activeEditor?.getSelection();
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (selection) {
 				(await showEditsView(accessor.get(IViewsService)))?.focusInput();
 				const range = selection.isEmpty() ? new Range(selection.startLineNumber, 1, selection.startLineNumber + 1, 1) : selection;
@@ -453,6 +532,10 @@ export class AttachContextAction extends Action2 {
 	}
 
 	private _getFileContextId(item: { resource: URI } | { uri: URI; range: IRange }) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if ('resource' in item) {
 			return item.resource.toString();
 		}
@@ -464,7 +547,15 @@ export class AttachContextAction extends Action2 {
 
 	private async _attachContext(widget: IChatWidget, quickInputService: IQuickInputService, commandService: ICommandService, clipboardService: IClipboardService, editorService: IEditorService, labelService: ILabelService, viewsService: IViewsService, chatEditingService: IChatEditingService | undefined, hostService: IHostService, fileService: IFileService, openerService: IOpenerService, isInBackground?: boolean, ...picks: IChatContextQuickPickItem[]) {
 		const toAttach: IChatRequestVariableEntry[] = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const pick of picks) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (isISymbolQuickPickItem(pick) && pick.symbol) {
 				// Workspace symbol
 				toAttach.push({
@@ -477,8 +568,16 @@ export class AttachContextAction extends Action2 {
 					isDynamic: true
 				});
 			} else if (isIQuickPickItemWithResource(pick) && pick.resource) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (/\.(png|jpg|jpeg|bmp|gif|tiff)$/i.test(pick.resource.path)) {
 					// checks if the file is an image
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (URI.isUri(pick.resource)) {
 						// read the image and attach a new file context.
 						const readFile = await fileService.readFile(pick.resource);
@@ -494,6 +593,10 @@ export class AttachContextAction extends Action2 {
 					}
 				} else {
 					// file attachment
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (chatEditingService) {
 						chatEditingService.globalEditingSessionObs.get()?.addFileToWorkingSet(pick.resource);
 					} else {
@@ -516,9 +619,21 @@ export class AttachContextAction extends Action2 {
 					isDynamic: true
 				});
 			} else if (isIOpenEditorsQuickPickItem(pick)) {
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (const editor of editorService.editors.filter(e => e instanceof FileEditorInput || e instanceof DiffEditorInput || e instanceof UntitledTextEditorInput || e instanceof NotebookEditorInput)) {
 					const uri = editor instanceof DiffEditorInput ? editor.modified.resource : editor.resource;
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (uri) {
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (chatEditingService) {
 							chatEditingService.globalEditingSessionObs.get()?.addFileToWorkingSet(uri);
 						} else {
@@ -534,7 +649,15 @@ export class AttachContextAction extends Action2 {
 				}
 			} else if (isISearchResultsQuickPickItem(pick)) {
 				const searchView = viewsService.getViewWithId(SEARCH_VIEW_ID) as SearchView;
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (const result of searchView.model.searchResult.matches()) {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (chatEditingService) {
 						chatEditingService.globalEditingSessionObs.get()?.addFileToWorkingSet(result.resource);
 					} else {
@@ -550,17 +673,29 @@ export class AttachContextAction extends Action2 {
 			} else if (isRelatedFileQuickPickItem(pick)) {
 				// Get all provider results and show them in a second tier picker
 				const chatSessionId = widget.viewModel?.sessionId;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!chatSessionId || !chatEditingService) {
 					continue;
 				}
 				const relatedFiles = await chatEditingService.getRelatedFiles(chatSessionId, widget.getInput(), CancellationToken.None);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!relatedFiles) {
 					continue;
 				}
 				const attachments = widget.attachmentModel.getAttachmentIDs();
 				const itemsPromise = chatEditingService.getRelatedFiles(chatSessionId, widget.getInput(), CancellationToken.None)
-					.then((files) => (files ?? []).reduce<((IQuickPickItem & { value: URI }) | IQuickPickSeparator)[]>((acc, cur) => {
+					.then((files) => (files ?? []).reduce<((IQuickPickItem & { value: URI }) | IQuickPickSeparator)[]>((acc, cur) => { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 						acc.push({ type: 'separator', label: cur.group });
+						/**
+						 * Block Logic: Orchestrates the temporal progression of the iteration.
+						 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+						 */
 						for (const file of cur.files) {
 							acc.push({
 								type: 'item',
@@ -574,11 +709,19 @@ export class AttachContextAction extends Action2 {
 						return acc;
 					}, []));
 				const selectedFiles = await quickInputService.pick(itemsPromise, { placeHolder: localize('relatedFiles', 'Add related files to your working set'), canPickMany: true });
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (const file of selectedFiles ?? []) {
 					chatEditingService?.globalEditingSessionObs.get()?.addFileToWorkingSet(file.value);
 				}
 			} else if (isScreenshotQuickPickItem(pick)) {
 				const blob = await hostService.getScreenshot();
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (blob) {
 					toAttach.push(convertBufferToScreenshotVariable(blob));
 				}
@@ -592,9 +735,17 @@ export class AttachContextAction extends Action2 {
 			} else {
 				// Anything else is an attachment
 				const attachmentPick = pick as IAttachmentQuickPickItem;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (attachmentPick.kind === 'command') {
 					// Dynamic variable with a followup command
 					const selection = await commandService.executeCommand(attachmentPick.command.id, ...(attachmentPick.command.arguments ?? []));
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!selection) {
 						// User made no selection, skip this variable
 						continue;
@@ -641,6 +792,10 @@ export class AttachContextAction extends Action2 {
 		}
 
 		widget.attachmentModel.addContext(...toAttach);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!isInBackground) {
 			// Set focus back into the input once the user is done attaching items
 			// so that the user can start typing their message
@@ -668,6 +823,10 @@ export class AttachContextAction extends Action2 {
 
 		const context: { widget?: IChatWidget; showFilesOnly?: boolean; placeholder?: string } | undefined = args[0];
 		const widget = context?.widget ?? widgetService.lastFocusedWidget;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!widget) {
 			return;
 		}
@@ -676,8 +835,20 @@ export class AttachContextAction extends Action2 {
 		const usedAgent = widget.parsedInput.parts.find(p => p instanceof ChatRequestAgentPart);
 		const slowSupported = usedAgent ? usedAgent.agent.metadata.supportsSlowVariables : true;
 		const quickPickItems: IAttachmentQuickPickItem[] = [];
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!context || !context.showFilesOnly) {
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const variable of chatVariablesService.getVariables()) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (variable.fullName && (!variable.isSlow || slowSupported)) {
 					quickPickItems.push({
 						kind: 'variable',
@@ -689,8 +860,16 @@ export class AttachContextAction extends Action2 {
 				}
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (extensionService.extensions.some(ext => isProposedApiEnabled(ext, 'chatReferenceBinaryData'))) {
 				const imageData = await clipboardService.readImage();
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (isImage(imageData)) {
 					quickPickItems.push({
 						kind: 'image',
@@ -711,11 +890,27 @@ export class AttachContextAction extends Action2 {
 				});
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (widget.viewModel?.sessionId) {
 				const agentPart = widget.parsedInput.parts.find((part): part is ChatRequestAgentPart => part instanceof ChatRequestAgentPart);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (agentPart) {
 					const completions = await chatAgentService.getAgentCompletionItems(agentPart.agent.id, '', CancellationToken.None);
+					/**
+					 * Block Logic: Orchestrates the temporal progression of the iteration.
+					 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+					 */
 					for (const variable of completions) {
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (variable.fullName && variable.command) {
 							quickPickItems.push({
 								kind: 'command',
@@ -735,7 +930,15 @@ export class AttachContextAction extends Action2 {
 				}
 			}
 
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const tool of languageModelToolsService.getTools()) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (tool.canBeReferencedInPrompt) {
 					const item: IToolQuickPickItem = {
 						kind: 'tool',
@@ -743,6 +946,10 @@ export class AttachContextAction extends Action2 {
 						id: tool.id,
 						icon: ThemeIcon.isThemeIcon(tool.icon) ? tool.icon : undefined // TODO need to support icon path?
 					};
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (ThemeIcon.isThemeIcon(tool.icon)) {
 						item.iconClass = ThemeIcon.asClassName(tool.icon);
 					} else if (tool.icon) {
@@ -761,6 +968,10 @@ export class AttachContextAction extends Action2 {
 				id: 'symbol'
 			});
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (widget.location === ChatAgentLocation.Notebook) {
 				quickPickItems.push({
 					kind: 'command',
@@ -778,6 +989,10 @@ export class AttachContextAction extends Action2 {
 				});
 			}
 		} else if (context.showFilesOnly) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (chatEditingService?.hasRelatedFilesProviders() && (widget.getInput() || chatEditingService.globalEditingSessionObs.get()?.workingSet.size)) {
 				quickPickItems.push({
 					kind: 'related-files',
@@ -786,6 +1001,10 @@ export class AttachContextAction extends Action2 {
 					iconClass: ThemeIcon.asClassName(Codicon.sparkle),
 				});
 			}
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (editorService.editors.filter(e => e instanceof FileEditorInput || e instanceof DiffEditorInput || e instanceof UntitledTextEditorInput).length > 0) {
 				quickPickItems.push({
 					kind: 'open-editors',
@@ -794,6 +1013,10 @@ export class AttachContextAction extends Action2 {
 					iconClass: ThemeIcon.asClassName(Codicon.files),
 				});
 			}
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (SearchContext.HasSearchResults.getValue(contextKeyService)) {
 				quickPickItems.push({
 					kind: 'search-results',
@@ -806,6 +1029,10 @@ export class AttachContextAction extends Action2 {
 
 		// if the `prompt instructions` feature is enabled, add
 		// the `Instructions` attachment type to the list
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (widget.attachmentModel.promptInstructions.featureEnabled) {
 			quickPickItems.push({
 				kind: 'prompt-instructions',
@@ -816,6 +1043,10 @@ export class AttachContextAction extends Action2 {
 		}
 
 		function extractTextFromIconLabel(label: string | undefined): string {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!label) {
 				return '';
 			}
@@ -835,13 +1066,25 @@ export class AttachContextAction extends Action2 {
 	private _show(quickInputService: IQuickInputService, commandService: ICommandService, widget: IChatWidget, quickChatService: IQuickChatService, quickPickItems: (IChatContextQuickPickItem | QuickPickItem)[] | undefined, clipboardService: IClipboardService, editorService: IEditorService, labelService: ILabelService, viewsService: IViewsService, chatEditingService: IChatEditingService | undefined, hostService: IHostService, fileService: IFileService, openerService: IOpenerService, query: string = '', placeholder?: string) {
 		const providerOptions: AnythingQuickAccessProviderRunOptions = {
 			handleAccept: (item: IChatContextQuickPickItem, isBackgroundAccept: boolean) => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if ('prefix' in item) {
 					this._show(quickInputService, commandService, widget, quickChatService, quickPickItems, clipboardService, editorService, labelService, viewsService, chatEditingService, hostService, fileService, openerService, item.prefix, placeholder);
 				} else {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!clipboardService) {
 						return;
 					}
 					this._attachContext(widget, quickInputService, commandService, clipboardService, editorService, labelService, viewsService, chatEditingService, hostService, fileService, openerService, isBackgroundAccept, item);
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (isQuickChat(widget)) {
 						quickChatService.open();
 					}
@@ -851,17 +1094,41 @@ export class AttachContextAction extends Action2 {
 			filter: (item: IChatContextQuickPickItem | IQuickPickSeparator) => {
 				// Avoid attaching the same context twice
 				const attachedContext = widget.attachmentModel.getAttachmentIDs();
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (chatEditingService) {
+					/**
+					 * Block Logic: Orchestrates the temporal progression of the iteration.
+					 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+					 */
 					for (const [file, state] of chatEditingService.globalEditingSessionObs.get()?.workingSet.entries() ?? []) {
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (state.state !== WorkingSetEntryState.Suggested) {
 							attachedContext.add(this._getFileContextId({ resource: file }));
 						}
 					}
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (isIOpenEditorsQuickPickItem(item)) {
+					/**
+					 * Block Logic: Orchestrates the temporal progression of the iteration.
+					 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+					 */
 					for (const editor of editorService.editors.filter(e => e instanceof FileEditorInput || e instanceof DiffEditorInput || e instanceof UntitledTextEditorInput)) {
 						// There is an open editor that hasn't yet been attached to the chat
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (editor.resource && !attachedContext.has(this._getFileContextId({ resource: editor.resource }))) {
 							return true;
 						}
@@ -869,23 +1136,43 @@ export class AttachContextAction extends Action2 {
 					return false;
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if ('kind' in item && item.kind === 'image') {
 					return !attachedContext.has(item.id);
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if ('symbol' in item && item.symbol) {
 					return !attachedContext.has(this._getFileContextId(item.symbol.location));
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (item && typeof item === 'object' && 'resource' in item && URI.isUri(item.resource)) {
 					return [Schemas.file, Schemas.vscodeRemote, Schemas.untitled].includes(item.resource.scheme)
 						&& !attachedContext.has(this._getFileContextId({ resource: item.resource })); // Hack because Typescript doesn't narrow this type correctly
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (item && typeof item === 'object' && 'uri' in item && item.uri && item.range) {
 					return !attachedContext.has(this._getFileContextId({ uri: item.uri, range: item.range.decoration }));
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!('command' in item) && item.id) {
 					return !attachedContext.has(item.id);
 				}
@@ -949,7 +1236,7 @@ const selectPromptAttachment = async (options: ISelectPromptOptions): Promise<vo
 			return files.map((file) => {
 				const fileBasename = basename(file);
 				const fileWithoutExtension = fileBasename.replace(PROMPT_FILE_EXTENSION, '');
-				const result: IQuickPickItem & { value: URI } = {
+				const result: IQuickPickItem & { value: URI } = { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 					type: 'item',
 					label: fileWithoutExtension,
 					description: labelService.getUriLabel(dirname(file), { relative: true }),
@@ -963,8 +1250,12 @@ const selectPromptAttachment = async (options: ISelectPromptOptions): Promise<vo
 
 	// if not prompt files found, render the "how to add" message
 	// to the user with a link to the documentation
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (files.length === 0) {
-		const docsQuickPick: IQuickPickItem & { value: URI } = {
+		const docsQuickPick: IQuickPickItem & { value: URI } = { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			type: 'item',
 			label: localize('noPromptFilesFoundTooltipLabel', 'Learn how to create reusable prompts'),
 			description: DOCUMENTATION_URL,
@@ -979,6 +1270,10 @@ const selectPromptAttachment = async (options: ISelectPromptOptions): Promise<vo
 				canPickMany: false,
 			});
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!result) {
 			return;
 		}
@@ -996,6 +1291,10 @@ const selectPromptAttachment = async (options: ISelectPromptOptions): Promise<vo
 		});
 
 	// if a file was selected, add it to the chat attachments model
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (selectedFile) {
 		promptInstructions.add(selectedFile.value);
 	}

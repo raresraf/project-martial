@@ -1,3 +1,10 @@
+/**
+ * @raw/0c4fa580-5d1c-4719-b29f-c4577915495b/src/vs/workbench/contrib/chat/common/promptSyntax/utils/promptFilesLocator.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -31,6 +38,10 @@ export class PromptFilesLocator {
 	public async listFiles(exclude: ReadonlyArray<URI>): Promise<readonly URI[]> {
 		// create a set from the list of URIs for convenience
 		const excludeSet: Set<string> = new Set();
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const excludeUri of exclude) {
 			excludeSet.add(excludeUri.path);
 		}
@@ -56,11 +67,23 @@ export class PromptFilesLocator {
 
 		// otherwise for each folder provided in the configuration, create
 		// a URI per each folder in the current workspace
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const sourceFolderName of sourceLocations) {
 			// if source folder is an absolute path, add the path as is
 			// without trying to resolve it against the workspace folders
 			const sourceFolderUri = URI.file(sourceFolderName);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (sourceFolderUri.path === sourceFolderName) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (paths.has(sourceFolderUri)) {
 					continue;
 				}
@@ -70,15 +93,27 @@ export class PromptFilesLocator {
 			}
 
 			const { folders } = this.workspaceService.getWorkspace();
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const folder of folders) {
 				// create the source path as a path relative to the workspace
 				// folder, or as an absolute path if the absolute value is provided
 				const relativeFolderUri = extUri.resolvePath(folder.uri, sourceFolderName);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!paths.has(relativeFolderUri)) {
 					paths.add(relativeFolderUri);
 				}
 
 				// if not inside a workspace, we are done
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (folders.length <= 1) {
 					continue;
 				}
@@ -89,6 +124,10 @@ export class PromptFilesLocator {
 				const workspaceRootUri = dirname(folder.uri);
 				const workspaceFolderUri = extUri.resolvePath(workspaceRootUri, sourceFolderName);
 				// if we already have this folder in the list, skip it
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (paths.has(workspaceFolderUri)) {
 					continue;
 				}
@@ -96,6 +135,10 @@ export class PromptFilesLocator {
 				// otherwise, if the source location is inside a top-level workspace folder,
 				// add it to the list of paths too; this helps to handle the case when a
 				// relative path must be resolved from `root` of the workspace
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (workspaceFolderUri.fsPath.startsWith(folder.uri.fsPath)) {
 					paths.add(workspaceFolderUri);
 				}
@@ -123,28 +166,56 @@ export class PromptFilesLocator {
 		);
 
 		const files = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const result of results) {
 			const { stat, success } = result;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!success) {
 				continue;
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!stat || !stat.children) {
 				continue;
 			}
 
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const child of stat.children) {
 				const { name, resource, isDirectory } = child;
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (isDirectory) {
 					continue;
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!name.endsWith(PROMPT_FILE_EXTENSION)) {
 					continue;
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (exclude.has(resource.path)) {
 					continue;
 				}

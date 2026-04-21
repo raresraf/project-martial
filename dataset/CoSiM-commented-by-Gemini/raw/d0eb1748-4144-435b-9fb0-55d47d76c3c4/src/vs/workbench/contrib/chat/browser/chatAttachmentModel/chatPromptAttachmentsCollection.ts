@@ -1,3 +1,10 @@
+/**
+ * @raw/d0eb1748-4144-435b-9fb0-55d47d76c3c4/src/vs/workbench/contrib/chat/browser/chatAttachmentModel/chatPromptAttachmentsCollection.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -34,6 +41,10 @@ export const createPromptVariableId = (
 	// the default prefix that is used for all prompt files
 	let prefix = PROMPT_VARIABLE_ID_PREFIX;
 	// if the reference is the root object, add the `.root` suffix
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (isRoot) {
 		prefix += '.root';
 	}
@@ -65,6 +76,10 @@ export const toChatVariable = (
 	let id = `${uri}`;
 
 	// prompts have special `id`s that are used by the copilot extension
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (isPromptFile) {
 		id = createPromptVariableId(uri, isRoot);
 	}
@@ -146,6 +161,10 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	public get references(): readonly URI[] {
 		const result = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of this.attachments.values()) {
 			result.push(...child.references);
 		}
@@ -159,9 +178,17 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	public get toolsMetadata(): readonly string[] | null {
 		const result = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of this.attachments.values()) {
 			const { toolsMetadata } = child;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (toolsMetadata === null) {
 				continue;
 			}
@@ -181,6 +208,10 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 		const result = [];
 		const attachments = [...this.attachments.values()];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const attachment of attachments) {
 			const { reference } = attachment;
 
@@ -240,12 +271,24 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 		const uriList = Array.isArray(uris) ? uris : [uris];
 
 		// if no URIs provided, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (uriList.length === 0) {
 			return;
 		}
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const uri of uriList) {
 			// if already exists, nothing to do
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this.attachments.has(uri.path)) {
 				continue;
 			}
@@ -272,6 +315,10 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	 */
 	public remove(uri: URI): this {
 		// if does not exist, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.attachments.has(uri.path)) {
 			return this;
 		}
@@ -292,6 +339,10 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	 * Clear all prompt instruction attachments.
 	 */
 	public clear(): this {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const attachment of this.attachments.values()) {
 			this.remove(attachment.uri);
 		}

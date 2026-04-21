@@ -1,3 +1,13 @@
+/**
+ * @file helper.cpp
+ * @brief OpenCL Utility Framework and ETC1 Texture Compression Implementation.
+ *
+ * This file serves as a comprehensive toolkit for OpenCL-based GPGPU operations.
+ * It encapsulates error handling wrappers, kernel source ingestion utilities,
+ * and a high-performance ETC1 (Ericsson Texture Compression) compressor.
+ * The module is designed for High-Performance Computing (HPC) environments
+ * where robust error tracking and efficient resource management are critical.
+ */
 
 >>>> file: helper.cpp
 #include 
@@ -11,7 +21,13 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Checks OpenCL API return codes for success.
+ * 
+ * Intercepts OpenCL return statuses. If the status is not CL_SUCCESS,
+ * it translates the error code to a human-readable string and logs it.
+ * 
+ * @param cl_ret The OpenCL return code.
+ * @return 0 on success, 1 on failure.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +39,16 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Checks and handles OpenCL program compilation errors.
+ * 
+ * If compilation fails, this function retrieves and displays the full
+ * compiler build log for the specified device, facilitating debugging
+ * of kernel syntax or resource issues.
+ * 
+ * @param cl_ret The return code from clBuildProgram.
+ * @param program The OpenCL program object.
+ * @param device The device for which the program was built.
+ * @return 0 on success, 1 on failure.
  */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {

@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file attach_detach_test.go
+ * @brief Integration tests for the Attach/Detach controller's synchronization logic.
+ * 
+ * Functional Intent: Validates that the Attach/Detach controller maintains a 
+ * consistent state between the API server and the physical nodes, even in the 
+ * presence of missed watch events. It specifically tests the 'Desired State 
+ * of World' (DSW) populator's ability to recover from discrepancies and ensure 
+ * volumes are correctly attached or detached based on pod lifecycle transitions.
+ * 
+ * Domain: Production Systems, Distributed Control Loops, Storage Orchestration.
+ */
+
 package volume
 
 import (
@@ -38,6 +51,9 @@ import (
 	"k8s.io/kubernetes/test/integration/framework"
 )
 
+/**
+ * fakePodWithVol - Constructs a mock pod specification with a defined host-path volume.
+ */
 func fakePodWithVol(namespace string) *v1.Pod {
 	fakePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,9 +89,15 @@ func fakePodWithVol(namespace string) *v1.Pod {
 	return fakePod
 }
 
-// Via integration test we can verify that if pod delete
-// event is somehow missed by AttachDetach controller - it still
-// gets cleaned up by Desired State of World populator.
+/**
+ * TestPodDeletionWithDswp - Verifies automated cleanup of missed pod deletion events.
+ * 
+ * Algorithm: Missed event recovery via periodic reconciliation.
+ * Logic: 
+ * 1. Simulates pod creation and confirms tracking in DSW.
+ * 2. Stops the event stream and manually deletes the pod from the informer store (mimicking a missed delete event).
+ * 3. Waits for the periodic populator loop to detect the discrepancy and purge the DSW entry.
+ */
 func TestPodDeletionWithDswp(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -111,7 +133,7 @@ func TestPodDeletionWithDswp(t *testing.T) {
 	podInformer := informers.Core().V1().Pods().Informer()
 	go podInformer.Run(podStopCh)
 
-	// start controller loop
+	// Block Logic: Background controller orchestration.
 	stopCh := make(chan struct{})
 	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(stopCh)
 	go informers.Core().V1().PersistentVolumes().Informer().Run(stopCh)
@@ -131,7 +153,8 @@ func TestPodDeletionWithDswp(t *testing.T) {
 
 	waitForPodsInDSWP(t, ctrl.GetDesiredStateOfWorld())
 
-	// let's stop pod events from getting triggered
+	// Block Logic: Missed event simulation.
+	// Logic: Stops the watch channel and surgically removes the pod from local cache.
 	close(podStopCh)
 	err = podInformer.GetStore().Delete(podInformerObj)
 	if err != nil {
@@ -139,7 +162,9 @@ func TestPodDeletionWithDswp(t *testing.T) {
 	}
 
 	waitToObservePods(t, podInformer, 0)
-	// the populator loop turns every 1 minute
+	
+	// Synchronization: Waits for the next populator cycle (nominal 1-minute interval).
+	// Invariant: Reconciliation must eventually clear the DSW state.
 	time.Sleep(80 * time.Second)
 	podsToAdd := ctrl.GetDesiredStateOfWorld().GetPodToAdd()
 	if len(podsToAdd) != 0 {
@@ -149,6 +174,9 @@ func TestPodDeletionWithDswp(t *testing.T) {
 	close(stopCh)
 }
 
+/**
+ * TestPodUpdateWithWithADC - Validates volume cleanup upon pod successful completion.
+ */
 func TestPodUpdateWithWithADC(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -184,11 +212,9 @@ func TestPodUpdateWithWithADC(t *testing.T) {
 	podInformer := informers.Core().V1().Pods().Informer()
 	go podInformer.Run(podStopCh)
 
-	// start controller loop
-	stopCh := make(chan struct{})
-	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(stopCh)
-	go informers.Core().V1().PersistentVolumes().Informer().Run(stopCh)
-	go ctrl.Run(stopCh)
+	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(podStopCh)
+	go informers.Core().V1().PersistentVolumes().Informer().Run(podStopCh)
+	go ctrl.Run(podStopCh)
 
 	waitToObservePods(t, podInformer, 1)
 	podKey, err := cache.MetaNamespaceKeyFunc(pod)
@@ -204,12 +230,14 @@ func TestPodUpdateWithWithADC(t *testing.T) {
 
 	waitForPodsInDSWP(t, ctrl.GetDesiredStateOfWorld())
 
+	// Logic: Transition pod to 'Succeeded' state.
 	pod.Status.Phase = v1.PodSucceeded
 
 	if _, err := testClient.Core().Pods(ns.Name).UpdateStatus(pod); err != nil {
 		t.Errorf("Failed to update pod : %v", err)
 	}
 
+	// Invariant: Controller should detect termination and remove volumes from DSW.
 	time.Sleep(20 * time.Second)
 	podsToAdd := ctrl.GetDesiredStateOfWorld().GetPodToAdd()
 	if len(podsToAdd) != 0 {
@@ -217,9 +245,14 @@ func TestPodUpdateWithWithADC(t *testing.T) {
 	}
 
 	close(podStopCh)
-	close(stopCh)
 }
 
+/**
+ * TestPodUpdateWithKeepTerminatedPodVolumes - Tests policy-based volume preservation.
+ * 
+ * Functional Intent: Ensures that volumes are NOT detached if the node-level 
+ * 'KeepTerminatedPodVolumes' annotation is enabled.
+ */
 func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -256,11 +289,9 @@ func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 	podInformer := informers.Core().V1().Pods().Informer()
 	go podInformer.Run(podStopCh)
 
-	// start controller loop
-	stopCh := make(chan struct{})
-	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(stopCh)
-	go informers.Core().V1().PersistentVolumes().Informer().Run(stopCh)
-	go ctrl.Run(stopCh)
+	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(podStopCh)
+	go informers.Core().V1().PersistentVolumes().Informer().Run(podStopCh)
+	go ctrl.Run(podStopCh)
 
 	waitToObservePods(t, podInformer, 1)
 	podKey, err := cache.MetaNamespaceKeyFunc(pod)
@@ -282,6 +313,7 @@ func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 		t.Errorf("Failed to update pod : %v", err)
 	}
 
+	// Invariant: Volumes must persist in DSW due to the preservation policy.
 	time.Sleep(20 * time.Second)
 	podsToAdd := ctrl.GetDesiredStateOfWorld().GetPodToAdd()
 	if len(podsToAdd) == 0 {
@@ -289,12 +321,11 @@ func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 	}
 
 	close(podStopCh)
-	close(stopCh)
 }
 
-// wait for the podInformer to observe the pods. Call this function before
-// running the RC manager to prevent the rc manager from creating new pods
-// rather than adopting the existing ones.
+/**
+ * waitToObservePods - Polling helper for informer cache synchronization.
+ */
 func waitToObservePods(t *testing.T, podInformer cache.SharedIndexInformer, podNum int) {
 	if err := wait.Poll(10*time.Second, 60*time.Second, func() (bool, error) {
 		objects := podInformer.GetIndexer().List()
@@ -308,7 +339,9 @@ func waitToObservePods(t *testing.T, podInformer cache.SharedIndexInformer, podN
 	}
 }
 
-// wait for pods to be observed in desired state of world
+/**
+ * waitForPodsInDSWP - Polling helper for DSW state synchronization.
+ */
 func waitForPodsInDSWP(t *testing.T, dswp volumecache.DesiredStateOfWorld) {
 	if err := wait.Poll(time.Millisecond*500, wait.ForeverTestTimeout, func() (bool, error) {
 		pods := dswp.GetPodToAdd()
@@ -321,6 +354,9 @@ func waitForPodsInDSWP(t *testing.T, dswp volumecache.DesiredStateOfWorld) {
 	}
 }
 
+/**
+ * createAdClients - Bootstraps the simulated environment with fake cloud and volume plugins.
+ */
 func createAdClients(ns *v1.Namespace, t *testing.T, server *httptest.Server, syncPeriod time.Duration) (*clientset.Clientset, attachdetach.AttachDetachController, informers.SharedInformerFactory) {
 	config := restclient.Config{
 		Host:          server.URL,
@@ -364,9 +400,9 @@ func createAdClients(ns *v1.Namespace, t *testing.T, server *httptest.Server, sy
 	return testClient, ctrl, informers
 }
 
-// Via integration test we can verify that if pod add
-// event is somehow missed by AttachDetach controller - it still
-// gets added by Desired State of World populator.
+/**
+ * TestPodAddedByDswp - Verifies automated detection of missed pod creation events.
+ */
 func TestPodAddedByDswp(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -402,7 +438,6 @@ func TestPodAddedByDswp(t *testing.T) {
 	podInformer := informers.Core().V1().Pods().Informer()
 	go podInformer.Run(podStopCh)
 
-	// start controller loop
 	stopCh := make(chan struct{})
 	go informers.Core().V1().PersistentVolumeClaims().Informer().Run(stopCh)
 	go informers.Core().V1().PersistentVolumes().Informer().Run(stopCh)
@@ -422,7 +457,7 @@ func TestPodAddedByDswp(t *testing.T) {
 
 	waitForPodsInDSWP(t, ctrl.GetDesiredStateOfWorld())
 
-	// let's stop pod events from getting triggered
+	// Block Logic: Missed creation event.
 	close(podStopCh)
 	podObj, err := api.Scheme.DeepCopy(pod)
 	if err != nil {
@@ -434,13 +469,17 @@ func TestPodAddedByDswp(t *testing.T) {
 	}
 	newPodName := "newFakepod"
 	podNew.SetName(newPodName)
+	
+	// Logic: Inject pod into store without triggering a watch event.
 	err = podInformer.GetStore().Add(podNew)
 	if err != nil {
 		t.Fatalf("Error adding pod : %v", err)
 	}
 
 	waitToObservePods(t, podInformer, 2)
-	// the findAndAddActivePods loop turns every 3 minute
+	
+	// Synchronization: Waits for the next 'findAndAddActivePods' reconciliation cycle (3 mins).
+	// Invariant: DSW must eventually include the manually injected pod.
 	time.Sleep(200 * time.Second)
 	podsToAdd := ctrl.GetDesiredStateOfWorld().GetPodToAdd()
 	if len(podsToAdd) != 2 {

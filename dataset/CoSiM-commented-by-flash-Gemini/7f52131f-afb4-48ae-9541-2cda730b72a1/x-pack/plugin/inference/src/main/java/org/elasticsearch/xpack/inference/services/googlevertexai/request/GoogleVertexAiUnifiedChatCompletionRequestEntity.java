@@ -27,6 +27,18 @@ import java.util.Objects;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.core.Strings.format;
 
+/**
+ * @file GoogleVertexAiUnifiedChatCompletionRequestEntity.java
+ * @brief Serialization layer for Google Vertex AI chat completion requests.
+ * 
+ * Functional Intent: Transforms an internal Elasticsearch UnifiedChatInput 
+ * structure into the specific JSON schema required by the Google Vertex AI 
+ * (Gemini) API. It handles role mapping (e.g., 'assistant' to 'model'), 
+ * content object validation, function calling configuration, and extraction 
+ * of generation parameters like temperature and top-p.
+ * 
+ * Domain: Production Systems, AI Integration, Protocol Translation.
+ */
 public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXContentObject {
     private static final String CONTENTS = "contents";
     private static final String ROLE = "role";
@@ -68,13 +80,16 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         this.unifiedChatInput = Objects.requireNonNull(unifiedChatInput);
     }
 
+    /**
+     * @brief Normalizes role identifiers to match Vertex AI naming conventions.
+     */
     private String messageRoleToGoogleVertexAiSupportedRole(String messageRole) {
         var messageRoleLowered = messageRole.toLowerCase();
 
         if (messageRoleLowered.equals(USER_ROLE)) {
             return USER_ROLE;
         } else if (messageRole.equals(ASSISTANT_ROLE)) {
-            // Gemini VertexAI API does not use "assistant". Instead, it uses "model"
+            // Logic: Gemini VertexAI API uses "model" instead of the OpenAI-standard "assistant".
             return MODEL_ROLE;
         }
 
@@ -87,10 +102,14 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         throw new ElasticsearchStatusException(errorMessage, RestStatus.BAD_REQUEST);
     }
 
+    /**
+     * @brief Validates and appends content objects (currently restricted to text parts).
+     */
     private void validateAndAddContentObjectsToBuilder(XContentBuilder builder, UnifiedCompletionRequest.ContentObjects contentObjects)
         throws IOException {
 
         for (var contentObject : contentObjects.contentObjects()) {
+            // Pre-condition: Only text parts are supported in the current implementation.
             if (contentObject.type().equals(TEXT) == false) {
                 var errorMessage = format(
                     "Type [%s] not supported by Google VertexAI ChatCompletion. Supported types: [text]",
@@ -100,10 +119,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
             }
 
             if (contentObject.text().isEmpty()) {
-                return; // VertexAI API does not support empty text parts
+                return; // Logic: Skips empty parts as the API requires non-null content.
             }
 
-            // We are only supporting Text messages for now
             builder.startObject();
             builder.field(TEXT, contentObject.text());
             builder.endObject();
@@ -111,6 +129,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * @brief Internal helper to parse a raw JSON string into a flat string map.
+     */
     private static Map<String, String> jsonStringToMap(String jsonString) throws IOException {
         if (jsonString == null || jsonString.isEmpty()) {
             return null;
@@ -126,6 +147,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * @brief Maps system-role messages to the 'systemInstruction' field.
+     */
     private void buildSystemInstruction(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
         var systemMessages = messages.stream().filter(message -> message.role().equalsIgnoreCase(SYSTEM_ROLE)).toList();
@@ -136,6 +160,10 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
         builder.startObject(SYSTEM_INSTRUCTION);
         builder.startArray(PARTS);
+        /**
+         * Block Logic: System instruction extraction.
+         * Invariant: Aggregates all system-level instructions into a single block.
+         */
         for (var systemMessage : systemMessages) {
             switch (systemMessage.content()) {
                 case UnifiedCompletionRequest.ContentString contentString -> {
@@ -165,13 +193,19 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * @brief Builds the core 'contents' array containing user and model turns.
+     */
     private void buildContents(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
 
         builder.startArray(CONTENTS);
+        /**
+         * Block Logic: Message history serialization.
+         * Invariant: Skips system messages as they are handled in the specific instruction block.
+         */
         for (UnifiedCompletionRequest.Message message : messages) {
             if (message.role().equalsIgnoreCase(SYSTEM_ROLE)) {
-                // System messages are built in another method
                 continue;
             }
 
@@ -181,7 +215,7 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
             switch (message.content()) {
                 case UnifiedCompletionRequest.ContentString contentString -> {
                     if (contentString.content().isEmpty()) {
-                        break; // VertexAI API does not support empty text parts
+                        break; 
                     }
                     builder.startObject();
                     builder.field(TEXT, contentString.content());
@@ -191,11 +225,10 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
                     builder,
                     contentObjects
                 );
-                case null -> {
-                    // Content can be null and that's fine. If this case is not present, Null pointer exception will be thrown
-                }
+                case null -> { }
             }
 
+            // Logic: Tool-call representation within the message parts.
             if (message.toolCalls() != null && message.toolCalls().isEmpty() == false) {
                 var toolCalls = message.toolCalls();
                 for (var toolCall : toolCalls) {
@@ -213,6 +246,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * @brief Serializes available tools into function declarations.
+     */
     private void buildTools(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -225,6 +261,7 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.startObject();
         builder.startArray(FUNCTION_DECLARATIONS);
         for (var tool : tools) {
+            // Pre-condition: Only function-type tools are currently supported.
             if (FUNCTION_TYPE.equals(tool.type()) == false) {
                 var errorMessage = format(
                     "Tool type [%s] not supported by Google VertexAI ChatCompletion. Supported types: [%s]",
@@ -256,6 +293,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * @brief Configures how the model should select and use the provided tools.
+     */
     private void buildToolConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -293,8 +333,7 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
         var chosenFunction = toolChoice.function();
         if (chosenFunction != null) {
-            // If we are using toolChoice we set the API to use the 'ANY', meaning that the model will call this tool
-            // We do that since it's the only supported way right now to make compatible the OpenAi spec with VertexAI spec
+            // Logic: Maps OpenAI tool-choice to Vertex AI 'ANY' mode with specific function filtering.
             builder.field(TOOL_MODE, TOOL_MODE_ANY);
             if (Strings.hasText(chosenFunction.name())) {
                 builder.startArray(ALLOWED_FUNCTION_NAMES);
@@ -307,6 +346,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * @brief Maps inference-agnostic generation settings to Vertex AI specifics.
+     */
     private void buildGenerationConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -337,6 +379,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endObject();
     }
 
+    /**
+     * @brief Orchestrates the full JSON payload construction.
+     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();

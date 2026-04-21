@@ -1,3 +1,7 @@
+// @raw/fe313be8-c73f-4688-a698-a75a2cb03fbb/pkg/proxy/loadbalancer.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 Google Inc. All rights reserved.
 

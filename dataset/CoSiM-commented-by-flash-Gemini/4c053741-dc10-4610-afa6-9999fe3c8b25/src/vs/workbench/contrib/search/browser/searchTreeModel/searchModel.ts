@@ -3,6 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file searchModel.ts
+ * @brief Logic for managing the search tree model and orchestrating text, notebook, and AI-driven search operations.
+ * 
+ * Functional Intent: Provides a unified model for handling complex search queries across 
+ * various resource types. It manages concurrent search tasks, handles streaming results 
+ * for 'search-on-type' responsiveness, and integrates AI-powered result providers 
+ * while maintaining strict lifecycle and cancellation control.
+ * 
+ * Domain: Production Systems, IDE Development, Asynchronous Orchestration.
+ */
 
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import * as errors from '../../../../../base/common/errors.js';
@@ -22,6 +33,13 @@ import { IChangeEvent, mergeSearchResultEvents, SearchModelLocation, ISearchMode
 import { SearchResultImpl } from './searchResult.js';
 import { ISearchViewModelWorkbenchService } from './searchViewModelWorkbenchService.js';
 
+/**
+ * @class SearchModelImpl
+ * @brief Core implementation of the search model, bridging UI state and backend search services.
+ * 
+ * Logic: Leverages a state machine to track active search instances and uses 
+ * cancellation tokens to resolve race conditions between overlapping queries.
+ */
 export class SearchModelImpl extends Disposable implements ISearchModel {
 
 	private _searchResult: ISearchResult;
@@ -115,9 +133,14 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return this._searchResult;
 	}
 
+	/**
+	 * aiSearch - Initiates an AI-driven text search.
+	 * 
+	 * Logic: Prevents concurrent AI searches and handles asynchronous result ingestion 
+	 * through a dedicated cancellation scope.
+	 */
 	aiSearch(): Promise<ISearchComplete> {
 		if (this.hasAIResults) {
-			// already has matches or pending matches
 			throw Error('AI results already exist');
 		}
 		if (!this._searchQuery) {
@@ -128,6 +151,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		const tokenSource = new CancellationTokenSource();
 		this.currentAICancelTokenSource = tokenSource;
 		const start = Date.now();
+		
 		const asyncAIResults = this.searchService.aiTextSearch(
 			{ ...this._searchQuery, contentPattern: this._searchQuery.contentPattern.pattern, type: QueryType.aiText },
 			tokenSource.token,
@@ -147,6 +171,15 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return asyncAIResults;
 	}
 
+	/**
+	 * doSearch - Internal orchestrator for split-path (Notebook + Text) searching.
+	 * 
+	 * Algorithm: Concurrent service dispatch with composite result resolution.
+	 * Logic: 
+	 * 1. Spawns notebook search and split text search (local/remote) in parallel.
+	 * 2. Merges synchronous 'fast-path' results immediately.
+	 * 3. Aggregates asynchronous results into a final ISearchComplete structure.
+	 */
 	private doSearch(query: ITextQuery, progressEmitter: Emitter<void>, searchQuery: ITextQuery, searchInstanceID: string, onProgress?: (result: ISearchProgressItem) => void, callerToken?: CancellationToken): {
 		asyncResults: Promise<ISearchComplete>;
 		syncResults: IFileMatch<URI>[];
@@ -164,6 +197,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		};
 		const tokenSource = this.currentCancelTokenSource = new CancellationTokenSource(callerToken);
 
+		// Synchronization: Notebook results are resolved concurrently with text search to minimize TTFR (Time to First Result).
 		const notebookResult = this.notebookSearchService.notebookSearch(query, tokenSource.token, searchInstanceID, asyncGenerateOnProgress);
 		const textResult = this.searchService.textSearchSplitSyncAsync(
 			searchQuery,
@@ -182,6 +216,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 			const allClosedEditorResults = await textResult.asyncResults;
 			const resolvedNotebookResults = await notebookResult.completeData;
 			const searchLength = Date.now() - searchStart;
+			
 			const resolvedResult: ISearchComplete = {
 				results: [...allClosedEditorResults.results, ...resolvedNotebookResults.results],
 				messages: [...allClosedEditorResults.messages, ...resolvedNotebookResults.messages],
@@ -207,6 +242,14 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return !!(this.searchResult.getCachedSearchComplete(false)) || (!!this.currentCancelTokenSource && !this.currentCancelTokenSource.token.isCancellationRequested);
 	}
 
+	/**
+	 * search - Public interface for starting a new search operation.
+	 * 
+	 * Logic: 
+	 * 1. Cancels any stale search instances (atomic transition).
+	 * 2. Applies 'search-on-type' debounce delays if configured to prevent UI flickering.
+	 * 3. Races fast progress events against long-running async results for optimal perceived performance.
+	 */
 	search(query: ITextQuery, onProgress?: (result: ISearchProgressItem) => void, callerToken?: CancellationToken): {
 		asyncResults: Promise<ISearchComplete>;
 		syncResults: IFileMatch<URI>[];
@@ -224,7 +267,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		const progressEmitter = this._register(new Emitter<void>());
 		this._replacePattern = new ReplacePattern(this.replaceString, this._searchQuery.contentPattern);
 
-		// In search on type case, delay the streaming of results just a bit, so that we don't flash the only "local results" fast path
+		// Optimization: Delay streaming for 'search-on-type' to allow quick overrides without UI thrashing.
 		this._startStreamDelay = new Promise(resolve => setTimeout(resolve, this.searchConfig.searchOnType ? 150 : 0));
 
 		const req = this.doSearch(query, progressEmitter, this._searchQuery, searchInstanceID, onProgress, callerToken);
@@ -247,13 +290,8 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 			return event;
 		});
 
+		// Telemetry: Tracks the latency of the first visual update.
 		Promise.race([asyncResults, progressEmitterPromise]).finally(() => {
-			/* __GDPR__
-				"searchResultsFirstRender" : {
-					"owner": "roblourens",
-					"duration" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "isMeasurement": true }
-				}
-			*/
 			event?.dispose();
 			this.telemetryService.publicLog('searchResultsFirstRender', { duration: Date.now() - start });
 		});
@@ -272,21 +310,19 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 				syncResults
 			};
 		} finally {
-			/* __GDPR__
-				"searchResultsFinished" : {
-					"owner": "roblourens",
-					"duration" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "isMeasurement": true }
-				}
-			*/
 			this.telemetryService.publicLog('searchResultsFinished', { duration: Date.now() - start });
 		}
 	}
 
+	/**
+	 * onSearchCompleted - Finalizes result ingestion and dispatches telemetry.
+	 */
 	private onSearchCompleted(completed: ISearchComplete | undefined, duration: number, searchInstanceID: string, ai: boolean): ISearchComplete | undefined {
 		if (!this._searchQuery) {
 			throw new Error('onSearchCompleted must be called after a search is started');
 		}
 
+		// Block Logic: Queue draining and result tree population.
 		if (ai) {
 			this._searchResult.add(this._aiResultQueue, searchInstanceID, true);
 			this._aiResultQueue.length = 0;
@@ -301,25 +337,12 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		delete (options as any).pattern;
 
 		const stats = completed && completed.stats as ITextSearchStats;
-
 		const fileSchemeOnly = this._searchQuery.folderQueries.every(fq => fq.folder.scheme === Schemas.file);
 		const otherSchemeOnly = this._searchQuery.folderQueries.every(fq => fq.folder.scheme !== Schemas.file);
 		const scheme = fileSchemeOnly ? Schemas.file :
 			otherSchemeOnly ? 'other' :
 				'mixed';
 
-		/* __GDPR__
-			"searchResultsShown" : {
-				"owner": "roblourens",
-				"count" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true },
-				"fileCount": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true },
-				"options": { "${inline}": [ "${IPatternInfo}" ] },
-				"duration": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "isMeasurement": true },
-				"type" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-				"scheme" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-				"searchOnTypeEnabled" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
 		this.telemetryService.publicLog('searchResultsShown', {
 			count: this._searchResult.count(),
 			fileCount: this._searchResult.fileCount(),
@@ -332,6 +355,9 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return completed;
 	}
 
+	/**
+	 * onSearchError - Maps search failures (including cancellation) to standardized result states.
+	 */
 	private onSearchError(e: any, duration: number, ai: boolean): void {
 		if (errors.isCancellationError(e)) {
 			this.onSearchCompleted(
@@ -347,6 +373,12 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 	}
 
+	/**
+	 * onSearchProgress - Batching logic for incremental result streaming.
+	 * 
+	 * Logic: Drains the incoming match buffer into the result tree, optionally 
+	 * applying the 'start-stream' delay to improve UI stability.
+	 */
 	private onSearchProgress(p: ISearchProgressItem, searchInstanceID: string, sync = true, ai: boolean = false) {
 		const targetQueue = ai ? this._aiResultQueue : this._resultQueue;
 		if ((<IFileMatch>p).resource) {
@@ -372,6 +404,9 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return this.configurationService.getValue<ISearchConfigurationProperties>('search');
 	}
 
+	/**
+	 * @brief Aborts the current standard search.
+	 */
 	cancelSearch(cancelledForNewSearch = false): boolean {
 		if (this.currentCancelTokenSource) {
 			this.searchCancelledForNewSearch = cancelledForNewSearch;
@@ -380,6 +415,10 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 		return false;
 	}
+
+	/**
+	 * @brief Aborts the current AI search.
+	 */
 	cancelAISearch(cancelledForNewSearch = false): boolean {
 		if (this.currentAICancelTokenSource) {
 			this.aiSearchCancelledForNewSearch = cancelledForNewSearch;
@@ -388,11 +427,12 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 		return false;
 	}
+
 	clearAiSearchResults(): void {
 		this._aiResultQueue.length = 0;
-		// it's not clear all as we are only clearing the AI results
 		this._searchResult.aiTextSearchResult.clear(false);
 	}
+
 	override dispose(): void {
 		this.cancelSearch();
 		this.cancelAISearch();
@@ -403,6 +443,10 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 }
 
 
+/**
+ * @class SearchViewModelWorkbenchService
+ * @brief Workbench service responsible for maintaining the singleton or per-context search model instance.
+ */
 export class SearchViewModelWorkbenchService implements ISearchViewModelWorkbenchService {
 
 	declare readonly _serviceBrand: undefined;
@@ -423,4 +467,3 @@ export class SearchViewModelWorkbenchService implements ISearchViewModelWorkbenc
 		this._searchModel = searchModel;
 	}
 }
-

@@ -1,3 +1,10 @@
+/**
+ * @raw/37b6b7a1-f8d1-41b2-8338-955f8d8d749c/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/external/unified/UnifiedChatCompletionRequestEntity.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -49,6 +56,10 @@ public class UnifiedChatCompletionRequestEntity implements ToXContentFragment {
 
         builder.field(STREAM_FIELD, stream);
         // If request is streamed and skip stream options parameter is not true, include stream options in the request.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (stream == true && params.paramAsBoolean(SKIP_STREAM_OPTIONS_PARAM, false) == false) {
             builder.startObject(STREAM_OPTIONS_FIELD);
             builder.field(INCLUDE_USAGE_FIELD, true);

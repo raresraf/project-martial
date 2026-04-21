@@ -1,3 +1,10 @@
+/**
+ * @raw/dc623651-6fd7-462d-8d02-844e247dfb30/include/asm-generic/hugetlb.h
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _ASM_GENERIC_HUGETLB_H
 #define _ASM_GENERIC_HUGETLB_H
@@ -60,7 +67,7 @@ static inline int huge_pte_uffd_wp(pte_t pte)
 
 #ifndef __HAVE_ARCH_HUGE_PTE_CLEAR
 static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
-		    pte_t *ptep, unsigned long sz)
+		    pte_t *ptep, unsigned long sz) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	pte_clear(mm, addr, ptep);
 }
@@ -77,7 +84,7 @@ static inline void hugetlb_free_pgd_range(struct mmu_gather *tlb,
 
 #ifndef __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
 static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
-		pte_t *ptep, pte_t pte, unsigned long sz)
+		pte_t *ptep, pte_t pte, unsigned long sz) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	set_pte_at(mm, addr, ptep, pte);
 }
@@ -85,7 +92,7 @@ static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 
 #ifndef __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
 static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
-		unsigned long addr, pte_t *ptep, unsigned long sz)
+		unsigned long addr, pte_t *ptep, unsigned long sz) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return ptep_get_and_clear(mm, addr, ptep);
 }
@@ -93,7 +100,7 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
 
 #ifndef __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
 static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-		unsigned long addr, pte_t *ptep)
+		unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return ptep_clear_flush(vma, addr, ptep);
 }
@@ -116,7 +123,7 @@ static inline int huge_pte_none_mostly(pte_t pte)
 
 #ifndef __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
 static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
-		unsigned long addr, pte_t *ptep)
+		unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	ptep_set_wrprotect(mm, addr, ptep);
 }
@@ -124,7 +131,7 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
 
 #ifndef __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
 static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-		unsigned long addr, pte_t *ptep,
+		unsigned long addr, pte_t *ptep, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		pte_t pte, int dirty)
 {
 	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
@@ -132,7 +139,7 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
 #endif
 
 #ifndef __HAVE_ARCH_HUGE_PTEP_GET
-static inline pte_t huge_ptep_get(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+static inline pte_t huge_ptep_get(struct mm_struct *mm, unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return ptep_get(ptep);
 }

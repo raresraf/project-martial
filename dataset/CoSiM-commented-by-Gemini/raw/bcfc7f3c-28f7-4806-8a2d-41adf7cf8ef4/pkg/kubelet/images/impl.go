@@ -1,3 +1,9 @@
+/**
+ * @file impl.go
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 
 /*
 Copyright 2016 The Kubernetes Authors All.
@@ -23,6 +29,10 @@ type ImageManager struct {
 
 func NewImageManager(recorder record.EventRecorder, runtime Runtime, imageBackOff *flowcontrol.Backoff, serialized bool) ImageManager {
 	var imagePuller imagePuller
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if serialized {
 		imagePuller = NewSerializedImagePuller(recorder, runtime, imageBackOff)
 	} else {

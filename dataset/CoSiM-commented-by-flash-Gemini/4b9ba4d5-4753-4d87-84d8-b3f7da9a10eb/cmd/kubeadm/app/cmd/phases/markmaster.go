@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file markmaster.go
+ * @brief Command definition for the kubeadm 'mark-master' bootstrap phase.
+ * 
+ * Functional Intent: Provides the CLI interface to explicitly designate a node 
+ * as a master (control-plane) member. It orchestrates the application of 
+ * specific Kubernetes labels and taints to the target node, ensuring that 
+ * the cluster scheduler correctly identifies master nodes and prevents 
+ * user workloads from being scheduled on them by default.
+ * 
+ * Domain: Production Systems, Cluster Orchestration (Kubernetes), Node Lifecycle.
+ */
+
 package phases
 
 import (
@@ -26,7 +39,13 @@ import (
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 )
 
-// NewCmdMarkMaster returns the Cobra command for running the mark-master phase
+/**
+ * NewCmdMarkMaster - Factory for the 'kubeadm alpha phase mark-master' command.
+ * 
+ * Logic: Validates input arguments, establishes an authenticated API client 
+ * from the provided KubeConfig, and delegates the node-mutation logic to the 
+ * markmasterphase implementation.
+ */
 func NewCmdMarkMaster() *cobra.Command {
 	var kubeConfigFile string
 	cmd := &cobra.Command{
@@ -34,19 +53,23 @@ func NewCmdMarkMaster() *cobra.Command {
 		Short:   "Create KubeConfig files from given credentials.",
 		Aliases: []string{"markmaster"},
 		RunE: func(_ *cobra.Command, args []string) error {
+			// Pre-condition: Exactly one argument (the node name) must be provided.
 			err := validateExactArgNumber(args, []string{"node-name"})
 			kubeadmutil.CheckErr(err)
 
+			// Logic: Bootstraps an API client to communicate with the target cluster.
 			client, err := kubeconfigutil.ClientSetFromFile(kubeConfigFile)
 			kubeadmutil.CheckErr(err)
 
 			nodeName := args[0]
 			fmt.Printf("[markmaster] Will mark node %s as master by adding a label and a taint\n", nodeName)
 
+			// Functional Utility: Applies the master designation labels and taints.
 			return markmasterphase.MarkMaster(client, nodeName)
 		},
 	}
 
+	// Logic: Standard administrative KubeConfig path used as default.
 	cmd.Flags().StringVar(&kubeConfigFile, "kubeconfig", "/etc/kubernetes/admin.conf", "The KubeConfig file to use for talking to the cluster")
 	return cmd
 }

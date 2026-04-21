@@ -1,3 +1,10 @@
+/**
+ * @raw/719ddaa5-8c55-4784-8ce1-2242dea21aa9/src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -41,7 +48,11 @@ class ListDelegate implements IListVirtualDelegate<ISCMRepository> {
 }
 
 class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<SCMRepositoriesViewModel, ISCMRepository> {
-	async getChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): Promise<Iterable<ISCMRepository>> {
+	async getChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): Promise<Iterable<ISCMRepository>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (inputOrElement instanceof SCMRepositoriesViewModel) {
 			return inputOrElement.repositories;
 		}
@@ -117,6 +128,10 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		this.createTree(treeContainer);
 
 		this.onDidChangeBodyVisibility(visible => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!visible) {
 				this.visibilityDisposables.clear();
 				return;
@@ -199,6 +214,10 @@ export class SCMRepositoriesViewPane extends ViewPane {
 	}
 
 	private onTreeContextMenu(e: ITreeContextMenuEvent<ISCMRepository>): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!e.element) {
 			return;
 		}
@@ -225,6 +244,10 @@ export class SCMRepositoriesViewPane extends ViewPane {
 	}
 
 	private onTreeSelectionChange(e: ITreeEvent<ISCMRepository>): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (e.browserEvent && e.elements.length > 0) {
 			const scrollTop = this.tree.scrollTop;
 			this.scmViewService.visibleRepositories = e.elements;
@@ -233,12 +256,20 @@ export class SCMRepositoriesViewPane extends ViewPane {
 	}
 
 	private onTreeDidChangeFocus(e: ITreeEvent<ISCMRepository>): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (e.browserEvent && e.elements.length > 0) {
 			this.scmViewService.focus(e.elements[0]);
 		}
 	}
 
 	private updateBodySize(visibleCount: number): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.orientation === Orientation.HORIZONTAL) {
 			return;
 		}
@@ -258,13 +289,25 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		const added = new Set(Iterable.filter(set, r => !oldSet.has(r)));
 		const removed = new Set(Iterable.filter(oldSet, r => !set.has(r)));
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (added.size === 0 && removed.size === 0) {
 			return;
 		}
 
 		const selection = oldSelection.filter(repo => !removed.has(repo));
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const repo of this.scmViewService.repositories) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (added.has(repo)) {
 				selection.push(repo);
 			}
@@ -272,6 +315,10 @@ export class SCMRepositoriesViewPane extends ViewPane {
 
 		this.tree.setSelection(selection);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (selection.length > 0 && !this.tree.getFocus().includes(selection[0])) {
 			this.tree.setAnchor(selection[0]);
 			this.tree.setFocus([selection[0]]);

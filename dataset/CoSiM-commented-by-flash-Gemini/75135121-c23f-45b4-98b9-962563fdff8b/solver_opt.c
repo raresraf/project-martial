@@ -1,8 +1,20 @@
+/**
+ * @75135121-c23f-45b4-98b9-962563fdff8b/solver_opt.c
+ * @brief Manually optimized matrix expression solver.
+ *
+ * Functional Utility: Computes Result = (A * B) * B^T + (A^T * A) using pointer 
+ * arithmetic, register accumulation, and loop invariant code motion to minimize 
+ * address calculation overhead and cache misses.
+ *
+ * Domain: HPC Performance Tuning.
+ */
 
 #include "utils.h"
 
 
-
+/**
+ * @brief Utility to compute the transpose of a square matrix.
+ */
 double* compute_transpose(int N, double* M)
 {
 	double* res = (double*)malloc(N * N * sizeof(double));
@@ -14,9 +26,15 @@ double* compute_transpose(int N, double* M)
 	return res;
 }
 
+/**
+ * @brief Optimized matrix solver kernel.
+ * Optimization: Replaces indirect indexing with direct pointer increments and 
+ * promotes local sum variables to hardware registers to reduce memory traffic.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 
+	// Pre-condition: Buffers are allocated for intermediate and final results.
 	double* res_AxB = (double*)malloc(N * N * sizeof(double));
 	double* res_ABBt = (double*)malloc(N * N * sizeof(double));
 	double* res_AtA = (double*)malloc(N * N * sizeof(double));
@@ -27,6 +45,12 @@ double* my_solver(int N, double *A, double* B) {
 	double* pa = 0;
 	double* pb = 0;
 	
+	/**
+	 * Block Logic: Compute (A * B).
+	 * Optimization: Pointer-based traversal for matrix A (pa) and matrix B (pb).
+	 * Invariant: Scalar `suma` in register avoids redundant stores to `res_AxB`.
+	 * Logic: Leverages A's upper triangularity by starting k at i.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			pa = &A[i * N + i];
@@ -42,6 +66,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Compute (A * B) * B^T.
+	 * Optimization: Pointer-based linear sweep for `res_AxB` and column-major sweep for `B_t`.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			pa = &res_AxB[i * N];
@@ -59,6 +87,12 @@ double* my_solver(int N, double *A, double* B) {
 	
 	free(res_AxB);
 	free(B_t);
+
+	/**
+	 * Block Logic: Compute (A^T * A) and consolidate results.
+	 * Optimization: Pointer arithmetic for Gramian matrix calculation.
+	 * Invariant: Bound P = min(i, j) exploits triangular sparsity.
+	 */
 	int P = 0;
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {

@@ -1,4 +1,16 @@
 
+"""
+@file __init__.py
+@brief Concurrent marketplace simulation implementing the Producer-Consumer pattern.
+
+Functional Intent: Provides a thread-safe environment for multiple Producers to 
+publish products and Consumers to acquire them via virtual shopping carts. 
+Features per-producer semaphore-based quota management and implements 
+polling-based retry logic for consumers. Includes diagnostic logging with 
+ISO-formatted timestamps and automated result dissemination.
+
+Domain: Production Systems, Concurrency and Synchronization.
+"""
 
 
 from threading import Thread
@@ -9,13 +21,22 @@ from tema.marketplace import Marketplace
 
 
 class Consumer(Thread):
+    """
+    @brief Represents a consumer entity that operates in its own execution thread.
     
+    Logic: Sequentially processes assigned carts, attempting to add or remove 
+    products until all target quantities are met.
+    """
 
     def __init__(self, carts: List, marketplace: Marketplace, retry_wait_time: float, **kwargs):
-        
+        """
+        @brief Initializes the consumer with specific shopping tasks.
+        @param carts List of carts containing operation sequences (add/remove).
+        @param marketplace Reference to the central Marketplace instance.
+        @param retry_wait_time Interval to wait when an 'add' operation fails.
+        """
         Thread.__init__(self, kwargs=kwargs)
 
-        
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
@@ -23,23 +44,26 @@ class Consumer(Thread):
         self.logger = marketplace.logger
 
     def run(self):
+        """
+        @brief Core execution loop for the consumer thread.
         
+        Algorithm: Iterative cart processing with persistent item polling.
+        """
         log_msg = "Started consumer " + str(self.kwargs['name'])
         self.marketplace.log(log_msg, str(self.kwargs['name']))
 
-        
         for cart in self.carts:
-            
+            # Block Logic: Session initialization.
             cart_id = self.marketplace.new_cart()
             self.marketplace.assign_owner(cart_id, str(self.kwargs['name']))
             cart_iter = iter(cart)
             log_msg = "NEW CART" + str(cart_id)
             self.marketplace.log(log_msg, str(self.kwargs['name']))
 
-            
             req_item = next((item for item in cart_iter), None)
 
-            
+            # Block Logic: Operation execution loop.
+            # Invariant: Continues processing until all items in the current cart are handled.
             while req_item is not None:
 
                 if req_item['type'] == 'add':
@@ -52,6 +76,7 @@ class Consumer(Thread):
                         if req_item['quantity'] == 0:
                             req_item = next((item for item in cart_iter), None)
                     else:
+                        # Optimization: Wait before retrying to reduce CPU spin during contention.
                         sleep(self.retry_wait_time)
 
                 elif req_item['type'] == 'remove':
@@ -63,7 +88,7 @@ class Consumer(Thread):
                     if req_item['quantity'] == 0 :
                         req_item=next((item for item in cart_iter), None)
 
-            
+            # Functional Intent: Commits the cart and logs the finalized purchase.
             self.marketplace.place_order(cart_id)
 
         self.marketplace.sign_out(str(self.kwargs['name']))
@@ -77,17 +102,24 @@ from tema.product import Coffee, Product
 
 
 class Marketplace:
+    """
+    @brief Central broker for thread-safe item publishing and purchase fulfillment.
     
+    Functional Utility: Manages individual producer queues using semaphores for 
+    capacity control and provides a global lock for protected cart allocation.
+    """
 
     def __init__(self, queue_size_per_producer):
-        
+        """
+        @brief Initializes the marketplace with capacity limits and logging.
+        """
         self.q_limit = queue_size_per_producer
         self.producers = []
         self.carts = []
         self.consumers = []
-        self.lock = Lock()
+        self.lock = Lock() # Sync: Mutex for protecting shared cart registry.
 
-        
+        # Configuration: Diagnostic rotating logger.
         logger = logging.getLogger("log_asc")
         logger.setLevel(logging.INFO)
         rfh = RotatingFileHandler('my_log.log', mode='w')
@@ -101,14 +133,19 @@ class Marketplace:
         self.all_completed = False
 
     def log(self, msg, src):
-        
+        """
+        @brief Standardized log entry dispatcher.
+        """
         self.logger.info(src + ":" + msg)
 
     def register_producer(self):
-        
+        """
+        @brief Onboards a new producer and initializes its semaphore-controlled buffer.
+        """
         new_producer = {
             'id': len(self.producers),
             'queue': [],
+            # Synchronization: Semaphores for managing bounded buffer slots.
             'empty_sem': Semaphore(value=self.q_limit),
             'full_sem': Semaphore(0)
         }
@@ -121,12 +158,14 @@ class Marketplace:
 
 
     def publish(self, producer_id: int, product: Product):
-        
-
+        """
+        @brief Adds a product to the producer's queue if space is available.
+        """
         prod_queue = self.producers[producer_id]['queue']
         prod_esem = self.producers[producer_id]['empty_sem']
         prod_fsem = self.producers[producer_id]['full_sem']
 
+        # Synchronization: Non-blocking acquisition check for quota availability.
         acquired = prod_esem.acquire(blocking=False)
         if not acquired:
             log_msg = "REJ PUB REQ S:PROD[" + \
@@ -134,6 +173,7 @@ class Marketplace:
             self.log(log_msg, self.mname)
             return False
 
+        # Logic: Successfully reserved a slot, append item and signal consumers.
         prod_queue.append([product, True])
         log_msg = "ACC PUB REQ S:PROD[" + \
             str(producer_id) + "] " + \
@@ -145,7 +185,9 @@ class Marketplace:
         return True
 
     def new_cart(self):
-        
+        """
+        @brief Spawns a new shopping session for a consumer.
+        """
         self.lock.acquire()
         new_cart = {
             'id': len(self.carts),
@@ -156,13 +198,14 @@ class Marketplace:
         self.carts.append(new_cart)
         self.lock.release()
 
-        
         log_msg = "REG CART [" + str(new_cart['id']) + "]"
         self.log(log_msg, self.mname)
         return new_cart['id']
 
     def assign_owner(self, cart_id: int, owner: str):
-        
+        """
+        @brief Binds a consumer name to a specific cart session.
+        """
         for cart in self.carts:
             if cart['id'] == cart_id:
                 cart['owner'] = owner
@@ -171,40 +214,42 @@ class Marketplace:
             self.consumers.append(owner)
 
     def product_search(self, name: str):
+        """
+        @brief Global search for an available product across all producer pools.
         
+        Algorithm: First-available linear scan.
+        """
         item_prod = None
         for producer in self.producers:
             for prod in producer['queue']:
-
+                # Logic: Item must match name and be currently available.
                 if prod[0].name == name and prod[1]:
                     item_prod = (prod, producer)
                     return item_prod
 
-
-
         return None
 
     def add_to_cart(self, cart_id: int, product: Product):
+        """
+        @brief Reservatively adds an item to a consumer's cart.
         
-
+        Logic: Atomically marks the item as unavailable in the producer's queue 
+        to prevent double-claiming before the final order is placed.
+        """
         log_msg = "ADD REQ [" + self.carts[cart_id]['owner'] + \
             "][C" + str(cart_id) + "] " + str(product)
 
-        
         c_iter = iter(self.carts)
         cart = next((c for c in c_iter if c['id'] == cart_id), None)
 
-        
         item_prod = self.product_search(product.name)
         
-        
         if item_prod is not None:
-
             req_item = item_prod[0]
             if req_item[1]:
+                # Optimization: Soft-reserve the item without popping from queue.
                 req_item[1] = False
 
-                
                 cart['items'].append(item_prod)
                 log_msg = "ACC " + log_msg
                 self.log(log_msg, self.mname)
@@ -212,18 +257,17 @@ class Marketplace:
 
         log_msg = "REJ " + log_msg
         self.log(log_msg, self.mname)
-
-
         return False
 
     def remove_from_cart(self, cart_id: int, product: Product):
-        
-
-        
+        """
+        @brief Releases a reserved item back to its originating producer pool.
+        """
         req_prod_name = product.name
         prod_to_remove = None
         for prod in self.carts[cart_id]['items']:
             if prod[0][0].name == req_prod_name:
+                # Logic: Mark item as available for other consumers.
                 prod[0][1] = True
                 prod_to_remove = prod
 
@@ -235,20 +279,20 @@ class Marketplace:
             str(before_remove) + " " + str(after_remove)
         self.log(log_msg, self.mname)
 
-
-
     def place_order(self, cart_id: int):
-        
-        
+        """
+        @brief Finalizes the purchase, physically removing items and releasing semaphores.
+        """
         self.carts[cart_id]['completed'] = True
 
-        
         log_msg = "\n"
+        # Block Logic: Final checkout pass.
         for item in self.carts[cart_id]['items']:
             producer = item[1]
             prod_esem = producer['empty_sem']
             prod_fsem = producer['full_sem']
 
+            # Synchronization: Reconciles producer capacity slots.
             prod_fsem.acquire()
             if item[0] in producer['queue']:
                 producer['queue'].remove(item[0])
@@ -257,7 +301,7 @@ class Marketplace:
                 self.log(err_log, self.mname)
             prod_esem.release()
 
-        
+        # Functional Intent: Print purchase receipt to console.
         for item in self.carts[cart_id]['items']:
             log_msg += self.carts[cart_id]['owner'] + \
                 ' bought ' + str(item[0][0]) + '\n'
@@ -266,40 +310,37 @@ class Marketplace:
         self.log(log_msg, self.mname)
 
     def sign_out(self, cons: str):
-        
+        """
+        @brief Removes a consumer from the active list.
+        """
         self.consumers.remove(cons)
         log_msg = "LOGOUT " + cons + " REMAINING " + str(len(self.consumers))
         self.log(log_msg, self.mname)
 
 
 class TestMarketplace(unittest.TestCase):
-    
-
+    """
+    @brief Unit tests for validating Marketplace synchronization and state logic.
+    """
     def setUp(self):
         self.marketplace = Marketplace(3)
 
     def test_1_register_producer(self):
-        
         market = self.marketplace
-
         ret = market.register_producer()
         self.assertEqual(ret, 0)
         ret = market.register_producer()
         self.assertEqual(ret, 1)
 
     def test_2_new_cart(self):
-        
         market = self.marketplace
-
         ret = market.new_cart()
         self.assertEqual(ret, 0)
         ret = market.new_cart()
         self.assertEqual(ret, 1)
 
     def test_3_publish(self):
-        
         market = self.marketplace
-
         ret = market.register_producer()
         self.assertEqual(ret, 0)
 
@@ -313,9 +354,7 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(ret, False)
 
     def test_4_add_to_cart(self):
-        
         market = self.marketplace
-
         ret = market.register_producer()
         self.assertEqual(ret, 0)
 
@@ -332,9 +371,7 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(ret, False)
 
     def test_5_remove_from_cart(self):
-        
         market = self.marketplace
-
         ret = market.register_producer()
         self.assertEqual(ret, 0)
 
@@ -353,9 +390,7 @@ class TestMarketplace(unittest.TestCase):
                          in market.carts[0]['items'], False)
 
     def test_6_place_order(self):
-        
         market = self.marketplace
-
         ret = market.register_producer()
         self.assertEqual(ret, 0)
 
@@ -374,9 +409,7 @@ class TestMarketplace(unittest.TestCase):
                          False] in market.producers[0]['queue'], False)
 
     def test_7_assign_owner(self):
-        
         market = self.marketplace
-
         ret = market.new_cart()
         self.assertEqual(ret, 0)
 
@@ -384,9 +417,7 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(market.carts[0]['owner'], "TestOwner")
 
     def test_8_sign_out(self):
-        
         market = self.marketplace
-
         ret = market.new_cart()
         self.assertEqual(ret, 0)
 
@@ -407,11 +438,15 @@ from tema.product import Product
 
 
 class Producer(Thread):
-    
+    """
+    @brief Represents a producer entity that generates items for the marketplace.
+    """
 
     def __init__(self, products: List[Product], marketplace: Marketplace,
                  republish_wait_time: float, **kwargs):
-        
+        """
+        @brief Initializes the producer with a catalog and scheduling metadata.
+        """
         Thread.__init__(self, kwargs=kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -422,29 +457,35 @@ class Producer(Thread):
         self.prod_id = -1
 
     def produce(self) -> Product:
-        
-        
+        """
+        @brief Core manufacturing step for a single item.
+        """
         self.curr_product[1] -= 1
 
-        
+        # Optimization: Simulation of device manufacturing latency.
         sleep(float(self.curr_product[2]))
 
-        
-        
         if self.curr_product[1] == 0:
             self.curr_index += 1
 
         return self.curr_product[0]
 
     def run(self):
+        """
+        @brief Core production cycle for the thread.
+        
+        Logic: Registers ID, then continuously cycles through catalog, 
+        manufacturing items and publishing them. If marketplace queue is full, 
+        it implements a back-off wait.
+        """
         log_msg = "Started producer " + str(self.kwargs['name'])
         self.marketplace.log(log_msg, str(self.kwargs['name']))
 
         self.prod_id = self.marketplace.register_producer()
         loop_flag = True
+        
+        # Invariant: Continues producing as long as there are active consumers.
         while loop_flag:
-
-            
             produced_item = self.produce()
             if len(self.products) > self.curr_index:
                 if self.curr_product[1] == 0:
@@ -453,9 +494,8 @@ class Producer(Thread):
                 self.curr_product = list(self.products[0])
                 self.curr_index = 0
 
-            
-            
             was_published = False
+            # Block Logic: Persistent publishing loop.
             while not was_published:
                 was_published = self.marketplace.publish(
                     self.prod_id, produced_item)
@@ -472,19 +512,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    @brief Base immutable representation of a market item.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    @brief Specialized product type for tea.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    @brief Specialized product type for coffee.
+    """
     acidity: str
     roast_level: str

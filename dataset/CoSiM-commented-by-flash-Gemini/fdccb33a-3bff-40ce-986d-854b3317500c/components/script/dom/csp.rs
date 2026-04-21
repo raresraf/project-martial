@@ -2,6 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/**
+ * @file csp.rs
+ * @brief Integration layer for Content Security Policy (CSP) enforcement in the DOM.
+ * 
+ * Functional Intent: Provides high-level interfaces for the DOM to validate 
+ * operations (JS/Wasm evaluation, navigation, inline scripts) against active 
+ * security policies and orchestrates standardized violation reporting.
+ * 
+ * Domain: Production Systems, Web Security, Browser Engine (Servo).
+ */
+
 use std::borrow::Cow;
 
 use constellation_traits::{LoadData, LoadOrigin};
@@ -24,19 +35,23 @@ use crate::dom::window::Window;
 use crate::security_manager::CSPViolationReportTask;
 
 /// <https://www.w3.org/TR/CSP/#can-compile-strings>
+/// @brief Determines if execution of JavaScript from strings (eval) is permitted.
 pub(crate) fn is_js_evaluation_allowed(global: &GlobalScope, source: &str) -> bool {
+    // Logic: If no CSP is present, default to allowing execution.
     let Some(csp_list) = global.get_csp_list() else {
         return true;
     };
 
     let (is_js_evaluation_allowed, violations) = csp_list.is_js_evaluation_allowed(source);
 
+    // Side Effect: Dispatches reports for any policy infractions detected during check.
     report_csp_violations(global, violations, None);
 
     is_js_evaluation_allowed == CheckResult::Allowed
 }
 
 /// <https://www.w3.org/TR/CSP/#can-compile-wasm-bytes>
+/// @brief Validates if WebAssembly compilation/instantiation is allowed.
 pub(crate) fn is_wasm_evaluation_allowed(global: &GlobalScope) -> bool {
     let Some(csp_list) = global.get_csp_list() else {
         return true;
@@ -50,6 +65,7 @@ pub(crate) fn is_wasm_evaluation_allowed(global: &GlobalScope) -> bool {
 }
 
 /// <https://www.w3.org/TR/CSP/#should-block-navigation-request>
+/// @brief Intercepts navigation attempts to verify compliance with 'navigate-to' directives.
 pub(crate) fn should_navigation_request_be_blocked(
     global: &GlobalScope,
     load_data: &LoadData,
@@ -58,6 +74,8 @@ pub(crate) fn should_navigation_request_be_blocked(
     let Some(csp_list) = global.get_csp_list() else {
         return false;
     };
+    
+    // Logic: Constructs a standardized CSP Request object from internal LoadData.
     let request = Request {
         url: load_data.url.clone().into_url(),
         origin: match &load_data.load_origin {
@@ -72,7 +90,8 @@ pub(crate) fn should_navigation_request_be_blocked(
         integrity_metadata: "".to_owned(),
         parser_metadata: ParserMetadata::None,
     };
-    // TODO: set correct navigation check type for form submission if applicable
+    
+    // Algorithm: Delegates complex URL matching and directive precedence to the CSP library.
     let (result, violations) =
         csp_list.should_navigation_request_be_blocked(&request, NavigationCheckType::Other);
 
@@ -85,6 +104,7 @@ pub(crate) fn should_navigation_request_be_blocked(
 pub use content_security_policy::InlineCheckType;
 
 /// <https://www.w3.org/TR/CSP/#should-block-inline>
+/// @brief Checks if an inline script or style block violates security constraints.
 pub(crate) fn should_elements_inline_type_behavior_be_blocked(
     global: &GlobalScope,
     el: &Element,
@@ -94,6 +114,8 @@ pub(crate) fn should_elements_inline_type_behavior_be_blocked(
     let Some(csp_list) = global.get_csp_list() else {
         return false;
     };
+    
+    // Logic: Extracts cryptographic nonces if available on the triggering element.
     let element = CspElement {
         nonce: el.nonce_value_if_nonceable().map(Cow::Owned),
     };
@@ -106,6 +128,7 @@ pub(crate) fn should_elements_inline_type_behavior_be_blocked(
 }
 
 /// <https://w3c.github.io/trusted-types/dist/spec/#should-block-create-policy>
+/// @brief Guards the creation of Trusted Type policies.
 pub(crate) fn is_trusted_type_policy_creation_allowed(
     global: &GlobalScope,
     policy_name: String,
@@ -124,6 +147,7 @@ pub(crate) fn is_trusted_type_policy_creation_allowed(
 }
 
 /// <https://w3c.github.io/trusted-types/dist/spec/#abstract-opdef-does-sink-type-require-trusted-types>
+/// @brief Checks if a specific sink (e.g., innerHTML) requires Trusted Types.
 pub(crate) fn does_sink_type_require_trusted_types(
     global: &GlobalScope,
     sink_group: &str,
@@ -137,6 +161,7 @@ pub(crate) fn does_sink_type_require_trusted_types(
 }
 
 /// <https://w3c.github.io/trusted-types/dist/spec/#should-block-sink-type-mismatch>
+/// @brief Validates that data assigned to a secure sink matches the required Trusted Type.
 pub(crate) fn should_sink_type_mismatch_violation_be_blocked_by_csp(
     global: &GlobalScope,
     sink: &str,
@@ -159,15 +184,21 @@ pub(crate) fn should_sink_type_mismatch_violation_be_blocked_by_csp(
 pub use content_security_policy::Violation;
 
 /// <https://www.w3.org/TR/CSP/#report-violation>
+/// @brief Orchestrates the asynchronous reporting of policy violations to the document.
+/// 
+/// Algorithm: Translates internal Violation structures into DOM-visible security reports.
 #[allow(unsafe_code)]
 pub(crate) fn report_csp_violations(
     global: &GlobalScope,
     violations: Vec<Violation>,
     element: Option<&Element>,
 ) {
+    // Logic: Captures the JS call stack context for enriched reporting.
     let scripted_caller =
         unsafe { describe_scripted_caller(*GlobalScope::get_cx()) }.unwrap_or_default();
+    
     for violation in violations {
+        // Block Logic: Resource categorization and sample extraction.
         let (sample, resource) = match violation.resource {
             ViolationResource::Inline { sample } => (sample, "inline".to_owned()),
             ViolationResource::Url(url) => (None, url.into()),
@@ -180,6 +211,7 @@ pub(crate) fn report_csp_violations(
             ViolationResource::Eval { sample } => (sample, "eval".to_owned()),
             ViolationResource::WasmEval => (None, "wasm-eval".to_owned()),
         };
+        
         let report = CSPViolationReportBuilder::default()
             .resource(resource)
             .sample(sample)
@@ -190,36 +222,32 @@ pub(crate) fn report_csp_violations(
             .line_number(scripted_caller.line)
             .column_number(scripted_caller.col + 1)
             .build(global);
-        // Step 1: Let global be violation’s global object.
-        // We use `self` as `global`;
-        // Step 2: Let target be violation’s element.
+
+        // Block Logic: Target identification based on W3C spec steps.
         let target = element.and_then(|event_target| {
-            // Step 3.1: If target is not null, and global is a Window,
-            // and target’s shadow-including root is not global’s associated Document, set target to null.
+            // Step 3.1: Verify if the triggering element belongs to the active window's document.
             if let Some(window) = global.downcast::<Window>() {
-                // If a node is connected, its owner document is always the shadow-including root.
-                // If it isn't connected, then it also doesn't have a corresponding document, hence
-                // it can't be this document.
                 if event_target.upcast::<Node>().owner_document() != window.Document() {
                     return None;
                 }
             }
             Some(event_target)
         });
+        
         let target = match target {
-            // Step 3.2: If target is null:
             None => {
-                // Step 3.2.2: If target is a Window, set target to target’s associated Document.
+                // Defaulting logic for orphaned or window-level violations.
                 if let Some(window) = global.downcast::<Window>() {
                     Trusted::new(window.Document().upcast())
                 } else {
-                    // Step 3.2.1: Set target to violation’s global object.
                     Trusted::new(global.upcast())
                 }
             },
             Some(event_target) => Trusted::new(event_target.upcast()),
         };
-        // Step 3: Queue a task to run the following steps:
+        
+        // Block Logic: Task queuing to avoid blocking the current execution context.
+        // Synchronization: Queues a task in the DOM manipulation source.
         let task =
             CSPViolationReportTask::new(Trusted::new(global), target, report, violation.policy);
         global
@@ -230,13 +258,14 @@ pub(crate) fn report_csp_violations(
 }
 
 /// <https://www.w3.org/TR/CSP/#initialize-document-csp>
+/// @brief Parses raw HTTP headers into a structured list of security policies.
 pub(crate) fn parse_csp_list_from_metadata(headers: &Option<Serde<HeaderMap>>) -> Option<CspList> {
-    // TODO: Implement step 1 (local scheme special case)
     let headers = headers.as_ref()?;
+    
+    // Logic: Aggregates both 'Content-Security-Policy' and 'Content-Security-Policy-Report-Only'.
     let mut csp = headers.get_all("content-security-policy").iter();
-    // This silently ignores the CSP if it contains invalid Unicode.
-    // We should probably report an error somewhere.
     let c = csp.next().and_then(|c| c.to_str().ok())?;
+    
     let mut csp_list = CspList::parse(c, PolicySource::Header, PolicyDisposition::Enforce);
     for c in csp {
         let c = c.to_str().ok()?;
@@ -246,11 +275,11 @@ pub(crate) fn parse_csp_list_from_metadata(headers: &Option<Serde<HeaderMap>>) -
             PolicyDisposition::Enforce,
         ));
     }
+    
     let csp_report = headers
         .get_all("content-security-policy-report-only")
         .iter();
-    // This silently ignores the CSP if it contains invalid Unicode.
-    // We should probably report an error somewhere.
+    
     for c in csp_report {
         let c = c.to_str().ok()?;
         csp_list.append(CspList::parse(

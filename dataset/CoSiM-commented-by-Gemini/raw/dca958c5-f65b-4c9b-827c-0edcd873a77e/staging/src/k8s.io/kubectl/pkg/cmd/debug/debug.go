@@ -1,3 +1,7 @@
+// @raw/dca958c5-f65b-4c9b-827c-0edcd873a77e/staging/src/k8s.io/kubectl/pkg/cmd/debug/debug.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2020 The Kubernetes Authors.
 
@@ -67,6 +71,8 @@ var (
 		actions include:
 
 		* Workload: Create a copy of an existing pod with certain attributes changed,
+	                // Block Logic: Orchestrates the temporal progression of the iteration.
+	                // Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	                for example changing the image tag to a new version.
 		* Workload: Add an ephemeral container to an already running pod, for example to add
 		            debugging utilities without restarting the pod.
@@ -203,27 +209,37 @@ func (o *DebugOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []st
 	argsLen := cmd.ArgsLenAtDash()
 	o.TargetNames = args
 	// If there is a dash and there are args after the dash, extract the args.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if argsLen >= 0 && len(args) > argsLen {
 		o.TargetNames, o.Args = args[:argsLen], args[argsLen:]
 	}
 
 	// Attach
 	attachFlag := cmd.Flags().Lookup("attach")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !attachFlag.Changed && o.Interactive {
 		o.Attach = true
 	}
 
 	// Environment
 	envStrings, err := cmd.Flags().GetStringToString("env")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return fmt.Errorf("internal error getting env flag: %v", err)
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for k, v := range envStrings {
 		o.Env = append(o.Env, corev1.EnvVar{Name: k, Value: v})
 	}
 
 	// Namespace
 	o.Namespace, o.explicitNamespace, err = f.ToRawKubeConfigLoader().Namespace()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
@@ -233,12 +249,18 @@ func (o *DebugOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []st
 	o.shareProcessedChanged = cmd.Flags().Changed("share-processes")
 
 	// Set default WarningPrinter
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.WarningPrinter == nil {
 		o.WarningPrinter = printers.NewWarningPrinter(o.ErrOut, printers.WarningPrinterOptions{Color: term.AllowsColorOutput(o.ErrOut)})
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.Applier == nil {
 		applier, err := NewProfileApplier(o.Profile)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return err
 		}
@@ -246,11 +268,15 @@ func (o *DebugOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []st
 	}
 
 	clientConfig, err := f.ToRESTConfig()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
 
 	client, err := kubernetes.NewForConfig(clientConfig)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
@@ -265,15 +291,23 @@ func (o *DebugOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []st
 // Validate checks that the provided debug options are specified.
 func (o *DebugOptions) Validate() error {
 	// Attach
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.Attach && o.attachChanged && len(o.Image) == 0 && len(o.Container) == 0 {
 		return fmt.Errorf("you must specify --container or create a new container using --image in order to attach.")
 	}
 
 	// CopyTo
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.CopyTo) > 0 {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(o.Image) == 0 && len(o.SetImages) == 0 && len(o.Args) == 0 {
 			return fmt.Errorf("you must specify --image, --set-image or command arguments.")
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(o.Args) > 0 && len(o.Container) == 0 && len(o.Image) == 0 {
 			return fmt.Errorf("you must specify an existing container or a new image when specifying args.")
 		}
@@ -292,11 +326,15 @@ func (o *DebugOptions) Validate() error {
 	}
 
 	// Image
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Image) > 0 && !reference.ReferenceRegexp.MatchString(o.Image) {
 		return fmt.Errorf("invalid image name %q: %v", o.Image, reference.ErrReferenceInvalidFormat)
 	}
 
 	// Name
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.TargetNames) == 0 && len(o.FilenameOptions.Filenames) == 0 {
 		return fmt.Errorf("NAME or filename is required for debug")
 	}
@@ -310,17 +348,27 @@ func (o *DebugOptions) Validate() error {
 	}
 
 	// SetImages
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for name, image := range o.SetImages {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !reference.ReferenceRegexp.MatchString(image) {
 			return fmt.Errorf("invalid image name %q for container %q: %v", image, name, reference.ErrReferenceInvalidFormat)
 		}
 	}
 
 	// TargetContainer
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.TargetContainer) > 0 {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(o.CopyTo) > 0 {
 			return fmt.Errorf("--target is incompatible with --copy-to. Use --share-processes instead.")
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !o.Quiet {
 			fmt.Fprintf(o.Out, "Targeting container %q. If you don't see processes from this container it may be because the container runtime doesn't support this feature.\n", o.TargetContainer)
 			// TODO(verb): Add a list of supported container runtimes to https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/ and then link here.
@@ -328,11 +376,15 @@ func (o *DebugOptions) Validate() error {
 	}
 
 	// TTY
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.TTY && !o.Interactive {
 		return fmt.Errorf("-i/--stdin is required for containers with -t/--tty=true")
 	}
 
 	// WarningPrinter
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.WarningPrinter == nil {
 		return fmt.Errorf("WarningPrinter can not be used without initialization")
 	}
@@ -349,11 +401,15 @@ func (o *DebugOptions) Run(f cmdutil.Factory, cmd *cobra.Command) error {
 		FilenameParam(o.explicitNamespace, &o.FilenameOptions).
 		NamespaceParam(o.Namespace).DefaultNamespace().ResourceNames("pods", o.TargetNames...).
 		Do()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := r.Err(); err != nil {
 		return err
 	}
 
 	err := r.Visit(func(info *resource.Info, err error) error {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			// TODO(verb): configurable early return
 			return err
@@ -372,10 +428,14 @@ func (o *DebugOptions) Run(f cmdutil.Factory, cmd *cobra.Command) error {
 		default:
 			visitErr = fmt.Errorf("%q not supported by debug", info.Mapping.GroupVersionKind)
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if visitErr != nil {
 			return visitErr
 		}
 
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if o.Attach && len(containerName) > 0 {
 			opts := &attach.AttachOptions{
 				StreamOptions: exec.StreamOptions{
@@ -389,12 +449,16 @@ func (o *DebugOptions) Run(f cmdutil.Factory, cmd *cobra.Command) error {
 				Attach: &attach.DefaultRemoteAttach{},
 			}
 			config, err := f.ToRESTConfig()
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if err != nil {
 				return err
 			}
 			opts.Config = config
 			opts.AttachFunc = attach.DefaultAttachFunc
 
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if err := o.handleAttachPod(ctx, f, debugPod.Namespace, debugPod.Name, containerName, opts); err != nil {
 				return err
 			}
@@ -411,10 +475,14 @@ func (o *DebugOptions) Run(f cmdutil.Factory, cmd *cobra.Command) error {
 func (o *DebugOptions) visitNode(ctx context.Context, node *corev1.Node) (*corev1.Pod, string, error) {
 	pods := o.podClient.Pods(o.Namespace)
 	debugPod, err := o.generateNodeDebugPod(node)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
 	newPod, err := pods.Create(ctx, debugPod, metav1.CreateOptions{})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
@@ -428,6 +496,8 @@ func (o *DebugOptions) visitNode(ctx context.Context, node *corev1.Node) (*corev
 //
 // visitPod returns a pod and debug container name for subsequent attach, if applicable.
 func (o *DebugOptions) visitPod(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, string, error) {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.CopyTo) > 0 {
 		return o.debugByCopy(ctx, pod)
 	}
@@ -438,22 +508,30 @@ func (o *DebugOptions) visitPod(ctx context.Context, pod *corev1.Pod) (*corev1.P
 func (o *DebugOptions) debugByEphemeralContainer(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, string, error) {
 	klog.V(2).Infof("existing ephemeral containers: %v", pod.Spec.EphemeralContainers)
 	podJS, err := json.Marshal(pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating JSON for pod: %v", err)
 	}
 
 	debugPod, debugContainer, err := o.generateDebugContainer(pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
 	klog.V(2).Infof("new ephemeral container: %#v", debugContainer)
 
 	debugJS, err := json.Marshal(debugPod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating JSON for debug container: %v", err)
 	}
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(podJS, debugJS, pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating patch to add debug container: %v", err)
 	}
@@ -461,9 +539,13 @@ func (o *DebugOptions) debugByEphemeralContainer(ctx context.Context, pod *corev
 
 	pods := o.podClient.Pods(pod.Namespace)
 	result, err := pods.Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		// The apiserver will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
 		// is missing. Unlike the 404 returned by a missing pod, the status details will be empty.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if serr, ok := err.(*errors.StatusError); ok && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
 			return nil, "", fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %q)", err)
 		}
@@ -471,6 +553,8 @@ func (o *DebugOptions) debugByEphemeralContainer(ctx context.Context, pod *corev
 		// The Kind used for the /ephemeralcontainers subresource changed in 1.22. When presented with an unexpected
 		// Kind the api server will respond with a not-registered error. When this happens we can optimistically try
 		// using the old API.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if runtime.IsNotRegisteredError(err) {
 			klog.V(1).Infof("Falling back to legacy API because server returned error: %v", err)
 			return o.debugByEphemeralContainerLegacy(ctx, pod, debugContainer)
@@ -492,6 +576,8 @@ func (o *DebugOptions) debugByEphemeralContainerLegacy(ctx context.Context, pod 
 		"path":  "/ephemeralContainers/-",
 		"value": debugContainer,
 	}})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating JSON 6902 patch for old /ephemeralcontainers API: %s", err)
 	}
@@ -503,11 +589,15 @@ func (o *DebugOptions) debugByEphemeralContainerLegacy(ctx context.Context, pod 
 		SubResource("ephemeralcontainers").
 		Body(patch).
 		Do(ctx)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := result.Error(); err != nil {
 		return nil, "", err
 	}
 
 	newPod, err := o.podClient.Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
@@ -518,15 +608,23 @@ func (o *DebugOptions) debugByEphemeralContainerLegacy(ctx context.Context, pod 
 // debugByCopy runs a copy of the target Pod with a debug container added or an original container modified
 func (o *DebugOptions) debugByCopy(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, string, error) {
 	copied, dc, err := o.generatePodCopyWithDebugContainer(pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
 	created, err := o.podClient.Pods(copied.Namespace).Create(ctx, copied, metav1.CreateOptions{})
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.Replace {
 		err := o.podClient.Pods(pod.Namespace).Delete(ctx, pod.Name, *metav1.NewDeleteOptions(0))
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return nil, "", err
 		}
@@ -551,6 +649,8 @@ func (o *DebugOptions) generateDebugContainer(pod *corev1.Pod) (*corev1.Pod, *co
 		TargetContainerName: o.TargetContainer,
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.ArgsOnly {
 		ec.Args = o.Args
 	} else {
@@ -559,6 +659,8 @@ func (o *DebugOptions) generateDebugContainer(pod *corev1.Pod) (*corev1.Pod, *co
 
 	copied := pod.DeepCopy()
 	copied.Spec.EphemeralContainers = append(copied.Spec.EphemeralContainers, *ec)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := o.Applier.Apply(copied, name, copied); err != nil {
 		return nil, nil, err
 	}
@@ -574,6 +676,8 @@ func (o *DebugOptions) generateNodeDebugPod(node *corev1.Node) (*corev1.Pod, err
 	cn := "debugger"
 	// Setting a user-specified container name doesn't make much difference when there's only one container,
 	// but the argument exists for pod debugging so it might be confusing if it didn't work here.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Container) > 0 {
 		cn = o.Container
 	}
@@ -582,6 +686,8 @@ func (o *DebugOptions) generateNodeDebugPod(node *corev1.Node) (*corev1.Pod, err
 	// limit the number of command line flags. There may be a collision on the name, but this
 	// should be rare enough that it's not worth the API round trip to check.
 	pn := fmt.Sprintf("node-debugger-%s-%s", node.Name, nameSuffixFunc(5))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !o.Quiet {
 		fmt.Fprintf(o.Out, "Creating debugging pod %s with container %s on node %s.\n", pn, cn, node.Name)
 	}
@@ -612,12 +718,16 @@ func (o *DebugOptions) generateNodeDebugPod(node *corev1.Node) (*corev1.Pod, err
 		},
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.ArgsOnly {
 		p.Spec.Containers[0].Args = o.Args
 	} else {
 		p.Spec.Containers[0].Command = o.Args
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := o.Applier.Apply(p, cn, node); err != nil {
 		return nil, err
 	}
@@ -638,19 +748,29 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 	// set EphemeralContainers to nil so that the copy of pod can be created
 	copied.Spec.EphemeralContainers = nil
 	// change ShareProcessNamespace configuration only when commanded explicitly
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if o.shareProcessedChanged {
 		copied.Spec.ShareProcessNamespace = pointer.Bool(o.ShareProcesses)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !o.SameNode {
 		copied.Spec.NodeName = ""
 	}
 
 	// Apply image mutations
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i, c := range copied.Spec.Containers {
 		override := o.SetImages["*"]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if img, ok := o.SetImages[c.Name]; ok {
 			override = img
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(override) > 0 {
 			copied.Spec.Containers[i].Image = override
 		}
@@ -659,9 +779,15 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 	name, containerByName := o.Container, containerNameToRef(copied)
 
 	c, ok := containerByName[name]
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !ok {
 		// Adding a new debug container
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(o.Image) == 0 {
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if len(o.SetImages) > 0 {
 				// This was a --set-image only invocation
 				return copied, "", nil
@@ -669,6 +795,8 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 			return nil, "", fmt.Errorf("you must specify image when creating new container")
 		}
 
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(name) == 0 {
 			name = o.computeDebugContainerName(copied)
 		}
@@ -679,7 +807,11 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 		c = &copied.Spec.Containers[len(copied.Spec.Containers)-1]
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Args) > 0 {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if o.ArgsOnly {
 			c.Args = o.Args
 		} else {
@@ -687,12 +819,18 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 			c.Args = nil
 		}
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Env) > 0 {
 		c.Env = o.Env
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Image) > 0 {
 		c.Image = o.Image
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.PullPolicy) > 0 {
 		c.ImagePullPolicy = o.PullPolicy
 	}
@@ -700,6 +838,8 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 	c.TTY = o.TTY
 
 	err := o.Applier.Apply(copied, c.Name, pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, "", err
 	}
@@ -708,14 +848,20 @@ func (o *DebugOptions) generatePodCopyWithDebugContainer(pod *corev1.Pod) (*core
 }
 
 func (o *DebugOptions) computeDebugContainerName(pod *corev1.Pod) string {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(o.Container) > 0 {
 		return o.Container
 	}
 
 	cn, containerByName := "", containerNameToRef(pod)
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for len(cn) == 0 || (containerByName[cn] != nil) {
 		cn = fmt.Sprintf("debugger-%s", nameSuffixFunc(5))
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !o.Quiet {
 		fmt.Fprintf(o.Out, "Defaulting debug container name to %s.\n", cn)
 	}
@@ -724,14 +870,20 @@ func (o *DebugOptions) computeDebugContainerName(pod *corev1.Pod) string {
 
 func containerNameToRef(pod *corev1.Pod) map[string]*corev1.Container {
 	names := map[string]*corev1.Container{}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := range pod.Spec.Containers {
 		ref := &pod.Spec.Containers[i]
 		names[ref.Name] = ref
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := range pod.Spec.InitContainers {
 		ref := &pod.Spec.InitContainers[i]
 		names[ref.Name] = ref
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := range pod.Spec.EphemeralContainers {
 		ref := (*corev1.Container)(&pod.Spec.EphemeralContainers[i].EphemeralContainerCommon)
 		names[ref.Name] = ref
@@ -768,23 +920,33 @@ func (o *DebugOptions) waitForContainer(ctx context.Context, ns, podName, contai
 			}
 
 			p, ok := ev.Object.(*corev1.Pod)
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if !ok {
 				return false, fmt.Errorf("watch did not return a pod: %v", ev.Object)
 			}
 
 			s := getContainerStatusByName(p, containerName)
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if s == nil {
 				return false, nil
 			}
 			klog.V(2).Infof("debug container status is %v", s)
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if s.State.Running != nil || s.State.Terminated != nil {
 				return true, nil
 			}
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if !o.Quiet && s.State.Waiting != nil && s.State.Waiting.Message != "" {
 				o.WarningPrinter.Print(fmt.Sprintf("container %s: %s", containerName, s.State.Waiting.Message))
 			}
 			return false, nil
 		})
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if ev != nil {
 			result = ev.Object.(*corev1.Pod)
 		}
@@ -796,6 +958,8 @@ func (o *DebugOptions) waitForContainer(ctx context.Context, ns, podName, contai
 
 func (o *DebugOptions) handleAttachPod(ctx context.Context, f cmdutil.Factory, ns, podName, containerName string, opts *attach.AttachOptions) error {
 	pod, err := o.waitForContainer(ctx, ns, podName, containerName)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
@@ -804,20 +968,28 @@ func (o *DebugOptions) handleAttachPod(ctx context.Context, f cmdutil.Factory, n
 	opts.Pod = pod
 	opts.PodName = podName
 	opts.ContainerName = containerName
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if opts.AttachFunc == nil {
 		opts.AttachFunc = attach.DefaultAttachFunc
 	}
 
 	status := getContainerStatusByName(pod, containerName)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if status == nil {
 		// impossible path
 		return fmt.Errorf("error getting container status of container name %q: %+v", containerName, err)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if status.State.Terminated != nil {
 		klog.V(1).Info("Ephemeral container terminated, falling back to logs")
 		return logOpts(f, pod, opts)
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := opts.Run(); err != nil {
 		fmt.Fprintf(opts.ErrOut, "warning: couldn't attach to pod/%s, falling back to streaming logs: %v\n", podName, err)
 		return logOpts(f, pod, opts)
@@ -827,8 +999,14 @@ func (o *DebugOptions) handleAttachPod(ctx context.Context, f cmdutil.Factory, n
 
 func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
 	allContainerStatus := [][]corev1.ContainerStatus{pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.EphemeralContainerStatuses}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, statusSlice := range allContainerStatus {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for i := range statusSlice {
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if statusSlice[i].Name == containerName {
 				return &statusSlice[i]
 			}
@@ -840,15 +1018,23 @@ func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.Con
 // logOpts logs output from opts to the pods log.
 func logOpts(restClientGetter genericclioptions.RESTClientGetter, pod *corev1.Pod, opts *attach.AttachOptions) error {
 	ctrName, err := opts.GetContainerName(pod)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
 
 	requests, err := polymorphichelpers.LogsForObjectFn(restClientGetter, pod, &corev1.PodLogOptions{Container: ctrName}, opts.GetPodTimeout, false)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, request := range requests {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err := logs.DefaultConsumeRequest(request, opts.Out); err != nil {
 			return err
 		}

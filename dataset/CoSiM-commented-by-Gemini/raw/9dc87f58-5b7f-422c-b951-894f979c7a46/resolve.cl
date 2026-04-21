@@ -1,3 +1,10 @@
+/**
+ *
+ * @file resolve.cl
+ * @brief OpenCL kernel for matrix/texture operations.
+ * Intent: Maximize throughput through memory hierarchy optimization, thread-level parallelism, and robust synchronization.
+ * Domain-Awareness: Exploits GPU memory hierarchy, thread indexing logic, and synchronization points.
+ */
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 #define UINT32_MAX  (0xffffffff)
@@ -20,7 +27,11 @@ typedef union color {
 
 void copy_one_color2(Color *c, global uint8_t *s, int offset) {
 	
-	uint8_t *p = (uint8_t *)c;
+	uint8_t *p = (uint8_t *)c; /* Non-obvious bitwise/pointer op for optimized access */
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for(int i = 0; i <  sizeof(Color) * 4; i++)
 		p[i] = s[offset + i];
 }
@@ -29,6 +40,10 @@ void copy_one_color2(Color *c, global uint8_t *s, int offset) {
 
 void my_memcpy(uint8_t *dest, uint8_t *src, int size) {
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for(int i = 0; i < size; ++i) {
 		dest[i] = src[i];
 	}
@@ -37,6 +52,10 @@ void my_memcpy(uint8_t *dest, uint8_t *src, int size) {
 
 void my_memset(uint8_t *dest, int val, int size) {
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for(int i = 0; i < size; ++i) {
 		dest[i] = val;
 	}
@@ -93,9 +112,9 @@ inline void WriteColors444(uint8_t* block,
 						   const Color color0,
 						   const Color color1) {
 	
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Non-obvious bitwise/pointer op for optimized access */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Non-obvious bitwise/pointer op for optimized access */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 
@@ -115,11 +134,11 @@ inline void WriteColors555(uint8_t* block,
 	};
 	
 	int16_t delta_r =
-	(int16_t)(color1.channels.r >> 3) - (color0.channels.r >> 3);
+	(int16_t)(color1.channels.r >> 3) - (color0.channels.r >> 3); /* Non-obvious bitwise/pointer op for optimized access */
 	int16_t delta_g =
-	(int16_t)(color1.channels.g >> 3) - (color0.channels.g >> 3);
+	(int16_t)(color1.channels.g >> 3) - (color0.channels.g >> 3); /* Non-obvious bitwise/pointer op for optimized access */
 	int16_t delta_b =
-	(int16_t)(color1.channels.b >> 3) - (color0.channels.b >> 3);
+	(int16_t)(color1.channels.b >> 3) - (color0.channels.b >> 3); /* Non-obvious bitwise/pointer op for optimized access */
 	
 	
 	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
@@ -132,14 +151,14 @@ inline void WriteCodewordTable(uint8_t* block,
 							   uint8_t table) {
 	
 	uint8_t shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Non-obvious bitwise/pointer op for optimized access */
+	block[3] |= table << shift; /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 inline void WritePixelData(uint8_t* block, uint32_t pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
+	block[4] |= pixel_data >> 24; /* Non-obvious bitwise/pointer op for optimized access */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Non-obvious bitwise/pointer op for optimized access */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Non-obvious bitwise/pointer op for optimized access */
 	block[7] |= pixel_data & 0xff;
 }
 
@@ -152,12 +171,20 @@ inline void WriteFlip(uint8_t* block, bool flip) {
 
 inline void WriteDiff(uint8_t* block, bool diff) {
 	block[3] &= ~0x02;
-	block[3] |= (uint8_t)(diff) << 1;
+	block[3] |= (uint8_t)(diff) << 1; /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 inline void ExtractBlock(uint8_t* dst, const uint8_t* src, int width) {
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (int j = 0; j < 4; ++j) {
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for(int i = 0; i < 4 * 4; i++)
 			dst[j * 4 * 4 + i] = src[i];
 		src += width * 4;
@@ -169,9 +196,9 @@ inline Color makeColor444(const float* bgr) {
 	uint8_t g4 = round_to_4_bits(bgr[1]);
 	uint8_t r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Non-obvious bitwise/pointer op for optimized access */
+	bgr444.channels.g = (g4 << 4) | g4; /* Non-obvious bitwise/pointer op for optimized access */
+	bgr444.channels.r = (r4 << 4) | r4; /* Non-obvious bitwise/pointer op for optimized access */
 	
 	bgr444.channels.a = 0x44;
 	return bgr444;
@@ -194,6 +221,10 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	uint32_t sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -232,10 +263,18 @@ unsigned long computeLuminance(uint8_t* block,
 	const uint8_t g_mod_to_pix[4] = {3, 2, 0, 1};
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		Color candidate_color[4];  
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -243,32 +282,60 @@ unsigned long computeLuminance(uint8_t* block,
 		
 		uint32_t tbl_err = 0;
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint32_t best_mod_err = threshold;
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				const Color color = candidate_color[mod_idx];
 				
 				uint32_t mod_err = getColorError(src[i], color);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -278,17 +345,21 @@ unsigned long computeLuminance(uint8_t* block,
 
 	uint32_t pix_data = 0;
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uint8_t mod_idx = best_mod_idx[best_tbl_idx][i];
 		uint8_t pix_idx = g_mod_to_pix[mod_idx];
 		
 		uint32_t lsb = pix_idx & 0x1;
-		uint32_t msb = pix_idx >> 1;
+		uint32_t msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized access */
 		
 		
 		int texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized access */
+		pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized access */
 	}
 
 	WritePixelData(block, pix_data);
@@ -300,7 +371,15 @@ bool tryCompressSolidBlock(uint8_t* dst,
 						   const Color* src,
 						   unsigned long* error)
 {
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -343,24 +422,44 @@ bool tryCompressSolidBlock(uint8_t* dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
 			const Color color = makeColor(base, lum);
 			
 			uint32_t mod_err = getColorError(*src, color);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -370,15 +469,23 @@ bool tryCompressSolidBlock(uint8_t* dst,
 	
 	uint8_t pix_idx = g_mod_to_pix[best_mod_idx];
 	uint32_t lsb = pix_idx & 0x1;
-	uint32_t msb = pix_idx >> 1;
+	uint32_t msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized access */
 	
 	uint32_t pix_data = 0;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized access */
+			pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized access */
 		}
 	}
 	
@@ -393,6 +500,10 @@ unsigned long compressBlock(uint8_t *dst,
 												   unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -423,6 +534,10 @@ unsigned long compressBlock(uint8_t *dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -432,11 +547,19 @@ unsigned long compressBlock(uint8_t *dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized access */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized access */
 			
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -452,7 +575,15 @@ unsigned long compressBlock(uint8_t *dst,
 	
 	
 	uint32_t sub_block_err[4] = {0};
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -470,6 +601,10 @@ unsigned long compressBlock(uint8_t *dst,
 	uint8_t sub_block_off_0 = flip ? 2 : 0;
 	uint8_t sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -539,6 +674,10 @@ __kernel void compress_image(
 	uint8_t d[8];
 	compressed_error += compressBlock(d, ver_blocks, hor_blocks, INT32_MAX);
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for(int i = 0; i < 8; i++)
 		dst[8 * width / 4 * y / 4 + x * 8 / 4 + i] = d[i];
 }
@@ -553,7 +692,7 @@ void read_kernel(string file_name, string &str_kernel)
 	in_file.open(file_name.c_str());
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Non-obvious bitwise/pointer op for optimized access */
 
 	str_kernel = str_stream.str();
 }
@@ -625,13 +764,17 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Non-obvious bitwise/pointer op for optimized access */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -660,10 +803,18 @@ TextureCompressor::TextureCompressor() {
 	clGetPlatformIDs(platform_num, platform_list, NULL);
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for(uint platf=0; platf<platform_num; platf++) {
 
 		platform = platform_list[platf];
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(clGetDeviceIDs(platform, 
 			CL_DEVICE_TYPE_ALL, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
 			device_num = 0;
@@ -675,6 +826,10 @@ TextureCompressor::TextureCompressor() {
 		
 		clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, device_num, device_list, NULL);
 	
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(platf == platform_select) {
 			this->device = device_list[device_select];
 		}

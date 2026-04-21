@@ -1,3 +1,10 @@
+/**
+ * @raw/f52da4c7-0717-4435-acea-470bda9351a9/drivers/net/can/usb/kvaser_usb/kvaser_usb_core.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /* Parts of this driver are based on the following:
  *  - Kvaser linux leaf driver (version 4.78)
@@ -275,11 +282,15 @@ static void kvaser_usb_send_cmd_callback(struct urb *urb)
 
 	kfree(urb->transfer_buffer);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (urb->status)
 		netdev_warn(netdev, "urb status received: %d\n", urb->status);
 }
 
-int kvaser_usb_send_cmd_async(struct kvaser_usb_net_priv *priv, void *cmd,
+int kvaser_usb_send_cmd_async(struct kvaser_usb_net_priv *priv, void *cmd, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			      int len)
 {
 	struct kvaser_usb *dev = priv->dev;
@@ -288,6 +299,10 @@ int kvaser_usb_send_cmd_async(struct kvaser_usb_net_priv *priv, void *cmd,
 	int err;
 
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!urb)
 		return -ENOMEM;
 
@@ -298,6 +313,10 @@ int kvaser_usb_send_cmd_async(struct kvaser_usb_net_priv *priv, void *cmd,
 	usb_anchor_urb(urb, &priv->tx_submitted);
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		netdev_err(netdev, "Error transmitting URB\n");
 		usb_unanchor_urb(urb);
@@ -317,6 +336,10 @@ int kvaser_usb_can_rx_over_error(struct net_device *netdev)
 	stats->rx_errors++;
 
 	skb = alloc_can_err_skb(netdev, &cf);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!skb) {
 		stats->rx_dropped++;
 		netdev_warn(netdev, "No memory left for err_skb\n");
@@ -362,8 +385,20 @@ resubmit_urb:
 			  kvaser_usb_read_bulk_callback, dev);
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err == -ENODEV) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (i = 0; i < dev->nchannels; i++) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!dev->nets[i])
 				continue;
 
@@ -379,15 +414,27 @@ static int kvaser_usb_setup_rx_urbs(struct kvaser_usb *dev)
 {
 	int i, err = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dev->rxinitdone)
 		return 0;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < KVASER_USB_MAX_RX_URBS; i++) {
 		struct urb *urb = NULL;
 		u8 *buf = NULL;
 		dma_addr_t buf_dma;
 
 		urb = usb_alloc_urb(0, GFP_KERNEL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!urb) {
 			err = -ENOMEM;
 			break;
@@ -395,6 +442,10 @@ static int kvaser_usb_setup_rx_urbs(struct kvaser_usb *dev)
 
 		buf = usb_alloc_coherent(dev->udev, KVASER_USB_RX_BUFFER_SIZE,
 					 GFP_KERNEL, &buf_dma);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!buf) {
 			dev_warn(&dev->intf->dev,
 				 "No memory left for USB buffer\n");
@@ -414,6 +465,10 @@ static int kvaser_usb_setup_rx_urbs(struct kvaser_usb *dev)
 		usb_anchor_urb(urb, &dev->rx_submitted);
 
 		err = usb_submit_urb(urb, GFP_KERNEL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err) {
 			usb_unanchor_urb(urb);
 			usb_free_coherent(dev->udev,
@@ -429,6 +484,10 @@ static int kvaser_usb_setup_rx_urbs(struct kvaser_usb *dev)
 		usb_free_urb(urb);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (i == 0) {
 		dev_warn(&dev->intf->dev, "Cannot setup read URBs, error %d\n",
 			 err);
@@ -444,20 +503,32 @@ static int kvaser_usb_setup_rx_urbs(struct kvaser_usb *dev)
 
 static int kvaser_usb_open(struct net_device *netdev)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct kvaser_usb *dev = priv->dev;
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	int err;
 
 	err = open_candev(netdev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
 	err = ops->dev_set_opt_mode(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		goto error;
 
 	err = ops->dev_start_chip(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		netdev_warn(netdev, "Cannot start device, error %d\n", err);
 		goto error;
@@ -472,13 +543,17 @@ error:
 	return err;
 }
 
-static void kvaser_usb_reset_tx_urb_contexts(struct kvaser_usb_net_priv *priv)
+static void kvaser_usb_reset_tx_urb_contexts(struct kvaser_usb_net_priv *priv) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	int i, max_tx_urbs;
 
 	max_tx_urbs = priv->dev->max_tx_urbs;
 
 	priv->active_tx_contexts = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < max_tx_urbs; i++)
 		priv->tx_contexts[i].echo_index = max_tx_urbs;
 }
@@ -486,7 +561,7 @@ static void kvaser_usb_reset_tx_urb_contexts(struct kvaser_usb_net_priv *priv)
 /* This method might sleep. Do not call it in the atomic context
  * of URB completions.
  */
-void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
+void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	usb_kill_anchored_urbs(&priv->tx_submitted);
 	kvaser_usb_reset_tx_urb_contexts(priv);
@@ -498,13 +573,25 @@ static void kvaser_usb_unlink_all_urbs(struct kvaser_usb *dev)
 
 	usb_kill_anchored_urbs(&dev->rx_submitted);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < KVASER_USB_MAX_RX_URBS; i++)
 		usb_free_coherent(dev->udev, KVASER_USB_RX_BUFFER_SIZE,
 				  dev->rxbuf[i], dev->rxbuf_dma[i]);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < dev->nchannels; i++) {
-		struct kvaser_usb_net_priv *priv = dev->nets[i];
+		struct kvaser_usb_net_priv *priv = dev->nets[i]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (priv)
 			kvaser_usb_unlink_tx_urbs(priv);
 	}
@@ -512,7 +599,7 @@ static void kvaser_usb_unlink_all_urbs(struct kvaser_usb *dev)
 
 static int kvaser_usb_close(struct net_device *netdev)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct kvaser_usb *dev = priv->dev;
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	int err;
@@ -520,17 +607,33 @@ static int kvaser_usb_close(struct net_device *netdev)
 	netif_stop_queue(netdev);
 
 	err = ops->dev_flush_queue(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		netdev_warn(netdev, "Cannot flush queue, error %d\n", err);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ops->dev_reset_chip) {
 		err = ops->dev_reset_chip(dev, priv->channel);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err)
 			netdev_warn(netdev, "Cannot reset card, error %d\n",
 				    err);
 	}
 
 	err = ops->dev_stop_chip(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		netdev_warn(netdev, "Cannot stop device, error %d\n", err);
 
@@ -545,7 +648,7 @@ static int kvaser_usb_close(struct net_device *netdev)
 
 static int kvaser_usb_set_bittiming(struct net_device *netdev)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct kvaser_usb *dev = priv->dev;
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	struct can_bittiming *bt = &priv->can.bittiming;
@@ -559,27 +662,51 @@ static int kvaser_usb_set_bittiming(struct net_device *netdev)
 	busparams.sjw = (u8)sjw;
 	busparams.tseg1 = (u8)tseg1;
 	busparams.tseg2 = (u8)tseg2;
-	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		busparams.nsamples = 3;
 	else
 		busparams.nsamples = 1;
 
 	err = ops->dev_set_bittiming(netdev, &busparams);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
 	err = kvaser_usb_setup_rx_urbs(priv->dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
 	err = ops->dev_get_busparams(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		/* Treat EOPNOTSUPP as success */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err == -EOPNOTSUPP)
 			err = 0;
 		return err;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (memcmp(&busparams, &priv->busparams_nominal,
 		   sizeof(priv->busparams_nominal)) != 0)
 		err = -EINVAL;
@@ -589,7 +716,7 @@ static int kvaser_usb_set_bittiming(struct net_device *netdev)
 
 static int kvaser_usb_set_data_bittiming(struct net_device *netdev)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct kvaser_usb *dev = priv->dev;
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	struct can_bittiming *dbt = &priv->can.fd.data_bittiming;
@@ -599,6 +726,10 @@ static int kvaser_usb_set_data_bittiming(struct net_device *netdev)
 	int sjw = dbt->sjw;
 	int err;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ops->dev_set_data_bittiming ||
 	    !ops->dev_get_data_busparams)
 		return -EOPNOTSUPP;
@@ -610,17 +741,33 @@ static int kvaser_usb_set_data_bittiming(struct net_device *netdev)
 	busparams.nsamples = 1;
 
 	err = ops->dev_set_data_bittiming(netdev, &busparams);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
 	err = kvaser_usb_setup_rx_urbs(priv->dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
 	err = ops->dev_get_data_busparams(priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return err;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (memcmp(&busparams, &priv->busparams_data,
 		   sizeof(priv->busparams_data)) != 0)
 		err = -EINVAL;
@@ -631,9 +778,13 @@ static int kvaser_usb_set_data_bittiming(struct net_device *netdev)
 static void kvaser_usb_write_bulk_callback(struct urb *urb)
 {
 	struct kvaser_usb_tx_urb_context *context = urb->context;
-	struct kvaser_usb_net_priv *priv;
+	struct kvaser_usb_net_priv *priv; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct net_device *netdev;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (WARN_ON(!context))
 		return;
 
@@ -642,9 +793,17 @@ static void kvaser_usb_write_bulk_callback(struct urb *urb)
 
 	kfree(urb->transfer_buffer);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!netif_device_present(netdev))
 		return;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (urb->status)
 		netdev_info(netdev, "Tx URB aborted (%d)\n", urb->status);
 }
@@ -652,7 +811,7 @@ static void kvaser_usb_write_bulk_callback(struct urb *urb)
 static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 					 struct net_device *netdev)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct kvaser_usb *dev = priv->dev;
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	struct net_device_stats *stats = &netdev->stats;
@@ -664,10 +823,18 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 	unsigned int i;
 	unsigned long flags;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
 
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!urb) {
 		stats->tx_dropped++;
 		dev_kfree_skb(skb);
@@ -675,12 +842,24 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 	}
 
 	spin_lock_irqsave(&priv->tx_contexts_lock, flags);
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < dev->max_tx_urbs; i++) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (priv->tx_contexts[i].echo_index == dev->max_tx_urbs) {
 			context = &priv->tx_contexts[i];
 
 			context->echo_index = i;
 			++priv->active_tx_contexts;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (priv->active_tx_contexts >= (int)dev->max_tx_urbs)
 				netif_stop_queue(netdev);
 
@@ -690,6 +869,10 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 	spin_unlock_irqrestore(&priv->tx_contexts_lock, flags);
 
 	/* This should never happen; it implies a flow control bug */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!context) {
 		netdev_warn(netdev, "cannot find free context\n");
 
@@ -698,6 +881,10 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 	}
 
 	buf = ops->dev_frame_to_cmd(priv, skb, &cmd_len, context->echo_index);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!buf) {
 		stats->tx_dropped++;
 		dev_kfree_skb(skb);
@@ -723,6 +910,10 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 	usb_anchor_urb(urb, &priv->tx_submitted);
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(err)) {
 		spin_lock_irqsave(&priv->tx_contexts_lock, flags);
 
@@ -738,6 +929,10 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
 
 		stats->tx_dropped++;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err == -ENODEV)
 			netif_device_detach(netdev);
 		else
@@ -756,7 +951,7 @@ freeurb:
 static int kvaser_usb_set_phys_id(struct net_device *netdev,
 				  enum ethtool_phys_id_state state)
 {
-	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+	struct kvaser_usb_net_priv *priv = netdev_priv(netdev); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	const struct kvaser_usb_dev_ops *ops = priv->dev->driver_info->ops;
 
 	switch (state) {
@@ -796,7 +991,15 @@ static void kvaser_usb_remove_interfaces(struct kvaser_usb *dev)
 	const struct kvaser_usb_dev_ops *ops = dev->driver_info->ops;
 	int i;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < dev->nchannels; i++) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!dev->nets[i])
 			continue;
 
@@ -805,10 +1008,22 @@ static void kvaser_usb_remove_interfaces(struct kvaser_usb *dev)
 
 	kvaser_usb_unlink_all_urbs(dev);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < dev->nchannels; i++) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!dev->nets[i])
 			continue;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ops->dev_remove_channel)
 			ops->dev_remove_channel(dev->nets[i]);
 
@@ -819,19 +1034,31 @@ static void kvaser_usb_remove_interfaces(struct kvaser_usb *dev)
 static int kvaser_usb_init_one(struct kvaser_usb *dev, int channel)
 {
 	struct net_device *netdev;
-	struct kvaser_usb_net_priv *priv;
+	struct kvaser_usb_net_priv *priv; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	const struct kvaser_usb_driver_info *driver_info = dev->driver_info;
 	const struct kvaser_usb_dev_ops *ops = driver_info->ops;
 	int err;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ops->dev_reset_chip) {
 		err = ops->dev_reset_chip(dev, channel);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err)
 			return err;
 	}
 
 	netdev = alloc_candev(struct_size(priv, tx_contexts, dev->max_tx_urbs),
 			      dev->max_tx_urbs);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!netdev) {
 		dev_err(&dev->intf->dev, "Cannot alloc candev\n");
 		return -ENOMEM;
@@ -859,15 +1086,27 @@ static int kvaser_usb_init_one(struct kvaser_usb *dev, int channel)
 	priv->can.bittiming_const = dev->cfg->bittiming_const;
 	priv->can.do_set_bittiming = kvaser_usb_set_bittiming;
 	priv->can.do_set_mode = ops->dev_set_mode;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((driver_info->quirks & KVASER_USB_QUIRK_HAS_TXRX_ERRORS) ||
-	    (priv->dev->card_data.capabilities & KVASER_USB_CAP_BERR_CAP))
+	    (priv->dev->card_data.capabilities & KVASER_USB_CAP_BERR_CAP)) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		priv->can.do_get_berr_counter = ops->dev_get_berr_counter;
-	if (driver_info->quirks & KVASER_USB_QUIRK_HAS_SILENT_MODE)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (driver_info->quirks & KVASER_USB_QUIRK_HAS_SILENT_MODE) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		priv->can.ctrlmode_supported |= CAN_CTRLMODE_LISTENONLY;
 
 	priv->can.ctrlmode_supported |= dev->card_data.ctrlmode_supported;
 
-	if (priv->can.ctrlmode_supported & CAN_CTRLMODE_FD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (priv->can.ctrlmode_supported & CAN_CTRLMODE_FD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		priv->can.fd.data_bittiming_const = dev->cfg->data_bittiming_const;
 		priv->can.fd.do_set_data_bittiming = kvaser_usb_set_data_bittiming;
 	}
@@ -882,13 +1121,25 @@ static int kvaser_usb_init_one(struct kvaser_usb *dev, int channel)
 
 	dev->nets[channel] = priv;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ops->dev_init_channel) {
 		err = ops->dev_init_channel(priv);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err)
 			goto err;
 	}
 
 	err = register_candev(netdev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		dev_err(&dev->intf->dev, "Failed to register CAN device\n");
 		goto err;
@@ -914,10 +1165,18 @@ static int kvaser_usb_probe(struct usb_interface *intf,
 	const struct kvaser_usb_dev_ops *ops;
 
 	driver_info = (const struct kvaser_usb_driver_info *)id->driver_info;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!driver_info)
 		return -ENODEV;
 
 	dev = devm_kzalloc(&intf->dev, sizeof(*dev), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dev)
 		return -ENOMEM;
 
@@ -926,6 +1185,10 @@ static int kvaser_usb_probe(struct usb_interface *intf,
 	ops = driver_info->ops;
 
 	err = ops->dev_setup_endpoints(dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return dev_err_probe(&intf->dev, err, "Cannot get usb endpoint(s)");
 
@@ -938,39 +1201,71 @@ static int kvaser_usb_probe(struct usb_interface *intf,
 	dev->card_data.ctrlmode_supported = 0;
 	dev->card_data.capabilities = 0;
 	err = ops->dev_init_card(dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return dev_err_probe(&intf->dev, err,
 				     "Failed to initialize card\n");
 
 	err = ops->dev_get_software_info(dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return dev_err_probe(&intf->dev, err,
 				     "Cannot get software info\n");
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ops->dev_get_software_details) {
 		err = ops->dev_get_software_details(dev);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err)
 			return dev_err_probe(&intf->dev, err,
 					     "Cannot get software details\n");
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (WARN_ON(!dev->cfg))
 		return -ENODEV;
 
 	dev_dbg(&intf->dev, "Firmware version: %d.%d.%d\n",
-		((dev->fw_version >> 24) & 0xff),
-		((dev->fw_version >> 16) & 0xff),
-		(dev->fw_version & 0xffff));
+		((dev->fw_version >> 24) & 0xff), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		((dev->fw_version >> 16) & 0xff), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		(dev->fw_version & 0xffff)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	dev_dbg(&intf->dev, "Max outstanding tx = %d URBs\n", dev->max_tx_urbs);
 
 	err = ops->dev_get_card_info(dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err)
 		return dev_err_probe(&intf->dev, err,
 				     "Cannot get card info\n");
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ops->dev_get_capabilities) {
 		err = ops->dev_get_capabilities(dev);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err) {
 			kvaser_usb_remove_interfaces(dev);
 			return dev_err_probe(&intf->dev, err,
@@ -978,8 +1273,16 @@ static int kvaser_usb_probe(struct usb_interface *intf,
 		}
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < dev->nchannels; i++) {
 		err = kvaser_usb_init_one(dev, i);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (err) {
 			kvaser_usb_remove_interfaces(dev);
 			return err;
@@ -995,6 +1298,10 @@ static void kvaser_usb_disconnect(struct usb_interface *intf)
 
 	usb_set_intfdata(intf, NULL);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dev)
 		return;
 

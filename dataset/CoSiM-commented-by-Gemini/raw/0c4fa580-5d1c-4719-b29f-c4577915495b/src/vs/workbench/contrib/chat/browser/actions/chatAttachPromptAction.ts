@@ -1,3 +1,10 @@
+/**
+ * @raw/0c4fa580-5d1c-4719-b29f-c4577915495b/src/vs/workbench/contrib/chat/browser/actions/chatAttachPromptAction.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -60,6 +67,10 @@ export class AttachPromptAction extends Action2 {
 		});
 
 		// no prompt selected, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!selectionResult) {
 			return;
 		}
@@ -94,6 +105,10 @@ const revealChatWidget = async (
 	// if no widget reference is present, the command was triggered from outside of
 	// an active chat input, so we reveal a chat widget window based on the `alt`
 	// key modifier state when a prompt was selected from the picker UI dialog
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!widget) {
 		const widget = (altOption)
 			? await showEditsView(viewsService)

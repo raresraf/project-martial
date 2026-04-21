@@ -1,3 +1,9 @@
+/**
+ * @file parallel_image_puller_test.go
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /*
 Copyright 2015 The Kubernetes Authors.
 
@@ -93,6 +99,10 @@ func TestPuller(t *testing.T) {
 			expectedErr:     []error{ErrImagePull, ErrImagePull, ErrImagePullBackOff, ErrImagePull, ErrImagePullBackOff, ErrImagePullBackOff}},
 	}
 
+	/**
+	 * Block Logic: Iteration pre-condition and bounds.
+	 * Invariant: Loop iterates over assigned memory/elements.
+	 */
 	for i, c := range cases {
 		container := &api.Container{
 			Name:            "container_name",
@@ -112,6 +122,10 @@ func TestPuller(t *testing.T) {
 		fakeRuntime.Err = c.pullerErr
 		fakeRuntime.InspectErr = c.inspectErr
 
+		/**
+		 * Block Logic: Iteration pre-condition and bounds.
+		 * Invariant: Loop iterates over assigned memory/elements.
+		 */
 		for tick, expected := range c.expectedErr {
 			fakeClock.Step(time.Second)
 			err, _ := puller.PullImage(pod, container, nil)

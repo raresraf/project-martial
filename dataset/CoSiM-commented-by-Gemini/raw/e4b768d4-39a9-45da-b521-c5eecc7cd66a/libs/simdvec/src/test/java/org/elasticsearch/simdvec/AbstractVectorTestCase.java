@@ -1,3 +1,10 @@
+/**
+ * @raw/e4b768d4-39a9-45da-b521-c5eecc7cd66a/libs/simdvec/src/test/java/org/elasticsearch/simdvec/AbstractVectorTestCase.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -40,6 +47,10 @@ public abstract class AbstractVectorTestCase extends ESTestCase {
         var arch = System.getProperty("os.arch");
         var osName = System.getProperty("os.name");
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (jdkVersion >= 21
             && (arch.equals("aarch64") && (osName.startsWith("Mac") || osName.equals("Linux"))
                 || arch.equals("amd64") && osName.equals("Linux"))) {
@@ -83,6 +94,10 @@ public abstract class AbstractVectorTestCase extends ESTestCase {
     /** Concatenates byte arrays. */
     public static byte[] concat(byte[]... arrays) throws IOException {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (var ba : arrays) {
                 baos.write(ba);
             }

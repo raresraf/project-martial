@@ -3,6 +3,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 //! Utilities for the implementation of JSAPI proxy handlers.
+//! 
+//! Architectural Intent: Provides the bridge between Servo's DOM objects and SpiderMonkey's
+//! JSAPI proxy infrastructure. It handles expando properties (dynamic properties added at runtime)
+//! and enforces W3C cross-origin security policies for sensitive objects like Window and Location.
 
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -43,6 +47,10 @@ use crate::str::DOMString;
 use crate::utils::delete_property_by_id;
 
 /// Determine if this id shadows any existing properties for this proxy.
+/// 
+/// Functional Utility: Used by SpiderMonkey to resolve property lookups efficiently.
+/// If a property exists on the 'expando' (a hidden object holding dynamic state),
+/// it might shadow built-in DOM properties.
 ///
 /// # Safety
 /// `cx` must point to a valid, non-null JSContext.
@@ -55,6 +63,12 @@ pub(crate) unsafe extern "C" fn shadow_check_callback(
 
     rooted!(in(cx) let mut expando = ptr::null_mut::<JSObject>());
     get_expando_object(object, expando.handle_mut());
+    
+    /**
+     * Block Logic: Expando shadowing check.
+     * Pre-condition: Expando object may or may not exist for the proxy.
+     * Invariant: If expando exists, we check if it contains the target property ID.
+     */
     if !expando.get().is_null() {
         let mut has_own = false;
         let raw_id = Handle::from_raw(id);
@@ -113,6 +127,12 @@ pub(crate) unsafe extern "C" fn delete(
 ) -> bool {
     rooted!(in(cx) let mut expando = ptr::null_mut::<JSObject>());
     get_expando_object(proxy, expando.handle_mut());
+    
+    /**
+     * Block Logic: Safe deletion attempt.
+     * Pre-condition: Deleting a property from a proxy.
+     * Invariant: If no expando exists, the operation is a no-op success.
+     */
     if expando.is_null() {
         (*bp).code_ = 0 /* OkCode */;
         return true;
@@ -171,6 +191,7 @@ pub(crate) unsafe extern "C" fn get_prototype_if_ordinary(
 }
 
 /// Get the expando object, or null if there is none.
+/// Intent: Accesses the proxy's private slot where the expando JSObject is stored.
 pub(crate) fn get_expando_object(obj: RawHandleObject, mut expando: MutableHandleObject) {
     unsafe {
         assert!(is_dom_proxy(obj.get()));
@@ -196,6 +217,12 @@ pub(crate) unsafe fn ensure_expando_object(
 ) {
     assert!(is_dom_proxy(obj.get()));
     get_expando_object(obj, expando.reborrow());
+    
+    /**
+     * Block Logic: Lazy initialization of expando.
+     * Pre-condition: Expando might be null.
+     * Invariant: After this block, a valid expando object is guaranteed to exist in the proxy's private slot.
+     */
     if expando.is_null() {
         expando.set(JS_NewObjectWithGivenProto(
             cx,

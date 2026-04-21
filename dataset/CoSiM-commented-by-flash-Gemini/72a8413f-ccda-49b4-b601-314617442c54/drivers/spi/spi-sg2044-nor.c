@@ -1,3 +1,13 @@
+/**
+ * @72a8413f-ccda-49b4-b601-314617442c54/drivers/spi/spi-sg2044-nor.c
+ * @brief SPI NOR Flash Memory Controller (FMC) driver for Sophgo SG2044 SoC.
+ *
+ * Domain: Kernel Drivers, SPI Controller, Embedded Systems.
+ * Architectural Intent: Provides a standardized `spi-mem` interface to high-level flash
+ * management layers (like MTD), abstracting hardware-specific register sequences for 
+ * command execution, address transmission, and high-throughput data transfer.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * SG2044 SPI NOR controller driver
@@ -84,11 +94,19 @@
 
 #define SPIFMC_MAX_READ_SIZE			0x10000
 
+/**
+ * @struct sg204x_spifmc_chip_info
+ * @brief Variant-specific hardware characteristics.
+ */
 struct sg204x_spifmc_chip_info {
 	bool has_opt_reg;
 	u32 rd_fifo_int_trigger_level;
 };
 
+/**
+ * @struct sg2044_spifmc
+ * @brief Primary state container for the SPI controller instance.
+ */
 struct sg2044_spifmc {
 	struct spi_controller *ctrl;
 	void __iomem *io_base;
@@ -98,6 +116,10 @@ struct sg2044_spifmc {
 	const struct sg204x_spifmc_chip_info *chip_info;
 };
 
+/**
+ * @brief Blocks until the specified interrupt condition is met.
+ * Functional Utility: Synchronization point using busy-wait with timeout (I/O polling).
+ */
 static int sg2044_spifmc_wait_int(struct sg2044_spifmc *spifmc, u8 int_type)
 {
 	u32 stat;
@@ -106,6 +128,9 @@ static int sg2044_spifmc_wait_int(struct sg2044_spifmc *spifmc, u8 int_type)
 				  (stat & int_type), 0, 1000000);
 }
 
+/**
+ * @brief Synchronizes thread with hardware FIFO fill levels.
+ */
 static int sg2044_spifmc_wait_xfer_size(struct sg2044_spifmc *spifmc,
 					int xfer_size)
 {
@@ -115,6 +140,9 @@ static int sg2044_spifmc_wait_xfer_size(struct sg2044_spifmc *spifmc,
 				  ((stat & 0xf) == xfer_size), 1, 1000000);
 }
 
+/**
+ * @brief Normalizes the Transaction Control Status Register to a known baseline state.
+ */
 static u32 sg2044_spifmc_init_reg(struct sg2044_spifmc *spifmc)
 {
 	u32 reg;
@@ -134,6 +162,11 @@ static u32 sg2044_spifmc_init_reg(struct sg2044_spifmc *spifmc)
 	return reg;
 }
 
+/**
+ * @brief Implements page-sized read operations (max 64KB).
+ * Block Logic: Orchestrates the command/address/dummy byte sequence followed by 
+ * iterative FIFO draining.
+ */
 static ssize_t sg2044_spifmc_read_64k(struct sg2044_spifmc *spifmc,
 				      const struct spi_mem_op *op, loff_t from,
 				      size_t len, u_char *buf)
@@ -168,6 +201,11 @@ static ssize_t sg2044_spifmc_read_64k(struct sg2044_spifmc *spifmc,
 		return ret;
 
 	offset = 0;
+	/**
+	 * Block Logic: FIFO Draining Loop.
+	 * Invariant: Moves data from hardware FIFO to system buffer in chunks 
+	 * defined by `SPIFMC_MAX_FIFO_DEPTH`.
+	 */
 	while (offset < len) {
 		xfer_size = min_t(size_t, SPIFMC_MAX_FIFO_DEPTH, len - offset);
 
@@ -190,6 +228,9 @@ static ssize_t sg2044_spifmc_read_64k(struct sg2044_spifmc *spifmc,
 	return len;
 }
 
+/**
+ * @brief High-level read handler that manages large transfers via 64KB tiling.
+ */
 static ssize_t sg2044_spifmc_read(struct sg2044_spifmc *spifmc,
 				  const struct spi_mem_op *op)
 {
@@ -216,6 +257,10 @@ static ssize_t sg2044_spifmc_read(struct sg2044_spifmc *spifmc,
 	return 0;
 }
 
+/**
+ * @brief Programmatic interface for writing data to the SPI bus.
+ * Logic: Sequences command, address, and data phases using hardware FIFO.
+ */
 static ssize_t sg2044_spifmc_write(struct sg2044_spifmc *spifmc,
 				   const struct spi_mem_op *op)
 {
@@ -252,6 +297,11 @@ static ssize_t sg2044_spifmc_write(struct sg2044_spifmc *spifmc,
 	writel(0, spifmc->io_base + SPIFMC_FIFO_PT);
 
 	offset = 0;
+	/**
+	 * Block Logic: FIFO Loading Loop.
+	 * Optimization: Synchronizes with hardware to prevent FIFO overflow during 
+	 * high-speed transmission.
+	 */
 	while (offset < op->data.nbytes) {
 		xfer_size = min_t(size_t, SPIFMC_MAX_FIFO_DEPTH, op->data.nbytes - offset);
 
@@ -274,6 +324,9 @@ static ssize_t sg2044_spifmc_write(struct sg2044_spifmc *spifmc,
 	return 0;
 }
 
+/**
+ * @brief Executes atomic SPI commands without data payloads (e.g. WREN).
+ */
 static ssize_t sg2044_spifmc_tran_cmd(struct sg2044_spifmc *spifmc,
 				      const struct spi_mem_op *op)
 {
@@ -307,6 +360,9 @@ static ssize_t sg2044_spifmc_tran_cmd(struct sg2044_spifmc *spifmc,
 	return 0;
 }
 
+/**
+ * @brief Generic transaction router.
+ */
 static void sg2044_spifmc_trans(struct sg2044_spifmc *spifmc,
 				const struct spi_mem_op *op)
 {
@@ -318,6 +374,9 @@ static void sg2044_spifmc_trans(struct sg2044_spifmc *spifmc,
 		sg2044_spifmc_tran_cmd(spifmc, op);
 }
 
+/**
+ * @brief Specialized handler for register-access operations (e.g. Read Status Register).
+ */
 static ssize_t sg2044_spifmc_trans_reg(struct sg2044_spifmc *spifmc,
 				       const struct spi_mem_op *op)
 {
@@ -385,6 +444,12 @@ static ssize_t sg2044_spifmc_trans_reg(struct sg2044_spifmc *spifmc,
 	return 0;
 }
 
+/**
+ * @brief Dispatcher for `spi-mem` operations.
+ * Functional Utility: Implements the core execution bridge between kernel flash 
+ * layers and controller-specific hardware logic. Uses a mutex to ensure atomic 
+ * access to the shared SPI bus.
+ */
 static int sg2044_spifmc_exec_op(struct spi_mem *mem,
 				 const struct spi_mem_op *op)
 {
@@ -408,6 +473,9 @@ static const struct spi_controller_mem_ops sg2044_spifmc_mem_ops = {
 	.exec_op = sg2044_spifmc_exec_op,
 };
 
+/**
+ * @brief Hardware-level initialization sequence.
+ */
 static void sg2044_spifmc_init(struct sg2044_spifmc *spifmc)
 {
 	u32 tran_csr;
@@ -430,6 +498,11 @@ static void sg2044_spifmc_init(struct sg2044_spifmc *spifmc)
 	writel(tran_csr, spifmc->io_base + SPIFMC_TRAN_CSR);
 }
 
+/**
+ * @brief Kernel probe lifecycle stage.
+ * Functional Utility: Allocates resources, maps MMIO regions, and registers the 
+ * controller into the Linux SPI framework.
+ */
 static int sg2044_spifmc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -490,6 +563,9 @@ static const struct sg204x_spifmc_chip_info sg2042_chip_info = {
 	.rd_fifo_int_trigger_level = SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE,
 };
 
+/**
+ * @brief Device Tree match table for hardware discovery.
+ */
 static const struct of_device_id sg2044_spifmc_match[] = {
 	{ .compatible = "sophgo,sg2044-spifmc-nor", .data = &sg2044_chip_info },
 	{ .compatible = "sophgo,sg2042-spifmc-nor", .data = &sg2042_chip_info },

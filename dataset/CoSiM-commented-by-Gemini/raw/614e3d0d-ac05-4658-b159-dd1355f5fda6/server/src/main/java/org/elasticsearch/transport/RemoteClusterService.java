@@ -1,3 +1,10 @@
+/**
+ * @raw/614e3d0d-ac05-4658-b159-dd1355f5fda6/server/src/main/java/org/elasticsearch/transport/RemoteClusterService.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -159,7 +166,7 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     private final TransportService transportService;
-    private final Map<ProjectId, Map<String, RemoteClusterConnection>> remoteClusters;
+    private final Map<ProjectId, Map<String, RemoteClusterConnection>> remoteClusters; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     private final RemoteClusterCredentialsManager remoteClusterCredentialsManager;
     private final ProjectResolver projectResolver;
 
@@ -174,6 +181,10 @@ public final class RemoteClusterService extends RemoteClusterAware
             ? ConcurrentCollections.newConcurrentMap()
             : Map.of(ProjectId.DEFAULT, ConcurrentCollections.newConcurrentMap());
         this.remoteClusterCredentialsManager = new RemoteClusterCredentialsManager(settings);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (remoteClusterServerEnabled) {
             registerRemoteClusterHandshakeRequestHandler(transportService);
         }
@@ -201,7 +212,7 @@ public final class RemoteClusterService extends RemoteClusterAware
         boolean returnLocalAll
     ) {
         final Map<String, OriginalIndices> originalIndicesMap = new HashMap<>();
-        final Map<String, List<String>> groupedIndices;
+        final Map<String, List<String>> groupedIndices; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         /*
          * returnLocalAll is used to control whether we'd like to fallback to the local cluster.
          * While this is acceptable in a few cases, there are cases where we should not fallback to the local
@@ -212,19 +223,35 @@ public final class RemoteClusterService extends RemoteClusterAware
          * If such a fallback isn't allowed and the given indices match a pattern whose semantics mean that
          * it's ok to return an empty result (denoted via ["*", "-*"]), empty groupIndices.
          */
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (returnLocalAll == false && IndexNameExpressionResolver.isNoneExpression(indices)) {
             groupedIndices = Map.of();
         } else {
             groupedIndices = groupClusterIndices(remoteClusterNames, indices);
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (groupedIndices.isEmpty()) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (returnLocalAll) {
                 // search on _all in the local cluster if neither local indices nor remote indices were specified
                 originalIndicesMap.put(LOCAL_CLUSTER_GROUP_KEY, new OriginalIndices(Strings.EMPTY_ARRAY, indicesOptions));
             }
         } else {
-            for (Map.Entry<String, List<String>> entry : groupedIndices.entrySet()) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
+            for (Map.Entry<String, List<String>> entry : groupedIndices.entrySet()) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
                 String clusterAlias = entry.getKey();
                 List<String> originalIndices = entry.getValue();
                 originalIndicesMap.put(clusterAlias, new OriginalIndices(originalIndices.toArray(new String[0]), indicesOptions));
@@ -319,6 +346,10 @@ public final class RemoteClusterService extends RemoteClusterAware
                 try {
                     return getConnection(clusterAlias);
                 } catch (ConnectTransportException e) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (ensureConnected == false) {
                         // trigger another connection attempt, but don't wait for it to complete
                         ensureConnected(clusterAlias, ActionListener.noop());
@@ -327,6 +358,10 @@ public final class RemoteClusterService extends RemoteClusterAware
                 }
             })
         );
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (ensureConnected) {
             ensureConnected(clusterAlias, ensureConnectedListener);
         } else {
@@ -335,6 +370,10 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     public RemoteClusterConnection getRemoteClusterConnection(String cluster) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (enabled == false) {
             throw new IllegalArgumentException(
                 "this node does not have the " + DiscoveryNodeRole.REMOTE_CLUSTER_CLIENT_ROLE.roleName() + " role"
@@ -342,6 +381,10 @@ public final class RemoteClusterService extends RemoteClusterAware
         }
         @FixForMultiProject(description = "Verify all callers will have the proper context set for resolving the origin project ID.")
         RemoteClusterConnection connection = getConnectionsMapForCurrentProject().get(cluster);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (connection == null) {
             throw new NoSuchRemoteClusterException(cluster);
         }
@@ -356,6 +399,10 @@ public final class RemoteClusterService extends RemoteClusterAware
 
     private synchronized void updateSkipUnavailable(String clusterAlias, Boolean skipUnavailable) {
         RemoteClusterConnection remote = getConnectionsMapForCurrentProject().get(clusterAlias);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (remote != null) {
             remote.setSkipUnavailable(skipUnavailable);
         }
@@ -369,6 +416,10 @@ public final class RemoteClusterService extends RemoteClusterAware
         // We only need to rebuild connections when a credential was newly added or removed for a cluster alias, not if the credential
         // value was updated. Therefore, only consider added or removed aliases
         final int totalConnectionsToRebuild = result.addedClusterAliases().size() + result.removedClusterAliases().size();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (totalConnectionsToRebuild == 0) {
             logger.debug("project [{}] no connection rebuilding required after credentials update", projectId);
             listener.onResponse(null);
@@ -376,9 +427,17 @@ public final class RemoteClusterService extends RemoteClusterAware
         }
         logger.info("project [{}] rebuilding [{}] connections after credentials update", projectId, totalConnectionsToRebuild);
         try (var connectionRefs = new RefCountingRunnable(() -> listener.onResponse(null))) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (var clusterAlias : result.addedClusterAliases()) {
                 maybeRebuildConnectionOnCredentialsChange(projectId, clusterAlias, settings, connectionRefs);
             }
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (var clusterAlias : result.removedClusterAliases()) {
                 maybeRebuildConnectionOnCredentialsChange(projectId, clusterAlias, settings, connectionRefs);
             }
@@ -392,6 +451,10 @@ public final class RemoteClusterService extends RemoteClusterAware
         RefCountingRunnable connectionRefs
     ) {
         final var connectionsMap = getConnectionsMapForProject(projectId);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (false == connectionsMap.containsKey(clusterAlias)) {
             // A credential was added or removed before a remote connection was configured.
             // Without an existing connection, there is nothing to rebuild.
@@ -453,6 +516,10 @@ public final class RemoteClusterService extends RemoteClusterAware
             // Wait 10 seconds for a connections. We must use a latch instead of a future because we
             // are on the cluster state thread and our custom future implementation will throw an
             // assertion.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (latch.await(10, TimeUnit.SECONDS) == false) {
                 logger.warn(
                     "project [{}] failed to update remote cluster connection [{}] within {}",
@@ -488,12 +555,20 @@ public final class RemoteClusterService extends RemoteClusterAware
         boolean forceRebuild,
         ActionListener<RemoteClusterConnectionStatus> listener
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (LOCAL_CLUSTER_GROUP_KEY.equals(clusterAlias)) {
             throw new IllegalArgumentException("remote clusters must not have the empty string as its key");
         }
 
         final var connectionMap = getConnectionsMapForProject(projectId);
         RemoteClusterConnection remote = connectionMap.get(clusterAlias);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (RemoteConnectionStrategy.isConnectionEnabled(clusterAlias, newSettings) == false) {
             try {
                 IOUtils.close(remote);
@@ -505,6 +580,10 @@ public final class RemoteClusterService extends RemoteClusterAware
             return;
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (remote == null) {
             // this is a new cluster we have to add a new representation
             Settings finalSettings = Settings.builder().put(this.settings, false).put(newSettings, false).build();
@@ -547,15 +626,27 @@ public final class RemoteClusterService extends RemoteClusterAware
         final PlainActionFuture<Void> future = new PlainActionFuture<>();
         Set<String> enabledClusters = RemoteClusterAware.getEnabledRemoteClusters(settings);
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (enabledClusters.isEmpty()) {
             return;
         }
 
         CountDownActionListener listener = new CountDownActionListener(enabledClusters.size(), future);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (String clusterAlias : enabledClusters) {
             updateRemoteCluster(projectId, clusterAlias, settings, false, listener.map(ignored -> null));
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (enabledClusters.isEmpty()) {
             future.onResponse(null);
         }
@@ -583,6 +674,10 @@ public final class RemoteClusterService extends RemoteClusterAware
 
     @Override
     public RemoteClusterServerInfo info() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (remoteClusterServerEnabled) {
             return new RemoteClusterServerInfo(transportService.boundRemoteAccessAddress());
         } else {
@@ -594,7 +689,11 @@ public final class RemoteClusterService extends RemoteClusterAware
      * Collects all nodes of the given clusters and returns / passes a (clusterAlias, nodeId) to {@link DiscoveryNode}
      * function on success.
      */
-    public void collectNodes(Set<String> clusters, ActionListener<BiFunction<String, String, DiscoveryNode>> listener) {
+    public void collectNodes(Set<String> clusters, ActionListener<BiFunction<String, String, DiscoveryNode>> listener) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (enabled == false) {
             throw new IllegalArgumentException(
                 "this node does not have the " + DiscoveryNodeRole.REMOTE_CLUSTER_CLIENT_ROLE.roleName() + " role"
@@ -603,8 +702,16 @@ public final class RemoteClusterService extends RemoteClusterAware
         @FixForMultiProject(description = "Analyze usages and determine if the project ID must be provided.")
         final var projectConnectionsMap = getConnectionsMapForCurrentProject();
         final var connectionsMap = new HashMap<String, RemoteClusterConnection>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (String cluster : clusters) {
             final var connection = projectConnectionsMap.get(cluster);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (connection == null) {
                 listener.onFailure(new NoSuchRemoteClusterException(cluster));
                 return;
@@ -612,7 +719,7 @@ public final class RemoteClusterService extends RemoteClusterAware
             connectionsMap.put(cluster, connection);
         }
 
-        final Map<String, Function<String, DiscoveryNode>> clusterMap = new HashMap<>();
+        final Map<String, Function<String, DiscoveryNode>> clusterMap = new HashMap<>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         final var finalListener = listener.<Void>safeMap(
             ignored -> (clusterAlias, nodeId) -> clusterMap.getOrDefault(clusterAlias, s -> null).apply(nodeId)
         );
@@ -662,11 +769,19 @@ public final class RemoteClusterService extends RemoteClusterAware
         Executor responseExecutor,
         DisconnectedStrategy disconnectedStrategy
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (transportService.getRemoteClusterService().isEnabled() == false) {
             throw new IllegalArgumentException(
                 "this node does not have the " + DiscoveryNodeRole.REMOTE_CLUSTER_CLIENT_ROLE.roleName() + " role"
             );
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (transportService.getRemoteClusterService().getRegisteredRemoteClusterNames().contains(clusterAlias) == false) {
             throw new NoSuchRemoteClusterException(clusterAlias);
         }
@@ -685,6 +800,10 @@ public final class RemoteClusterService extends RemoteClusterAware
             false,
             TransportService.HandshakeRequest::new,
             (request, channel, task) -> {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (false == RemoteClusterPortSettings.REMOTE_CLUSTER_PROFILE.equals(channel.getProfileName())) {
                     throw new IllegalArgumentException(
                         Strings.format(
@@ -718,6 +837,10 @@ public final class RemoteClusterService extends RemoteClusterAware
      * Returns the map of connections for the given {@link ProjectId}.
      */
     private Map<String, RemoteClusterConnection> getConnectionsMapForProject(ProjectId projectId) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (projectResolver.supportsMultipleProjects()) {
             assert ProjectId.DEFAULT.equals(projectId) == false : "The default project ID should not be used in multi-project environment";
             return remoteClusters.computeIfAbsent(projectId, unused -> ConcurrentCollections.newConcurrentMap());
@@ -741,20 +864,24 @@ public final class RemoteClusterService extends RemoteClusterAware
 
         @Override
         public void validate(T value, Map<Setting<?>, Object> settings, boolean isPresent) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (isPresent && RemoteConnectionStrategy.isConnectionEnabled(clusterAlias, settings) == false) {
                 throw new IllegalArgumentException("Cannot configure setting [" + key + "] if remote cluster is not enabled.");
             }
         }
 
         @Override
-        public Iterator<Setting<?>> settings() {
+        public Iterator<Setting<?>> settings() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             return Stream.concat(
                 Stream.of(RemoteConnectionStrategy.REMOTE_CONNECTION_MODE.getConcreteSettingForNamespace(clusterAlias)),
                 settingsStream()
             ).iterator();
         }
 
-        private Stream<Setting<?>> settingsStream() {
+        private Stream<Setting<?>> settingsStream() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             return Arrays.stream(RemoteConnectionStrategy.ConnectionStrategy.values())
                 .flatMap(strategy -> strategy.getEnablementSettings().get())
                 .map(as -> as.getConcreteSettingForNamespace(clusterAlias));

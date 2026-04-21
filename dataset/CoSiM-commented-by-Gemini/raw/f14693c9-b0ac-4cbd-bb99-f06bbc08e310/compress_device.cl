@@ -1,4 +1,20 @@
 
+/**
+ * @file compress_device.cl
+ * @brief ETC1 Texture Compression Suite - Kernel and Host Utilities.
+ * 
+ * This module provides a complete implementation of ETC1 texture compression,
+ * including the OpenCL kernel for parallel compression on the GPU and the 
+ * host-side management class. 
+ * 
+ * The kernel utilizes sub-block partitioning and luminance modulation to 
+ * achieve high-quality compression of BGRA8888 textures into the ETC1 format.
+ */
+
+/**
+ * @struct Color
+ * @brief Multi-modal representation of a 32-bit BGRA color.
+ */
 union Color {
 	struct BgraColorType {
 		uchar b;
@@ -10,13 +26,20 @@ union Color {
 	uint bits;
 };
 
+/**
+ * @brief Clamps an integer value to a specified range.
+ */
 uchar wrapper_clamp(int val, uchar min, uchar max){
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * @brief Clamps an unsigned char value to a specified range.
+ */
 uchar wrapper_clamp2(uchar val, uchar min, uchar max){
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
+
 
 
 inline uchar round_to_5_bits(float val) {
@@ -462,6 +485,13 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 
 
 
+/**
+ * @brief Main entry point for the ETC1 compression kernel.
+ * 
+ * Each work-item processes a 4x4 block of pixels. It extracts both 
+ * vertical and horizontal sub-blocks and evaluates which partitioning 
+ * yields the lowest error.
+ */
 __kernel void compress_k(const int width, const int height, __global uchar *src,
 				__global uchar *dst)
 {
@@ -550,22 +580,22 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 	
 	for (int i = 0; i < 4; i++) {
-		ver_blocks[i].channels.b = row0[i].channels.b;
-		ver_blocks[i].channels.g = row0[i].channels.g;
-		ver_blocks[i].channels.r = row0[i].channels.r;
-		ver_blocks[i].channels.a = row0[i].channels.a;
-		ver_blocks[4 + i].channels.b = row1[i].channels.b;
-		ver_blocks[4 + i].channels.g = row1[i].channels.g;
-		ver_blocks[4 + i].channels.r = row1[i].channels.r;
-		ver_blocks[4 + i].channels.a = row1[i].channels.a;
-		ver_blocks[8 + i].channels.b = row2[i].channels.b;
-		ver_blocks[8 + i].channels.g = row2[i].channels.g;
-		ver_blocks[8 + i].channels.r = row2[i].channels.r;
-		ver_blocks[8 + i].channels.a = row2[i].channels.a;
-		ver_blocks[12 + i].channels.b = row3[i].channels.b;
-		ver_blocks[12 + i].channels.g = row3[i].channels.g;
-		ver_blocks[12 + i].channels.r = row3[i].channels.r;
-		ver_blocks[12 + i].channels.a = row3[i].channels.a;
+		hor_blocks[i].channels.b = row0[i].channels.b;
+		hor_blocks[i].channels.g = row0[i].channels.g;
+		hor_blocks[i].channels.r = row0[i].channels.r;
+		hor_blocks[i].channels.a = row0[i].channels.a;
+		hor_blocks[4 + i].channels.b = row1[i].channels.b;
+		hor_blocks[4 + i].channels.g = row1[i].channels.g;
+		hor_blocks[4 + i].channels.r = row1[i].channels.r;
+		hor_blocks[4 + i].channels.a = row1[i].channels.a;
+		hor_blocks[8 + i].channels.b = row2[i].channels.b;
+		hor_blocks[8 + i].channels.g = row2[i].channels.g;
+		hor_blocks[8 + i].channels.r = row2[i].channels.r;
+		hor_blocks[8 + i].channels.a = row2[i].channels.a;
+		hor_blocks[12 + i].channels.b = row3[i].channels.b;
+		hor_blocks[12 + i].channels.g = row3[i].channels.g;
+		hor_blocks[12 + i].channels.r = row3[i].channels.r;
+		hor_blocks[12 + i].channels.a = row3[i].channels.a;
 
 	}
 	int dst_depl = (y * (width / 4) + x) * 8;
@@ -573,6 +603,10 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 
 }
+
+/**
+ * @brief Host-side TextureCompressor implementation.
+ */
 #include "compress.hpp"
 
 

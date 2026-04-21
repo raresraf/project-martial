@@ -1,7 +1,21 @@
+/**
+ * @75e2b6c5-8d07-48c3-9608-9f3b2524dcda/solver_opt.c
+ * @brief Manually optimized implementation of a matrix expression solver.
+ *
+ * Functional Utility: Computes the matrix expression Result = (A * B * B^T) + (A^T * A)
+ * using a series of optimized iterative kernels. These kernels leverage loop reordering 
+ * for cache friendliness and `register` hints for scalar promotion.
+ *
+ * Domain: HPC Performance Tuning.
+ */
 
 #include "utils.h"
 
-
+/**
+ * @brief Multiplies matrices with upper-triangular left operand using loop reordering.
+ * Optimization: The (i, k, j) loop order ensures contiguous access to matrix B, 
+ * improving cache line utilization and prefetching effectiveness.
+ */
 static void matrix_mul_upper(register int N, register double *A, register double *B, register double *C)
 {
 	register int i, j, k;
@@ -19,7 +33,9 @@ static void matrix_mul_upper(register int N, register double *A, register double
 	}
 }
 
-
+/**
+ * @brief Multiplies matrices with lower-triangular left operand using cache-optimized layout.
+ */
 static void matrix_mul_lower(register int N, register double *A, register double *B, register double *C)
 {
 	register int i, j, k;
@@ -37,7 +53,10 @@ static void matrix_mul_lower(register int N, register double *A, register double
 	}
 }
 
-
+/**
+ * @brief Standard dense matrix multiplication kernel with reordered loop indices.
+ * Optimization: Uses a (k, j) inner loop structure to maintain spatial locality for B.
+ */
 static void matrix_mul(register int N, register double *A, register double *B, register double *C)
 {
 	register int i, j, k;
@@ -55,7 +74,9 @@ static void matrix_mul(register int N, register double *A, register double *B, r
 	}
 }
 
-
+/**
+ * @brief Performs matrix transposition using manual indexing.
+ */
 static void matrix_transpose(register int N, register double *A, register double *AT)
 {
 	register int i, j;
@@ -68,7 +89,11 @@ static void matrix_transpose(register int N, register double *A, register double
 	}
 }
 
-
+/**
+ * @brief Optimized element-wise matrix addition.
+ * Optimization: Collapses two-dimensional iteration into a single linear pass 
+ * to maximize memory throughput.
+ */
 static void matrix_add(register int N, register double *A, register double *B, register double *C)
 {
 	register int i;
@@ -77,7 +102,11 @@ static void matrix_add(register int N, register double *A, register double *B, r
 	}
 }
 
-
+/**
+ * @brief High-level solver orchestrator using optimized sub-routines.
+ * Optimization: Employs `register` hints for pointers and dimensions to minimize 
+ * stack access and promote compiler scalar optimization.
+ */
 double* my_solver(int N, double *A, double* B) {
 	register int size = N * N * sizeof(double);
 	

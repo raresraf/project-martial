@@ -1,3 +1,10 @@
+/**
+ * @raw/a101d0e9-aeea-4384-b0a1-cebcb2c695e8/x-pack/plugin/esql/qa/server/src/main/java/org/elasticsearch/xpack/esql/qa/rest/generative/EsqlQueryGenerator.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -76,6 +83,10 @@ public class EsqlQueryGenerator {
         String keyType = lookupIdx.keyType();
 
         var candidateKeys = previousOutput.stream().filter(x -> x.type.equals(keyType)).toList();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (candidateKeys.isEmpty()) {
             return "";
         }
@@ -87,15 +98,31 @@ public class EsqlQueryGenerator {
         // TODO more complex conditions
         StringBuilder result = new StringBuilder(" | where ");
         int nConditions = randomIntBetween(1, 5);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < nConditions; i++) {
             String exp = booleanExpression(previousOutput);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (exp == null) {
                 // cannot generate expressions, just skip
                 return "";
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 result.append(randomBoolean() ? " AND " : " OR ");
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean()) {
                 result.append(" NOT ");
             }
@@ -110,6 +137,10 @@ public class EsqlQueryGenerator {
         return switch (randomIntBetween(0, 3)) {
             case 0 -> {
                 String field = randomNumericField(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (field == null) {
                     yield null;
                 }
@@ -133,6 +164,10 @@ public class EsqlQueryGenerator {
 
     private static String enrich(List<Column> previousOutput, List<CsvTestsDataLoader.EnrichConfig> policies) {
         String field = randomKeywordField(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (field == null || policies.isEmpty()) {
             return "";
         }
@@ -148,21 +183,41 @@ public class EsqlQueryGenerator {
 
     private static String grok(List<Column> previousOutput) {
         String field = randomStringField(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (field == null) {
             return "";// no strings to grok, just skip
         }
         StringBuilder result = new StringBuilder(" | grok ");
         result.append(field);
         result.append(" \"");
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < randomIntBetween(1, 3); i++) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 result.append(" ");
             }
             result.append("%{WORD:");
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean()) {
                 result.append(randomIdentifier());
             } else {
                 String fieldName = randomRawName(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldName == null) {
                     fieldName = randomIdentifier();
                 }
@@ -176,21 +231,41 @@ public class EsqlQueryGenerator {
 
     private static String dissect(List<Column> previousOutput) {
         String field = randomStringField(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (field == null) {
             return "";// no strings to dissect, just skip
         }
         StringBuilder result = new StringBuilder(" | dissect ");
         result.append(field);
         result.append(" \"");
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < randomIntBetween(1, 3); i++) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 result.append(" ");
             }
             result.append("%{");
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean()) {
                 result.append(randomIdentifier());
             } else {
                 String fieldName = randomRawName(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldName == null) {
                     fieldName = randomIdentifier();
                 }
@@ -205,15 +280,35 @@ public class EsqlQueryGenerator {
     private static String keep(List<Column> previousOutput) {
         int n = randomIntBetween(1, previousOutput.size());
         Set<String> proj = new HashSet<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < n; i++) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomIntBetween(0, 100) < 5) {
                 proj.add("*");
             } else {
                 String name = randomName(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (name == null) {
                     continue;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (name.length() > 1 && name.startsWith("`") == false && randomIntBetween(0, 100) < 10) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (randomBoolean()) {
                         name = name.substring(0, randomIntBetween(1, name.length() - 1)) + "*";
                     } else {
@@ -223,6 +318,10 @@ public class EsqlQueryGenerator {
                 proj.add(name);
             }
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (proj.isEmpty()) {
             return "";
         }
@@ -231,9 +330,17 @@ public class EsqlQueryGenerator {
 
     private static String randomName(List<Column> previousOutput) {
         String result = randomRawName(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (result == null) {
             return null;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (randomBoolean() && result.contains("*") == false) {
             result = "`" + result + "`";
         }
@@ -246,6 +353,10 @@ public class EsqlQueryGenerator {
      */
     private static String randomRawName(List<Column> previousOutput) {
         var list = previousOutput.stream().filter(EsqlQueryGenerator::fieldCanBeUsed).toList();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (list.isEmpty()) {
             return null;
         }
@@ -259,6 +370,10 @@ public class EsqlQueryGenerator {
      */
     private static String randomGroupableName(List<Column> previousOutput) {
         var candidates = previousOutput.stream().filter(EsqlQueryGenerator::groupable).filter(EsqlQueryGenerator::fieldCanBeUsed).toList();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (candidates.isEmpty()) {
             return null;
         }
@@ -280,6 +395,10 @@ public class EsqlQueryGenerator {
      */
     private static String randomSortableName(List<Column> previousOutput) {
         var candidates = previousOutput.stream().filter(EsqlQueryGenerator::sortable).filter(EsqlQueryGenerator::fieldCanBeUsed).toList();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (candidates.isEmpty()) {
             return null;
         }
@@ -300,20 +419,40 @@ public class EsqlQueryGenerator {
         List<String> proj = new ArrayList<>();
 
         Map<String, String> nameToType = new HashMap<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Column column : previousOutput) {
             nameToType.put(column.name, column.type);
         }
         List<String> names = new ArrayList<>(
             previousOutput.stream().filter(EsqlQueryGenerator::fieldCanBeUsed).map(Column::name).collect(Collectors.toList())
         );
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (names.isEmpty()) {
             return "";
         }
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < n; i++) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (names.isEmpty()) {
                 break;
             }
             var name = randomFrom(names);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (nameToType.get(name).endsWith("_range")) {
                 // ranges are not fully supported yet
                 continue;
@@ -321,6 +460,10 @@ public class EsqlQueryGenerator {
             names.remove(name);
 
             String newName;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (names.isEmpty() || randomBoolean()) {
                 newName = randomIdentifier();
                 names.add(newName);
@@ -328,14 +471,26 @@ public class EsqlQueryGenerator {
                 newName = names.get(randomIntBetween(0, names.size() - 1));
             }
             nameToType.put(newName, nameToType.get(name));
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean() && name.startsWith("`") == false) {
                 name = "`" + name + "`";
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean() && newName.startsWith("`") == false) {
                 newName = "`" + newName + "`";
             }
             proj.add(name + " AS " + newName);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (proj.isEmpty()) {
             return "";
         }
@@ -343,17 +498,37 @@ public class EsqlQueryGenerator {
     }
 
     private static String drop(List<Column> previousOutput) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (previousOutput.size() < 2) {
             return ""; // don't drop all of them, just do nothing
         }
         int n = randomIntBetween(1, previousOutput.size() - 1);
         Set<String> proj = new HashSet<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < n; i++) {
             String name = randomRawName(previousOutput);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (name == null) {
                 continue;
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (name.length() > 1 && name.startsWith("`") == false && randomIntBetween(0, 100) < 10) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (randomBoolean()) {
                     name = name.substring(0, randomIntBetween(1, name.length() - 1)) + "*";
                 } else {
@@ -364,6 +539,10 @@ public class EsqlQueryGenerator {
             }
             proj.add(name);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (proj.isEmpty()) {
             return "";
         }
@@ -373,8 +552,16 @@ public class EsqlQueryGenerator {
     private static String sort(List<Column> previousOutput) {
         int n = randomIntBetween(1, previousOutput.size());
         Set<String> proj = new HashSet<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < n; i++) {
             String col = randomSortableName(previousOutput);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (col == null) {
                 return "";// no sortable columns
             }
@@ -388,6 +575,10 @@ public class EsqlQueryGenerator {
 
     private static String mvExpand(List<Column> previousOutput) {
         String toExpand = randomName(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (toExpand == null) {
             return ""; // no columns to expand
         }
@@ -398,17 +589,33 @@ public class EsqlQueryGenerator {
         StringBuilder cmd = new StringBuilder(" | eval ");
         int nFields = randomIntBetween(1, 10);
         // TODO pass newly created fields to next expressions
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < nFields; i++) {
             String name;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean()) {
                 name = randomIdentifier();
             } else {
                 name = randomName(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (name == null) {
                     name = randomIdentifier();
                 }
             }
             String expression = expression(previousOutput);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 cmd.append(",");
             }
@@ -425,22 +632,42 @@ public class EsqlQueryGenerator {
             .filter(EsqlQueryGenerator::fieldCanBeUsed)
             .filter(x -> x.type().equals("null") == false)
             .collect(Collectors.toList());
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (nonNull.isEmpty()) {
             return ""; // cannot do any stats, just skip
         }
         StringBuilder cmd = new StringBuilder(" | stats ");
         int nStats = randomIntBetween(1, 5);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < nStats; i++) {
             String name;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (randomBoolean()) {
                 name = randomIdentifier();
             } else {
                 name = randomName(previousOutput);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (name == null) {
                     name = randomIdentifier();
                 }
             }
             String expression = agg(nonNull);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 cmd.append(",");
             }
@@ -449,8 +676,16 @@ public class EsqlQueryGenerator {
             cmd.append(" = ");
             cmd.append(expression);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (randomBoolean()) {
             var col = randomGroupableName(nonNull);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (col != null) {
                 cmd.append(" by " + col);
             }
@@ -460,6 +695,10 @@ public class EsqlQueryGenerator {
 
     private static String agg(List<Column> previousOutput) {
         String name = randomNumericOrDateField(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (name != null && randomBoolean()) {
             // numerics only
             return switch (randomIntBetween(0, 1)) {
@@ -470,6 +709,10 @@ public class EsqlQueryGenerator {
         }
         // all types
         name = randomName(previousOutput);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (name == null) {
             return "count(*)";
         }
@@ -498,6 +741,10 @@ public class EsqlQueryGenerator {
 
     private static String randomName(List<Column> cols, Set<String> allowedTypes) {
         List<String> items = cols.stream().filter(x -> allowedTypes.contains(x.type())).map(Column::name).collect(Collectors.toList());
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (items.size() == 0) {
             return null;
         }
@@ -516,8 +763,16 @@ public class EsqlQueryGenerator {
     private static String from(List<String> availabeIndices) {
         StringBuilder result = new StringBuilder("from ");
         int items = randomIntBetween(1, 3);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < items; i++) {
             String pattern = indexPattern(availabeIndices.get(randomIntBetween(0, availabeIndices.size() - 1)));
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 result.append(",");
             }
@@ -537,9 +792,17 @@ public class EsqlQueryGenerator {
     private static String row() {
         StringBuilder cmd = new StringBuilder("row ");
         int nFields = randomIntBetween(1, 10);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < nFields; i++) {
             String name = randomIdentifier();
             String expression = constantExpression();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (i > 0) {
                 cmd.append(",");
             }

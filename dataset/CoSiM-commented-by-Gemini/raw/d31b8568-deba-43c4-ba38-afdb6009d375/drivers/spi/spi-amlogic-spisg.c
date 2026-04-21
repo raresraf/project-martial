@@ -1,11 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0+
-/*
- * Driver for Amlogic SPI communication Scatter-Gather Controller
- *
- * Copyright (C) 2025 Amlogic, Inc. All rights reserved
- *
- * Author: Sunny Luo <sunny.luo@amlogic.com>
- * Author: Xianwei Zhao <xianwei.zhao@amlogic.com>
+/**
+ * @file spi-amlogic-spisg.c
+ * @brief Linux kernel driver for the Amlogic SPI Scatter-Gather (SG) Controller.
+ * 
+ * Architectural Intent: Orchestrates high-speed serial data exchange between the CPU and 
+ * peripheral SPI devices. Leverages hardware-level scatter-gather DMA to offload data 
+ * movement, allowing non-contiguous memory buffers to be processed in a single hardware transaction.
+ * 
+ * Domain-Awareness: Implements precise hardware timing control (CS setup/hold), 
+ * multi-lane SPI support (Single/Dual/Quad), and atomic descriptor chain management 
+ * to satisfy real-time embedded system constraints.
  */
 
 #include <linux/bitfield.h>
@@ -17,14 +20,14 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/pm_runtime.h>
+#include <linux/ pm_runtime.h>
 #include <linux/spi/spi.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/reset.h>
 #include <linux/regmap.h>
 
-/* Register Map */
+/* Register Map: Defines the interface for hardware state control and diagnostic polling. */
 #define SPISG_REG_CFG_READY		0x00
 
 #define SPISG_REG_CFG_SPI		0x04
@@ -118,6 +121,11 @@
 #define SPISG_DUAL_SPI			1
 #define SPISG_QUAD_SPI			2
 
+/**
+ * @struct spisg_sg_link
+ * @brief Hardware-facing descriptor for a single entry in a Scatter-Gather list.
+ * Logic: Maps virtual memory fragments to physical bus addresses with transaction flags.
+ */
 struct spisg_sg_link {
 #define LINK_ADDR_VALID		BIT(0)
 #define LINK_ADDR_EOC		BIT(1)
@@ -129,6 +137,10 @@ struct spisg_sg_link {
 	u32			addr1;
 };
 
+/**
+ * @struct spisg_descriptor
+ * @brief Master control block for a hardware-executed SPI transfer.
+ */
 struct spisg_descriptor {
 	u32				cfg_start;
 	u32				cfg_bus;
@@ -143,6 +155,10 @@ struct spisg_descriptor_extra {
 	int				rx_ccsg_len;
 };
 
+/**
+ * @struct spisg_device
+ * @brief Internal driver state container for an Amlogic SPISG instance.
+ */
 struct spisg_device {
 	struct spi_controller		*controller;
 	struct platform_device		*pdev;
@@ -161,6 +177,9 @@ struct spisg_device {
 	u32				cfg_bus;
 };
 
+/**
+ * @brief Converts logical SPI delays into cycles of the serial clock (SCLK).
+ */
 static int spi_delay_to_sclk(u32 slck_speed_hz, struct spi_delay *delay)
 {
 	u32 ns;
@@ -178,6 +197,10 @@ static int spi_delay_to_sclk(u32 slck_speed_hz, struct spi_delay *delay)
 	return DIV_ROUND_UP_ULL(slck_speed_hz * ns, NSEC_PER_SEC);
 }
 
+/**
+ * Functional Utility: Implements a hardware-level semaphore to ensure exclusive 
+ * access to the configuration registers during setup.
+ */
 static inline u32 aml_spisg_sem_down_read(struct spisg_device *spisg)
 {
 	u32 ret;
@@ -194,6 +217,10 @@ static inline void aml_spisg_sem_up_write(struct spisg_device *spisg)
 	regmap_write(spisg->map, SPISG_REG_CFG_READY, 1);
 }
 
+/**
+ * @brief Dynamically adjusts the SPI clock rate based on transfer requirements.
+ * Pre-condition: Device must be powered and clocks enabled.
+ */
 static int aml_spisg_set_speed(struct spisg_device *spisg, uint speed_hz)
 {
 	u32 cfg_bus;
@@ -222,11 +249,19 @@ static bool aml_spisg_can_dma(struct spi_controller *ctlr,
 	return true;
 }
 
+/**
+ * @brief Translates an OS scatterlist into a hardware-compatible descriptor table.
+ * Algorithm: Sequential iteration over physical memory segments with bitfield packing.
+ */
 static void aml_spisg_sg_xlate(struct sg_table *sgt, struct spisg_sg_link *ccsg)
 {
 	struct scatterlist *sg;
 	int i;
 
+	/**
+	 * Block Logic: Entry generation.
+	 * Invariant: Marks the final segment with EOC (End of Chain) to signal hardware completion.
+	 */
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		ccsg->addr = FIELD_PREP(LINK_ADDR_VALID, 1) |
 			     FIELD_PREP(LINK_ADDR_RING, 0) |
@@ -245,6 +280,11 @@ static int nbits_to_lane[] = {
 	SPISG_QUAD_SPI
 };
 
+/**
+ * @brief Populates the control descriptors for a single SPI transfer.
+ * Logic: Configures operation mode (Read/Write), bus lanes (Single/Dual/Quad), 
+ * and memory addressing (Linear/SG) based on the transfer payload.
+ */
 static int aml_spisg_setup_transfer(struct spisg_device *spisg,
 				    struct spi_transfer *xfer,
 				    struct spisg_descriptor *desc,
@@ -273,6 +313,9 @@ static int aml_spisg_setup_transfer(struct spisg_device *spisg,
 	desc->cfg_bus |= FIELD_PREP(CFG_KEEP_SS, !xfer->cs_change);
 	desc->cfg_bus |= FIELD_PREP(CFG_NULL_CTL, 0);
 
+	/**
+	 * Block Logic: Data directionality and lane mapping.
+	 */
 	if (xfer->tx_buf || xfer->tx_dma) {
 		desc->cfg_bus |= FIELD_PREP(CFG_LANE, nbits_to_lane[xfer->tx_nbits]);
 		desc->cfg_start |= FIELD_PREP(CFG_OP_MODE, SPISG_OP_MODE_WRITE);
@@ -291,6 +334,10 @@ static int aml_spisg_setup_transfer(struct spisg_device *spisg,
 				   FIELD_PREP(CFG_BLOCK_NUM, blocks);
 	}
 
+	/**
+	 * Block Logic: Memory mapping (Scatter-Gather vs Contiguous).
+	 * Logic: Dynamically allocates and syncs SG links if the transfer uses multiple fragments.
+	 */
 	if (xfer->tx_sg.nents && xfer->tx_sg.sgl) {
 		ccsg_len = xfer->tx_sg.nents * sizeof(struct spisg_sg_link);
 		ccsg = kzalloc(ccsg_len, GFP_KERNEL | GFP_DMA);
@@ -373,6 +420,9 @@ static int aml_spisg_setup_transfer(struct spisg_device *spisg,
 	return 0;
 }
 
+/**
+ * @brief Releases DMA mappings and ephemeral metadata buffers after a transfer completes.
+ */
 static void aml_spisg_cleanup_transfer(struct spisg_device *spisg,
 				       struct spi_transfer *xfer,
 				       struct spisg_descriptor *desc,
@@ -407,6 +457,9 @@ static void aml_spisg_cleanup_transfer(struct spisg_device *spisg,
 	}
 }
 
+/**
+ * @brief Configures a "dummy" descriptor to insert controlled delays between SPI actions.
+ */
 static void aml_spisg_setup_null_desc(struct spisg_device *spisg,
 				      struct spisg_descriptor *desc,
 				      u32 n_sclk)
@@ -422,6 +475,9 @@ static void aml_spisg_setup_null_desc(struct spisg_device *spisg,
 	desc->cfg_bus |= FIELD_PREP(CFG_NULL_CTL, 1);
 }
 
+/**
+ * @brief Submits the descriptor chain to the hardware engine.
+ */
 static void aml_spisg_pending(struct spisg_device *spisg,
 			      dma_addr_t desc_paddr,
 			      bool trig,
@@ -453,6 +509,10 @@ static void aml_spisg_pending(struct spisg_device *spisg,
 	regmap_write(spisg->map, SPISG_REG_DESC_LIST_H, desc_h);
 }
 
+/**
+ * @brief Primary Interrupt Service Routine.
+ * Logic: Synchronizes hardware completion events with the submission thread using completion signals.
+ */
 static irqreturn_t aml_spisg_irq(int irq, void *data)
 {
 	struct spisg_device *spisg = (void *)data;
@@ -479,6 +539,11 @@ static irqreturn_t aml_spisg_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/**
+ * @brief Processes an entire SPI message containing multiple transfers.
+ * Functional Utility: Orchestrates the lifecycle of a complex SPI transaction: 
+ * descriptor building, DMA mapping, hardware triggering, and cleanup.
+ */
 static int aml_spisg_transfer_one_message(struct spi_controller *ctlr,
 					  struct spi_message *msg)
 {
@@ -517,6 +582,10 @@ static int aml_spisg_transfer_one_message(struct spi_controller *ctlr,
 	/* config descriptor for each xfer */
 	desc = descs;
 	exdesc = exdescs;
+	/**
+	 * Block Logic: Descriptor chain assembly.
+	 * Invariant: Maintains a 1:1 mapping between spi_transfer requests and hardware descriptors.
+	 */
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		ret = aml_spisg_setup_transfer(spisg, xfer, desc, exdesc);
 		if (ret) {
@@ -564,6 +633,10 @@ static int aml_spisg_transfer_one_message(struct spi_controller *ctlr,
 
 	reinit_completion(&spisg->completion);
 	aml_spisg_pending(spisg, descs_paddr, false, true);
+	/**
+	 * Block Logic: Execution synchronization.
+	 * Logic: Blocks the thread until the hardware signals completion or the watchdog timer expires.
+	 */
 	if (wait_for_completion_timeout(&spisg->completion,
 					spi_controller_is_target(spisg->controller) ?
 					MAX_SCHEDULE_TIMEOUT : msecs_to_jiffies(ms)))
@@ -588,6 +661,9 @@ end:
 	return ret;
 }
 
+/**
+ * @brief Pre-transaction configuration validation and state capture.
+ */
 static int aml_spisg_prepare_message(struct spi_controller *ctlr,
 				     struct spi_message *message)
 {
@@ -637,6 +713,9 @@ static int aml_spisg_target_abort(struct spi_controller *ctlr)
 	return 0;
 }
 
+/**
+ * @brief Initializes and registers the clock hierarchy for the SPI block.
+ */
 static int aml_spisg_clk_init(struct spisg_device *spisg, void __iomem *base)
 {
 	struct device *dev = &spisg->pdev->dev;
@@ -713,6 +792,10 @@ static int aml_spisg_clk_init(struct spisg_device *spisg, void __iomem *base)
 	return 0;
 }
 
+/**
+ * @brief Component probe entry point.
+ * Logic: Discovers hardware resources, allocates the SPI controller, and initializes the device state.
+ */
 static int aml_spisg_probe(struct platform_device *pdev)
 {
 	struct spi_controller *ctlr;

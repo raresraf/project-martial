@@ -1,77 +1,77 @@
+/**
+ * @6505cf6c-e20c-45bb-bb77-ede140ac5ca6/solver_neopt.c
+ * @brief Baseline reference implementation of a matrix expression solver.
+ * Functional Utility: Implements Result = (A * B) * B^T + (A^T * A) using unoptimized 
+ * iterative loops. Serves as a control for performance benchmarking.
+ * Domain: HPC Numerical Baselines.
+ */
 
-#include <stdlib.h>
 #include "utils.h"
 
-double *my_solver(int N, double *A, double* B)
-{
+
+/**
+ * @brief Naive matrix solver kernel.
+ * Logic: Step-by-step computation of matrix products using triple-nested loops.
+ */
+double* my_solver(int N, double *A, double* B) {
 	double *AB;
 	double *ABB_t;
-	double *A_tA;
-	int i, j, k;
+	double *AtA;
 	double *C;
+	int i, j, k;
 
 	AB = calloc(N * N, sizeof(double));
-	if (AB == NULL)
-		exit(EXIT_FAILURE);
-
 	ABB_t = calloc(N * N, sizeof(double));
-	if (ABB_t == NULL)
-		exit(EXIT_FAILURE);
+	AtA = calloc(N * N, sizeof(double));
+	C = calloc(N * N, sizeof(double));
 
-	A_tA = calloc(N * N, sizeof(double));
-	if (A_tA == NULL)
-		exit(EXIT_FAILURE);
-
-	C = malloc(N * N * sizeof(double));
-	if (C == NULL)
-		exit(EXIT_FAILURE);
-
-	
-
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Invariant: Exploits A's upper triangular sparsity (k starts at i).
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = i; k < N; k++) {
-				AB[i * N + j] += A[i * N + k]
-					* B[k * N + j];
+				AB[i * N + j] += A[i * N + k] * B[k * N + j];
 			}
 		}
 	}
 
-
-	
-
+	/**
+	 * Block Logic: Compute ABB_t = AB * B^T.
+	 * Logic: Transposes B by accessing it as B[j * N + k].
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = 0; k < N; k++) {
-				ABB_t[i * N + j] += AB[i * N + k]
-					* B[j * N + k];
+				ABB_t[i * N + j] += AB[i * N + k] * B[j * N + k];
 			}
 		}
 	}
 
-	
-
+	/**
+	 * Block Logic: Compute AtA = A^T * A.
+	 * Logic: Computes dot products of columns from matrix A.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
-			for (k = 0; k <= i; k++) {
-				A_tA[i * N + j] += A[k * N + i]
-					* A[k * N + j];
+			for (k = 0; k < N; k++) {
+				AtA[i * N + j] += A[k * N + i] * A[k * N + j];
 			}
-		
 		}
-    }
+	}
 
-	
-
+	/**
+	 * Block Logic: Final summation stage.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
-			C[i * N + j] = ABB_t[i * N + j] + A_tA[i * N + j];
+			C[i * N + j] = ABB_t[i * N + j] + AtA[i * N + j];
 		}
 	}
 
 	free(AB);
 	free(ABB_t);
-	free(A_tA);
-
+	free(AtA);
 	return C;
 }

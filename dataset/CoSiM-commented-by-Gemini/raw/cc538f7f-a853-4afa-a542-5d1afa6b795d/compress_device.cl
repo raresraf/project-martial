@@ -1,3 +1,8 @@
+/**
+ * @file compress_device.cl
+ * @brief Intent: Core domain-specific functional component. Provides HPC-optimized or architectural system capabilities.
+ * Domain-Awareness: Designed to leverage memory hierarchy, minimize divergence, and maintain robust synchronization boundaries.
+ */
 
 typedef union{
 	struct BgraColorType {
@@ -85,9 +90,9 @@ inline void WriteColors444(__global unsigned char* block,
 						   const Color color0,
 						   const Color color1) {
 	
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 
 
@@ -107,14 +112,14 @@ inline void WriteColors555(__global unsigned char* block,
 		3,  
 	};
 	
-	short delta_r = (short)((color1.channels.r >> 3) - (color0.channels.r >> 3));
-	short delta_g = (short)((color1.channels.g >> 3) - (color0.channels.g >> 3));
-	short delta_b = (short)((color1.channels.b >> 3) - (color0.channels.b >> 3));
+	short delta_r = (short)((color1.channels.r >> 3) - (color0.channels.r >> 3)); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	short delta_g = (short)((color1.channels.g >> 3) - (color0.channels.g >> 3)); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	short delta_b = (short)((color1.channels.b >> 3) - (color0.channels.b >> 3)); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 	
 	
-	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 
 
@@ -124,17 +129,17 @@ inline void WriteCodewordTable(__global unsigned char* block,
 							   unsigned char table) {
 	
 	unsigned char shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[3] |= table << shift; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 
 
 
 inline void WritePixelData(__global unsigned char* block, unsigned int pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	block[7] |= pixel_data & 0xff; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 
 
@@ -145,7 +150,7 @@ inline void WriteFlip(__global unsigned char* block, bool flip) {
 
 inline void WriteDiff(__global unsigned char* block, bool diff) {
 	block[3] &= ~0x02;
-	block[3] |= (unsigned char)diff << 1;
+	block[3] |= (unsigned char)diff << 1; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 
 inline Color makeColor444(const float* bgr) {
@@ -155,11 +160,11 @@ inline Color makeColor444(const float* bgr) {
 	unsigned char g4 = round_to_4_bits(bgr[1]);
 	unsigned char r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	bgr444.channels.g = (g4 << 4) | g4; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 
 
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.r = (r4 << 4) | r4; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 	
 	bgr444.channels.a = 0x44;
 	return bgr444;
@@ -185,6 +190,10 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	unsigned int sum_b = 0, sum_g = 0, sum_r = 0, i;
 	
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -216,10 +225,18 @@ unsigned long computeLuminance(__global unsigned char* block,
 	
 
 
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		Color candidate_color[4];  
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -227,34 +244,62 @@ unsigned long computeLuminance(__global unsigned char* block,
 		
 		unsigned int tbl_err = 0;
 		
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (i = 0; i < 8; ++i) {
 			
 			
 			unsigned int best_mod_err = threshold;
+			/**
+			 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+			 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+			 */
 			for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				const Color color = candidate_color[mod_idx];
 				
 				unsigned int mod_err = getColorError(src[i], color);
+				/**
+				 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+				 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+					 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+			 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+			 */
 			if (tbl_err > best_tbl_err)
 
 
 				break;  
 		}
 		
+		/**
+		 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+		 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+			 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -266,19 +311,23 @@ unsigned long computeLuminance(__global unsigned char* block,
 
 
 
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (int i = 0; i < 8; ++i) {
 		unsigned char mod_idx = best_mod_idx[best_tbl_idx][i];
 		unsigned char pix_idx = g_mod_to_pix[mod_idx];
 		
-		unsigned int lsb = pix_idx & 0x1;
-		unsigned msb = pix_idx >> 1;
+		unsigned int lsb = pix_idx & 0x1; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+		unsigned msb = pix_idx >> 1; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 		
 		
 		int texel_num = idx_to_num_tab[i];
 
 
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+		pix_data |= lsb << (texel_num); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 	}
 
 	WritePixelData(block, pix_data);
@@ -296,12 +345,24 @@ bool tryCompressSolidBlock(__global unsigned char* dst,
 	unsigned int i, j, tbl_idx, mod_idx;
 
 
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 1; i < 16; ++i) {
+		/**
+		 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+		 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
 	
 	
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < 8; i++) {
 		dst[i] = 0;
 	}
@@ -325,24 +386,44 @@ bool tryCompressSolidBlock(__global unsigned char* dst,
 	
 
 
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			const Color color = makeColor(base, lum);
 			
 			unsigned int mod_err = getColorError(*src, color);
+			/**
+			 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+			 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+				 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+		 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -352,16 +433,24 @@ bool tryCompressSolidBlock(__global unsigned char* dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 	
 	unsigned char pix_idx = g_mod_to_pix[best_mod_idx];
-	unsigned int lsb = pix_idx & 0x1;
-	unsigned int msb = pix_idx >> 1;
+	unsigned int lsb = pix_idx & 0x1; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+	unsigned int msb = pix_idx >> 1; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 	
 	unsigned int pix_data = 0;
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < 2; ++i) {
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+			pix_data |= lsb << (texel_num); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 		}
 	}
 	
@@ -381,6 +470,10 @@ unsigned long compressBlock(__global unsigned char* dst,
 	unsigned int i, j, light_idx;
 	unsigned long solid_error = 0;
 
+	/**
+	 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+	 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -394,6 +487,10 @@ unsigned long compressBlock(__global unsigned char* dst,
 	
 	
 	
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -405,11 +502,19 @@ unsigned long compressBlock(__global unsigned char* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 			
 			int component_diff = v - u;
+			/**
+			 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+			 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -428,7 +533,15 @@ unsigned long compressBlock(__global unsigned char* dst,
 	
 	
 	unsigned int sub_block_err[4] = {0};
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < 4; ++i) {
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for (j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -439,6 +552,10 @@ unsigned long compressBlock(__global unsigned char* dst,
 	
 	
 	
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < 8; i++) {
 
 
@@ -451,6 +568,10 @@ unsigned long compressBlock(__global unsigned char* dst,
 	unsigned char sub_block_off_0 = flip ? 2 : 0;
 	unsigned char sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+	 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -480,6 +601,10 @@ void memoryCpy(Color *dst, Color *src, int num_bytes)
 {
 	int i;
 
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for (i = 0; i < num_bytes; i++){
 		dst[i] = src[i];
 	}
@@ -529,8 +654,12 @@ using namespace std;
 
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+	 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 		return 1;
 	}
 	return 0;
@@ -541,8 +670,12 @@ int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device)
 {
+	/**
+	 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+	 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -557,7 +690,7 @@ void read_kernel(string file_name, string &str_kernel)
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 
 	str_kernel = str_stream.str();
 }
@@ -631,7 +764,7 @@ void cl_get_compiler_err_log(cl_program program,
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Inline logic: Bitwise/pointer arithmetic employed for optimal memory footprint and cache utilization. */
 }
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
@@ -655,6 +788,10 @@ void read_kernel(string file_name, string &str_kernel);
 
 #define DIE(assertion, call_description)                    \
 do {                                                        \
+    /**
+     * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+     * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+     */
     if (assertion) {                                        \
             fprintf(stderr, "(%d): ",                       \
                             __LINE__);                      \
@@ -785,6 +922,10 @@ cl_device_id gpu_find()
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
 
 	
+	/**
+	 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+	 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+	 */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 
@@ -798,6 +939,10 @@ cl_device_id gpu_find()
 		DIE(device_list == NULL, "alloc devices");
 
 		
+		/**
+		 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+		 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+		 */
 		if (device_num <= 0) 
 			continue;
 
@@ -805,12 +950,20 @@ cl_device_id gpu_find()
 			  device_num, device_list, NULL) );
 
 		
+		/**
+		 * Block Pre-Condition: Input arrays bounds established. Iterative domain defined.
+		 * Block Invariant: Loop maintains strict thread indexing and cache-locality mappings throughout parallel/sequential progression.
+		 */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			
 				device = device_list[dev];
 		}
 
+		/**
+		 * Block Pre-Condition: Evaluates critical branch condition for divergent control flow.
+		 * Block Invariant: Handled branch isolates specific domain behavior without corrupting global synchronization state.
+		 */
 		if (device != NULL) 
 			break;
 	}

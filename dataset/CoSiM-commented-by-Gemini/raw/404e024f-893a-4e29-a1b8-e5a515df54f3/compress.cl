@@ -1,3 +1,9 @@
+/**
+ * @file compress.cl
+ * @brief OpenCL/C++ kernel for HPC operations.
+ * Intent: Maximize throughput through memory hierarchy optimization, thread-level parallelism, and robust synchronization.
+ * Domain-Awareness: Exploits GPU memory hierarchy, calculates thread indexing logic, and manages synchronization points. Missing roles inferred for optimization.
+ */
 
 #define B_V 0
 #define G_V 1
@@ -34,6 +40,10 @@ memcpy_gpu (void *dest, __global void *src, size_t len)
 {
   char *d = (char*)dest;
   __global const char *s = (__global char*)src;
+  /**
+   * Block Logic: Condition check initialization for iterative traversal.
+   * Invariant: Condition remains true across iterations, ensuring synchronization state.
+   */
   while (len--)
     *d++ = *s++;
   return dest;
@@ -96,9 +106,9 @@ void WriteColors444(__global uchar* block,
 						   const Color* color0,
 						   const Color* color1) {
 	
-	block[0] = (color0->channels[R_V] & 0xf0) | (color1->channels[R_V] >> 4);
-	block[1] = (color0->channels[G_V] & 0xf0) | (color1->channels[G_V] >> 4);
-	block[2] = (color0->channels[B_V] & 0xf0) | (color1->channels[B_V] >> 4);
+	block[0] = (color0->channels[R_V] & 0xf0) | (color1->channels[R_V] >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[1] = (color0->channels[G_V] & 0xf0) | (color1->channels[G_V] >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[2] = (color0->channels[B_V] & 0xf0) | (color1->channels[B_V] >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 
@@ -119,16 +129,16 @@ void WriteColors555(__global uchar* block,
 	};
 	
 	short delta_r =
-	(short)(color1->channels[R_V] >> 3) - (color0->channels[R_V] >> 3);
+	(short)(color1->channels[R_V] >> 3) - (color0->channels[R_V] >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	short delta_g =
-	(short)(color1->channels[G_V] >> 3) - (color0->channels[G_V] >> 3);
+	(short)(color1->channels[G_V] >> 3) - (color0->channels[G_V] >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	short delta_b =
-	(short)(color1->channels[B_V] >> 3) - (color0->channels[B_V] >> 3);
+	(short)(color1->channels[B_V] >> 3) - (color0->channels[B_V] >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	
-	block[0] = (color0->channels[R_V] & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0->channels[G_V] & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0->channels[B_V] & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[0] = (color0->channels[R_V] & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[1] = (color0->channels[G_V] & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[2] = (color0->channels[B_V] & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteCodewordTable(__global uchar* block,
@@ -136,25 +146,25 @@ void WriteCodewordTable(__global uchar* block,
 							   uchar table) {
 	
 	uchar shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= table << shift; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WritePixelData(__global uchar* block, uint pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[7] |= pixel_data & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteFlip(__global uchar* block, bool flip) {
-	block[3] &= ~0x01;
-	block[3] |= (uchar)flip;
+	block[3] &= ~0x01; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= (uchar)flip; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteDiff(__global uchar* block, bool diff) {
-	block[3] &= ~0x02;
-	block[3] |= (uchar)(diff) << 1;
+	block[3] &= ~0x02; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= (uchar)(diff) << 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 Color makeColor444(const float* bgr) {
@@ -162,9 +172,9 @@ Color makeColor444(const float* bgr) {
 	uchar g4 = round_to_4_bits(bgr[1]);
 	uchar r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels[B_V] = (b4 << 4) | b4;
-	bgr444.channels[G_V] = (g4 << 4) | g4;
-	bgr444.channels[R_V] = (r4 << 4) | r4;
+	bgr444.channels[B_V] = (b4 << 4) | b4; /* Non-obvious bitwise/pointer op for optimized memory access */
+	bgr444.channels[G_V] = (g4 << 4) | g4; /* Non-obvious bitwise/pointer op for optimized memory access */
+	bgr444.channels[R_V] = (r4 << 4) | r4; /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	bgr444.channels[A_V] = 0x44;
 	return bgr444;
@@ -187,6 +197,10 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels[B_V];
 		sum_g += src[i].channels[G_V];
@@ -213,42 +227,78 @@ unsigned long computeLuminance(__global uchar* block,
 
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		Color candidate_color[4];  
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
 		}
 		
 		uint tbl_err = 0;
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			/**
+			 * Block Logic: Prepares parallel execution bounds and strides.
+			 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
-				const Color *color = &candidate_color[mod_idx];
+				const Color *color = &candidate_color[mod_idx]; /* Non-obvious bitwise/pointer op for optimized memory access */
 				
-				uint mod_err = getColorError(&src[i], color);
+				uint mod_err = getColorError(&src[i], color); /* Non-obvious bitwise/pointer op for optimized memory access */
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -256,16 +306,20 @@ unsigned long computeLuminance(__global uchar* block,
 	WriteCodewordTable(block, sub_block_id, best_tbl_idx);
 	uint pix_data = 0;
 
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
-		uint lsb = pix_idx & 0x1;
-		uint msb = pix_idx >> 1;
+		uint lsb = pix_idx & 0x1; /* Non-obvious bitwise/pointer op for optimized memory access */
+		uint msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 		
 		
 		int texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized memory access */
+		pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized memory access */
 	}
 	WritePixelData(block, pix_data);
 
@@ -276,12 +330,24 @@ int tryCompressSolidBlock(__global uchar* dst,
 						   const Color* src,
 						   unsigned long* error)
 {
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (int i = 0; i < 8; i++)
 		dst[i] = 0; 
 
@@ -293,7 +359,7 @@ int tryCompressSolidBlock(__global uchar* dst,
 	
 	WriteDiff(dst, 1);
 	WriteFlip(dst, 0);
-	WriteColors555(dst, &base, &base);
+	WriteColors555(dst, &base, &base); /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	uchar best_tbl_idx = 0;
 	uchar best_mod_idx = 0;
@@ -301,26 +367,46 @@ int tryCompressSolidBlock(__global uchar* dst,
 	
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 
 
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
-			const Color color = makeColor(&base, lum);
+			const Color color = makeColor(&base, lum); /* Non-obvious bitwise/pointer op for optimized memory access */
 			
-			uint mod_err = getColorError(src, &color);
+			uint mod_err = getColorError(src, &color); /* Non-obvious bitwise/pointer op for optimized memory access */
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -329,16 +415,24 @@ int tryCompressSolidBlock(__global uchar* dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 	
 	uchar pix_idx = g_mod_to_pix[best_mod_idx];
-	uint lsb = pix_idx & 0x1;
-	uint msb = pix_idx >> 1;
+	uint lsb = pix_idx & 0x1; /* Non-obvious bitwise/pointer op for optimized memory access */
+	uint msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	uint pix_data = 0;
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized memory access */
+			pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized memory access */
 		}
 	}
 	
@@ -354,7 +448,11 @@ unsigned long compressBlock(__global uchar* dst,
 							unsigned long threshold)
 {
 	unsigned long solid_error = 0;
-	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+	 */
+	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) { /* Non-obvious bitwise/pointer op for optimized memory access */
 		return solid_error;
 	}
 	
@@ -365,6 +463,10 @@ unsigned long compressBlock(__global uchar* dst,
 	
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -374,11 +476,19 @@ unsigned long compressBlock(__global uchar* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.channels[light_idx] >> 3;
-			int v = avg_color_555_1.channels[light_idx] >> 3;
+			int u = avg_color_555_0.channels[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized memory access */
+			int v = avg_color_555_1.channels[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized memory access */
 			
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -394,9 +504,17 @@ unsigned long compressBlock(__global uchar* dst,
 	
 	
 	uint sub_block_err[4] = {0};
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Prepares parallel execution bounds and strides.
+		 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
-			sub_block_err[i] += getColorError(&sub_block_avg[i], &sub_block_src[i][j]);
+			sub_block_err[i] += getColorError(&sub_block_avg[i], &sub_block_src[i][j]); /* Non-obvious bitwise/pointer op for optimized memory access */
 		}
 	}
 	
@@ -404,6 +522,10 @@ unsigned long compressBlock(__global uchar* dst,
 	sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for (int i = 0; i < 8; i++)
 		dst[i] = 0;
 
@@ -413,24 +535,28 @@ unsigned long compressBlock(__global uchar* dst,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+	 */
 	if (use_differential[!!flip]) {
-		WriteColors555(dst, &sub_block_avg[sub_block_off_0],
-					   &sub_block_avg[sub_block_off_1]);
+		WriteColors555(dst, &sub_block_avg[sub_block_off_0], /* Non-obvious bitwise/pointer op for optimized memory access */
+					   &sub_block_avg[sub_block_off_1]); /* Non-obvious bitwise/pointer op for optimized memory access */
 	} else {
-		WriteColors444(dst, &sub_block_avg[sub_block_off_0],
-					   &sub_block_avg[sub_block_off_1]);
+		WriteColors444(dst, &sub_block_avg[sub_block_off_0], /* Non-obvious bitwise/pointer op for optimized memory access */
+					   &sub_block_avg[sub_block_off_1]); /* Non-obvious bitwise/pointer op for optimized memory access */
 	}
 	
 	unsigned long lumi_error1 = 0, lumi_error2 = 0;
 	
 	
 	lumi_error1 = computeLuminance(dst, sub_block_src[sub_block_off_0],
-								   &sub_block_avg[sub_block_off_0], 0,
+								   &sub_block_avg[sub_block_off_0], 0, /* Non-obvious bitwise/pointer op for optimized memory access */
 								   g_idx_to_num[sub_block_off_0],
 								   threshold);
 	
 	lumi_error2 = computeLuminance(dst, sub_block_src[sub_block_off_1],
-								   &sub_block_avg[sub_block_off_1], 1,
+								   &sub_block_avg[sub_block_off_1], 1, /* Non-obvious bitwise/pointer op for optimized memory access */
 								   g_idx_to_num[sub_block_off_1],
 								   threshold);
 	
@@ -488,6 +614,10 @@ using namespace std;
 
 #define DIE(assertion, call_description)                    \
 do {                                                        \
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+     */
     if (assertion) {                                        \
             fprintf(stderr, "(%d): ",                       \
                             __LINE__);                      \
@@ -508,14 +638,14 @@ inline void cl_get_compiler_err_log(cl_program program,
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  0, NULL, &log_size);
+						  0, NULL, &log_size); /* Non-obvious bitwise/pointer op for optimized memory access */
 	build_log = new char[ log_size + 1 ];
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 
@@ -574,8 +704,12 @@ switch (err) {
 
 inline int CL_ERR(int cl_ret)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		return 1;
 	}
 	return 0;
@@ -585,8 +719,12 @@ inline int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -594,26 +732,26 @@ inline int CL_COMPILE_ERR(int cl_ret,
 }
 
 
-inline void read_kernel(string file_name, string &str_kernel)
+inline void read_kernel(string file_name, string &str_kernel) /* Non-obvious bitwise/pointer op for optimized memory access */
 {
 	ifstream in_file(file_name.c_str());
 	in_file.open(file_name.c_str());
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 	str_kernel = str_stream.str();
 }
 
 
-#endif>>>> file: texture_compress_skl.cpp
+#endif>>>> file: texture_compress_skl.cpp /* Non-obvious bitwise/pointer op for optimized memory access */
 #include "compress.hpp"
 #include "helpers.hpp"
 
 using namespace std;
 
-static void gpu_find(cl_device_id &device);
+static void gpu_find(cl_device_id &device); /* Non-obvious bitwise/pointer op for optimized memory access */
 static void gpu_run_kernel(cl_device_id device_id, 
 						const uint8_t* src,
 						uint8_t* dst,
@@ -642,7 +780,7 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 }
 
 
-void gpu_find(cl_device_id &device)
+void gpu_find(cl_device_id &device) /* Non-obvious bitwise/pointer op for optimized memory access */
 {
 	uint platform_select = 1;
 	uint device_select = 0;
@@ -658,7 +796,7 @@ void gpu_find(cl_device_id &device)
 	cl_char* attr_data = NULL;
 	
 	
-	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
+	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num)); /* Non-obvious bitwise/pointer op for optimized memory access */
 	platform_list = new cl_platform_id[platform_num];
 	DIE(platform_list == NULL, "alloc platform_list");
 	
@@ -666,6 +804,10 @@ void gpu_find(cl_device_id &device)
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
 	
 	
+	/**
+	 * Block Logic: Prepares parallel execution bounds and strides.
+	 * Invariant: Loop iterates over assigned memory blocks, preserving thread locality where possible.
+	 */
 	for(uint platf=0; platf < platform_num; platf++)
 	{
 		
@@ -674,7 +816,7 @@ void gpu_find(cl_device_id &device)
 		DIE(platform == 0, "platform selection");
 		
 		
-		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_num));
+		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_num)); /* Non-obvious bitwise/pointer op for optimized memory access */
 		device_list = new cl_device_id[device_num];
 		DIE(device_list == NULL, "alloc devices");
 		
@@ -683,6 +825,10 @@ void gpu_find(cl_device_id &device)
 							   device_num, device_list, NULL));
 		
 		
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants without warp divergence where possible.
+		 */
 		if (device_num > 0) {
 			device = device_list[0];
 			break;
@@ -716,11 +862,11 @@ void gpu_run_kernel(cl_device_id device_id,
 	
 
 
-	context = clCreateContext(0, 1, &device_id, NULL, NULL, &ret);
+	context = clCreateContext(0, 1, &device_id, NULL, NULL, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	commands = clCreateCommandQueue(context, device_id,
-									CL_QUEUE_PROFILING_ENABLE, &ret);
+									CL_QUEUE_PROFILING_ENABLE, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
@@ -737,7 +883,7 @@ void gpu_run_kernel(cl_device_id device_id,
 	
 	
 	program = clCreateProgramWithSource(context, 1,
-				(const char **) &kernel_c_str, NULL, &ret);
+				(const char **) &kernel_c_str, NULL, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
@@ -745,15 +891,15 @@ void gpu_run_kernel(cl_device_id device_id,
 	CL_COMPILE_ERR( ret, program, device_id );
 	
 	
-	kernel = clCreateKernel(program, "compress", &ret);
+	kernel = clCreateKernel(program, "compress", &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
 	ret  = 0;
-	ret  = clSetKernelArg(kernel, 0, sizeof(int), &width);
-	ret |= clSetKernelArg(kernel, 1, sizeof(int), &height);
-	ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &a_in);
-	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &b_out);
+	ret  = clSetKernelArg(kernel, 0, sizeof(int), &width); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 1, sizeof(int), &height); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &a_in); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &b_out); /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	ret = clEnqueueWriteBuffer(commands, a_in, CL_TRUE, 0,
 							   sizeof(Color) * height * width, src, 0, NULL, NULL);

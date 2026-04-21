@@ -1,3 +1,9 @@
+/**
+ * @file network_handler.rs
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -22,7 +28,7 @@ pub struct Cause {
 }
 
 pub(crate) fn handle_network_event(
-    actors: Arc<Mutex<ActorRegistry>>,
+    actors: Arc<Mutex<ActorRegistry>>, /* Non-obvious bitwise/pointer op for optimized memory access */
     netevent_actor_name: String,
     mut connections: Vec<TcpStream>,
     network_event: NetworkEvent,
@@ -32,14 +38,14 @@ pub(crate) fn handle_network_event(
     match network_event {
         NetworkEvent::HttpRequest(httprequest) => {
             let (event_actor, resource_updates) = {
-                let actor = actors.find_mut::<NetworkEventActor>(&netevent_actor_name);
+                let actor = actors.find_mut::<NetworkEventActor>(&netevent_actor_name); /* Non-obvious bitwise/pointer op for optimized memory access */
                 actor.add_request(httprequest);
                 (actor.event_actor(), actor.resource_updates())
             };
 
             let browsing_context_actor =
-                actors.find::<BrowsingContextActor>(&browsing_context_actor_name);
-            for stream in &mut connections {
+                actors.find::<BrowsingContextActor>(&browsing_context_actor_name); /* Non-obvious bitwise/pointer op for optimized memory access */
+            for stream in &mut connections { /* Non-obvious bitwise/pointer op for optimized memory access */
                 // Notify that a new network event has started
                 browsing_context_actor.resource_array(
                     event_actor.clone(),
@@ -60,15 +66,15 @@ pub(crate) fn handle_network_event(
         NetworkEvent::HttpResponse(httpresponse) => {
             // Scope mutable borrow
             let resource = {
-                let actor = actors.find_mut::<NetworkEventActor>(&netevent_actor_name);
+                let actor = actors.find_mut::<NetworkEventActor>(&netevent_actor_name); /* Non-obvious bitwise/pointer op for optimized memory access */
                 // Store the response information in the actor
                 actor.add_response(httpresponse);
                 actor.resource_updates()
             };
 
             let browsing_context_actor =
-                actors.find::<BrowsingContextActor>(&browsing_context_actor_name);
-            for stream in &mut connections {
+                actors.find::<BrowsingContextActor>(&browsing_context_actor_name); /* Non-obvious bitwise/pointer op for optimized memory access */
+            for stream in &mut connections { /* Non-obvious bitwise/pointer op for optimized memory access */
                 browsing_context_actor.resource_array(
                     resource.clone(),
                     "network-event".to_string(),

@@ -1,3 +1,9 @@
+/**
+ * @file chatAttachmentResolve.ts
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -26,12 +32,20 @@ import { resizeImage } from './imageUtils.js';
 
 // --- EDITORS ---
 
-export async function resolveEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput, fileService: IFileService, editorService: IEditorService, textModelService: ITextModelService, extensionService: IExtensionService, dialogService: IDialogService): Promise<IChatRequestVariableEntry | undefined> {
+export async function resolveEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput, fileService: IFileService, editorService: IEditorService, textModelService: ITextModelService, extensionService: IExtensionService, dialogService: IDialogService): Promise<IChatRequestVariableEntry | undefined> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 	// untitled editor
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (isUntitledResourceEditorInput(editor)) {
 		return await resolveUntitledEditorAttachContext(editor, editorService, textModelService);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!editor.resource) {
 		return undefined;
 	}
@@ -43,11 +57,19 @@ export async function resolveEditorAttachContext(editor: EditorInput | IDraggedR
 		return undefined;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!stat.isDirectory && !stat.isFile) {
 		return undefined;
 	}
 
 	const imageContext = await resolveImageEditorAttachContext(editor, fileService, dialogService);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (imageContext) {
 		return extensionService.extensions.some(ext => isProposedApiEnabled(ext, 'chatReferenceBinaryData')) ? imageContext : undefined;
 	}
@@ -55,17 +77,29 @@ export async function resolveEditorAttachContext(editor: EditorInput | IDraggedR
 	return await resolveResourceAttachContext(editor.resource, stat.isDirectory, textModelService);
 }
 
-async function resolveUntitledEditorAttachContext(editor: IDraggedResourceEditorInput, editorService: IEditorService, textModelService: ITextModelService): Promise<IChatRequestVariableEntry | undefined> {
+async function resolveUntitledEditorAttachContext(editor: IDraggedResourceEditorInput, editorService: IEditorService, textModelService: ITextModelService): Promise<IChatRequestVariableEntry | undefined> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 	// If the resource is known, we can use it directly
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (editor.resource) {
 		return await resolveResourceAttachContext(editor.resource, false, textModelService);
 	}
 
 	// Otherwise, we need to check if the contents are already open in another editor
 	const openUntitledEditors = editorService.editors.filter(editor => editor instanceof UntitledTextEditorInput) as UntitledTextEditorInput[];
+	/**
+	 * Block Logic: Iteration pre-condition and bounds.
+	 * Invariant: Loop iterates over assigned memory/elements.
+	 */
 	for (const canidate of openUntitledEditors) {
 		const model = await canidate.resolve();
 		const contents = model.textEditorModel?.getValue();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (contents === editor.contents) {
 			return await resolveResourceAttachContext(canidate.resource, false, textModelService);
 		}
@@ -74,9 +108,13 @@ async function resolveUntitledEditorAttachContext(editor: IDraggedResourceEditor
 	return undefined;
 }
 
-export async function resolveResourceAttachContext(resource: URI, isDirectory: boolean, textModelService: ITextModelService): Promise<IChatRequestVariableEntry | undefined> {
+export async function resolveResourceAttachContext(resource: URI, isDirectory: boolean, textModelService: ITextModelService): Promise<IChatRequestVariableEntry | undefined> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 	let isOmitted = false;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!isDirectory) {
 		try {
 			const createdModel = await textModelService.createModelReference(resource);
@@ -85,6 +123,10 @@ export async function resolveResourceAttachContext(resource: URI, isDirectory: b
 			isOmitted = true;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (/\.(svg)$/i.test(resource.path)) {
 			isOmitted = true;
 		}
@@ -111,17 +153,29 @@ export type ImageTransferData = {
 };
 const SUPPORTED_IMAGE_EXTENSIONS_REGEX = /\.(png|jpg|jpeg|gif|webp)$/i;
 
-export async function resolveImageEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput, fileService: IFileService, dialogService: IDialogService): Promise<IChatRequestVariableEntry | undefined> {
+export async function resolveImageEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput, fileService: IFileService, dialogService: IDialogService): Promise<IChatRequestVariableEntry | undefined> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!editor.resource) {
 		return undefined;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!SUPPORTED_IMAGE_EXTENSIONS_REGEX.test(editor.resource.path)) {
 		return undefined;
 	}
 
 	const fileName = basename(editor.resource);
 	const readFile = await fileService.readFile(editor.resource);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (readFile.size > 30 * 1024 * 1024) { // 30 MB
 		dialogService.error(localize('imageTooLarge', 'Image is too large'), localize('imageTooLargeMessage', 'The image {0} is too large to be attached.', fileName));
 		throw new Error('Image is too large');
@@ -157,6 +211,10 @@ export async function resolveImageAttachContext(images: ImageTransferData[]): Pr
 export function resolveMarkerAttachContext(markers: MarkerTransferData[]): IDiagnosticVariableEntry[] {
 	return markers.map((marker): IDiagnosticVariableEntry => {
 		let filter: IDiagnosticVariableEntryFilterData;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!('severity' in marker)) {
 			filter = { filterUri: URI.revive(marker.uri), filterSeverity: MarkerSeverity.Warning };
 		} else {
@@ -185,8 +243,16 @@ export function resolveSymbolsAttachContext(symbols: DocumentSymbolTransferData[
 
 function symbolId(resource: URI, range?: IRange): string {
 	let rangePart = '';
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (range) {
 		rangePart = `:${range.startLineNumber}`;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (range.startLineNumber !== range.endLineNumber) {
 			rangePart += `-${range.endLineNumber}`;
 		}

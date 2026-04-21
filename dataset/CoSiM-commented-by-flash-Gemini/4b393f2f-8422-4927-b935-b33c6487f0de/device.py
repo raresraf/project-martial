@@ -1,9 +1,14 @@
 """
-@4b393f2f-8422-4927-b935-b33c6487f0de/device.py
-@brief This module defines a multi-threaded device simulation framework,
-including `Device` for managing sensors and scripts, `DeviceThread` for
-coordination, and `WorkerThread` for parallel script execution, utilizing
-a `ReusableBarrierCond` for synchronization and `Queue` for task distribution.
+@file device.py
+@brief Distributed device simulation environment using queue-based task distribution.
+
+Functional Intent: Implements a multi-threaded framework where devices coordinate 
+parallel execution of data-processing scripts using a worker thread pool. 
+Utilizes a centralized work queue for task dissemination within each device, 
+enforces data consistency through location-specific shared locks, and synchronizes 
+epoch-based execution steps via reusable condition barriers.
+
+Domain: Production Systems, Distributed Computing, Parallel Processing.
 """
 
 import Queue
@@ -13,228 +18,182 @@ from barrier import ReusableBarrierCond
 
 class Device(object):
     """
-    Represents a single device in a simulated distributed system.
-
-    Each device manages its own sensor data, processes scripts using a pool
-    of worker threads (`WorkerThread`), and coordinates with a supervisor
-    and other devices using threads and barriers.
-    """
+    @brief Represents a computational entity in the simulated distributed network.
     
+    Functional Utility: Manages local sensor state, task assignments, and a local 
+    pool of worker threads. Interfaces with a global supervisor to identify 
+    neighbors and establish shared synchronization primitives.
+    """
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        Initializes a Device instance.
-
-        Args:
-            device_id (int): A unique identifier for this device.
-            sensor_data (dict): A dictionary representing the sensor data this device holds.
-            supervisor (Supervisor): The supervisor object responsible for managing devices.
+        @brief Initializes the device and prepares its internal orchestration state.
         """
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
-        self.scripts = [] # List to hold scripts assigned to this device.
-        self.timepoint_done = Event() # Event to signal when script assignments for a timepoint are complete.
+        self.scripts = [] # Logic: Sequence of scripts to be executed in the current epoch.
+        
+        # Synchronization: Events for coordinating setup and epoch-based task assignment.
+        self.timepoint_done = Event()
+        self.event_setup = Event()
 
-        self.devices = [] # List to store references to all devices in the system.
+        self.devices = [] # Logic: Global registry of all peer devices in the network.
+        self.barrier_device = None # Logic: Shared barrier for cross-device epoch synchronization.
+        self.locations_lock = [] # Logic: Global pool of mutexes for protecting specific data addresses.
+        self.data_set_lock = Lock() # Logic: Local mutex for protecting internal sensor state.
 
-        self.event_setup = Event() # Event to signal when global setup (barrier, locks) is complete.
-
-        self.barrier_device = None # Global barrier for synchronizing devices, initialized by setup_devices.
-
-        self.locations_lock = [] # List of locks for each data location, shared across devices.
-
-        self.data_set_lock = Lock() # Lock for protecting access to the device's sensor_data during updates.
-
-        self.thread = DeviceThread(self) # Main thread for device operations.
+        # Control: Dedicated thread for high-level device management.
+        self.thread = DeviceThread(self)
         self.thread.start()
 
-        self.device_shutdown_order = False # Flag to signal worker threads for shutdown.
+        self.device_shutdown_order = False # Control: Flag to signal termination to worker threads.
+        self.work_queue = Queue.Queue() # Logic: Producer-consumer queue for internal task dispatching.
 
-        self.work_queue = Queue.Queue() # Queue to hold tasks (scripts and their context) for worker threads.
-
-        self.worker_barrier = ReusableBarrierCond(8) # Barrier for synchronizing worker threads within this device.
-
-        self.data_semaphore = Semaphore(value=0) # Semaphore to signal workers that new data (tasks) are available.
-
-        self.worker_semaphore = Semaphore(value=0) # Semaphore for workers to signal completion of a task.
+        # Optimization: Pre-allocated synchronization for the internal worker pool (8 threads).
+        self.worker_barrier = ReusableBarrierCond(8)
+        self.data_semaphore = Semaphore(value=0) # Sync: Tracks available tasks for workers.
+        self.worker_semaphore = Semaphore(value=0) # Sync: Tracks completed tasks for the manager.
 
     def __str__(self):
-        """
-        Returns a string representation of the Device.
-        """
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        Configures global shared resources like the main barrier and location locks.
-
-        This method is typically called by the supervisor during initial setup,
-        ensuring all devices share the same synchronization primitives.
-
-        Args:
-            devices (list): A list of all Device instances in the simulated system.
+        @brief Orchestrates the cluster-wide initialization of shared resources.
+        
+        Algorithm: Single-node master setup (Device 0).
+        Logic: Only the designated master device initializes the global barrier and 
+        shared lock pool to ensure all peers share identical synchronization objects.
         """
-        # Block Logic: Only device 0 (the 'master' device) performs the global initialization.
+        # Pre-condition: Prevents redundant initialization by restricting setup to the first device.
         if self.device_id == 0:
-            self.barrier_device = ReusableBarrierCond(len(devices)) # Initialize a global barrier for all devices.
+            self.barrier_device = ReusableBarrierCond(len(devices))
 
-            for _ in range(25): # Initialize 25 shared locks for data locations.
+            # Block Logic: Data-plane protection.
+            # Invariant: Initializes 25 mutexes to regulate concurrent access to shared data locations.
+            for _ in range(25):
                 self.locations_lock.append(Lock())
 
-            # Block Logic: Distribute the shared barrier and location locks to all devices.
+            # Side Effect: Propagates shared object references to all participating devices.
             for dev in devices:
                 dev.devices = devices
                 dev.barrier_device = self.barrier_device
                 dev.locations_lock = self.locations_lock
-                dev.event_setup.set() # Signal each device that its setup is complete.
+                dev.event_setup.set()
 
     def assign_script(self, script, location):
         """
-        Assigns a script to the device for execution at a specific data location.
-
-        Args:
-            script (object): The script object to be executed.
-            location (int): The data location relevant to the script.
+        @brief Enqueues a processing script for the current simulation step.
         """
         if script is not None:
-            self.scripts.append((script, location)) # Add the script to the device's list.
+            self.scripts.append((script, location))
         else:
-            self.timepoint_done.set() # If no script, signal that script assignment for this timepoint is complete.
+            # Logic: Signaling None indicates that all tasks for this epoch have been assigned.
+            self.timepoint_done.set()
 
     def get_data(self, location):
         """
-        Retrieves data from the device's sensor_data at the specified location.
-
-        Args:
-            location (int): The index or key of the data to retrieve.
-
-        Returns:
-            any: The data at the specified location, or None if not found.
+        @brief Retrieves local sensor data (requires external locking for consistency).
         """
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
         """
-        Sets or updates data in the device's sensor_data at the specified location.
-
-        Ensures thread-safe access to `sensor_data` during updates.
-
-        Args:
-            location (int): The index or key of the data to set.
-            data (any): The new data value.
+        @brief Thread-safe update of local sensor data.
         """
-        with self.data_set_lock: # Acquire lock to protect `sensor_data`.
+        with self.data_set_lock:
             if location in self.sensor_data:
-                self.sensor_data[location] = data # Update the data if the location exists.
+                self.sensor_data[location] = data
 
     def shutdown(self):
         """
-        Initiates the shutdown sequence for the device, waiting for its main thread to finish.
+        @brief Triggers a graceful shutdown of the device orchestration thread.
         """
-        self.thread.join() # Wait for the main DeviceThread to complete its execution.
+        self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    The main thread for a Device, responsible for coordinating script execution.
-
-    It fetches neighbors, manages timepoint synchronization, dispatches scripts
-    to worker threads via a queue, and handles device shutdown.
-    """
+    @brief Management thread responsible for task orchestration and worker supervision.
     
+    Logic: Coordinates the transition between epochs, task distribution to local 
+    CPUs, and global consensus points.
+    """
 
     def __init__(self, device):
-        """
-        Initializes a DeviceThread instance.
-
-        Args:
-            device (Device): The parent Device instance this thread belongs to.
-        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
         """
-        The main execution loop for the DeviceThread.
-
-        It waits for initial setup, then continuously fetches neighbors,
-        collects assigned scripts, dispatches them to worker threads,
-        and participates in global and local barrier synchronization.
-        Finally, it manages the shutdown sequence for its worker threads.
+        @brief Core operational cycle for the device manager.
+        
+        Algorithm: Distributed epoch orchestration.
+        Logic: 
+        1. Waits for global setup confirmation.
+        2. Spawns a pool of worker threads.
+        3. Iteratively fetches neighbors and dispatches assigned scripts to the worker queue.
+        4. Synchronizes at a global barrier to ensure network-wide step alignment.
         """
-        # Pre-condition: Wait until the device's global setup (barrier, locks) is complete.
+        # Pre-condition: Blocks execution until shared locks and barriers are available.
         self.device.event_setup.wait()
 
-        # Block Logic: Create and start worker threads.
+        # Block Logic: Internal worker pool lifecycle management.
+        # Optimization: Scales to 8 parallel workers for high-throughput script processing.
         list_threads = []
-        for i in range(8): # Creates 8 worker threads.
+        for i in range(8):
             thrd = WorkerThread(self.device, self.device.locations_lock, self.device.work_queue, i)
             list_threads.append(thrd)
 
         for thrd in list_threads:
             thrd.start()
 
-        script_number = 0 # Counter for the total number of scripts processed.
+        script_number = 0 # Invariant: Tracks total scripts dispatched to ensure full epoch completion.
 
         while True:
-            # Functional Utility: Fetch the list of neighboring devices from the supervisor.
+            # Block Logic: Neighbor discovery via supervisor.
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
-                break # If no neighbors are returned (e.g., supervisor signals shutdown), break the loop.
+                break
 
-            # Block Logic: Wait until scripts for the current timepoint have been assigned.
             self.device.timepoint_done.wait()
 
-            # Block Logic: Distribute assigned scripts to the worker threads via the work queue.
+            # Task Dispatch: Translates high-level scripts into granular worker tasks.
             for (script, location) in self.device.scripts:
-                tup = (script, location, neighbours) # Package script context.
+                tup = (script, location, neighbours)
 
-                self.device.work_queue.put(tup) # Put the task into the queue.
-                self.device.data_semaphore.release() # Signal a worker that a new task is available.
+                self.device.work_queue.put(tup)
+                self.device.data_semaphore.release() # Logic: Increment task availability for workers.
 
-                script_number += 1 # Increment total script count.
+                script_number += 1
 
-            self.device.timepoint_done.clear() # Reset the event for the next timepoint.
+            self.device.timepoint_done.clear()
 
-            # Block Logic: Synchronize all devices at the global barrier after script assignment.
+            # Synchronization: Ensures all devices have distributed their tasks before starting execution.
             self.device.barrier_device.wait()
 
-        # Block Logic: During shutdown, wait for all processed scripts to be completed by workers.
-        for _ in xrange(script_number): # Using xrange for Python 2 compatibility.
-            self.device.worker_semaphore.acquire() # Wait for each worker to signal completion.
+        # Shutdown Sequence: Synchronization point to ensure workers have finished all epoch tasks.
+        for _ in xrange(script_number):
+            self.device.worker_semaphore.acquire()
 
-        # Functional Utility: Signal worker threads to shut down.
+        # Control: Broadcasts shutdown signal to the worker pool.
         self.device.device_shutdown_order = True
-
-        # Block Logic: Release the data semaphore enough times to unblock all worker threads for shutdown.
-        for _ in xrange(8): # Release semaphore for each worker thread.
+        for _ in xrange(8):
             self.device.data_semaphore.release()
 
-        # Block Logic: Wait for all worker threads to join (terminate).
         for thrd in list_threads:
             thrd.join()
 
 
 class WorkerThread(Thread):
     """
-    A worker thread for a Device, responsible for processing scripts from a shared queue.
-
-    Each worker thread retrieves tasks (script, location, neighbors) from the queue,
-    collects data, executes the script, updates relevant data, and signals completion.
-    """
+    @brief Execution thread that processes scripts from the device's shared work queue.
     
+    Algorithm: Neighborhood state reduction and update.
+    """
 
     def __init__(self, device, locations_lock, work_queue, worker_id):
-        """
-        Initializes a WorkerThread instance.
-
-        Args:
-            device (Device): The parent Device instance this thread belongs to.
-            locations_lock (list): A list of shared locks for data locations.
-            work_queue (Queue.Queue): The shared queue from which to retrieve tasks.
-            worker_id (int): A unique identifier for this worker thread.
-        """
         Thread.__init__(self, name="Worker Thread %d" % worker_id)
         self.device = device
         self.locations_lock = locations_lock
@@ -243,56 +202,52 @@ class WorkerThread(Thread):
 
     def run(self):
         """
-        The main execution loop for the WorkerThread.
-
-        It continuously waits for tasks (signaled by `data_semaphore`),
-        processes them (collects data, executes script, updates data),
-        and then signals task completion (`worker_semaphore`).
-        It terminates upon receiving a shutdown signal.
+        @brief Worker execution loop.
+        
+        Logic: 
+        1. Waits for tasks signaled by the data semaphore.
+        2. Retrieves script context (location, neighbors).
+        3. Performs thread-safe data gathering across the neighborhood.
+        4. Executes script and broadcasts the result to all peers.
         """
         while True:
-            # Pre-condition: Acquire `data_semaphore` to wait for a new task.
+            # Pre-condition: Wait for work or shutdown signal.
             self.device.data_semaphore.acquire()
 
-            # Pre-condition: Check for shutdown signal.
             if self.device.device_shutdown_order is True:
-                break # Exit loop if shutdown is ordered.
+                break
 
-            # Functional Utility: Retrieve a task from the work queue.
             tup = self.work_queue.get()
             script = tup[0]
             location = tup[1]
             neighbours = tup[2]
 
-            # Block Logic: Acquire location-specific lock for data consistency during script execution.
+            # Synchronization: Mutual exclusion for specific data location to prevent race conditions.
             with self.locations_lock[location]:
-                script_data = [] # List to accumulate data for the current script.
+                script_data = []
                 
-                # Block Logic: Collect data from neighboring devices.
+                # Block Logic: State aggregation from the neighborhood.
                 for device in neighbours:
                     data = device.get_data(location)
                     if data is not None:
                         script_data.append(data)
                 
-                # Block Logic: Collect data from the current device.
                 data = self.device.get_data(location)
                 if data is not None:
                     script_data.append(data)
 
-                # Pre-condition: If there is data to process, execute the script.
                 if script_data != []:
-                    # Action: Execute the script.
+                    # Functional Intent: Perform user-defined data transformation.
                     result = script.run(script_data)
 
-                    # Block Logic: Update data in neighboring devices.
+                    # Block Logic: Update propagation to neighborhood peers.
                     for device in neighbours:
                         device.set_data(location, result)
                     
-                    # Block Logic: Update data in the current device.
                     self.device.set_data(location, result)
             
-            # Functional Utility: Signal that this worker has completed a task.
+            # Synchronization: Signal task completion to the manager.
             self.device.worker_semaphore.release()
 
-        # Block Logic: After exiting the main loop (shutdown), synchronize with other worker threads.
+        # Finalization: Rendezvous with other workers before thread termination.
         self.device.worker_barrier.wait()

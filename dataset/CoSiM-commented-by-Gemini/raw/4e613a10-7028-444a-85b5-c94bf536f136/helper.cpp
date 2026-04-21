@@ -1,17 +1,22 @@
+/**
+ * @file helper.cpp
+ * @brief OpenCL host utility services for texture compression.
+ * Functional Utility: Provides standardized error diagnostics, kernel management, 
+ * and hardware discovery services to support heterogeneous compute orchestration.
+ */
 
->>>> file: helper.cpp
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <CL/cl.h>
 
 #include "helper.hpp"
 
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Validates OpenCL API return codes.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,11 +28,9 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Handles build failures by retrieving and displaying compiler logs.
  */
-int CL_COMPILE_ERR(int cl_ret,
-                  cl_program program,
-                  cl_device_id device)
+int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
@@ -38,8 +41,8 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Loads OpenCL kernel source from an external text file.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -53,7 +56,7 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Translates OpenCL error codes to human-readable strings.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -108,7 +111,7 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves build log for diagnostics.
  */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
@@ -116,28 +119,32 @@ void cl_get_compiler_err_log(cl_program program,
 	char* build_log;
 	size_t log_size;
 
-	/* first call to know the proper size */
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  0, NULL, &log_size);
 	build_log = new char[ log_size + 1 ];
 
-	/* second call to get the log */
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
 	cout << endl << build_log << endl;
 }
->>>> file: helper.hpp
+
+/**
+ * @file helper.hpp
+ * @brief Interface declarations for OpenCL utilities.
+ */
+
+/*
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
+   #include <OpenCL/opencl.h>
 #else
-   #include 
+   #include <CL/cl.h>
 #endif
 
-#include 
+#include <iostream>
 
 using namespace std;
 
@@ -163,7 +170,16 @@ do {                                                        \
 } while(0);
 
 #endif
->>>> file: texture_compress_device.cl
+*/
+
+/**
+ * @file texture_compress_device.cl
+ * @brief OpenCL kernel logic for parallel ETC1 texture compression.
+ * Architectural Intent: Implements the Ericsson Texture Compression (ETC1) standard
+ * optimized for GPU SIMD execution using parallel work-items for 4x4 texel blocks.
+ */
+
+/*
 // definitia uniunii Color
 typedef union color {
 	struct BgraColorType {
@@ -177,22 +193,20 @@ typedef union color {
 } Color;
 
 inline uchar uchar_clamp(uchar val, uchar min, uchar max) {
-	return val  max ? max : val);
+	return (uchar)(val < min ? min : (val > max ? max : val));
 }
 
 inline int int_clamp(int val, int min, int max) {
-	return val  max ? max : val);
+	return (int)(val < min ? min : (val > max ? max : val));
 }
 
 inline uchar round_to_5_bits(float val) {
-	return uchar_clamp(val * 31.0f / 255.0f + 0.5f, 0, 31);
+	return uchar_clamp((uchar)(val * 31.0f / 255.0f + 0.5f), 0, 31);
 }
 
 inline uchar round_to_4_bits(float val) {
-	return uchar_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
+	return uchar_clamp((uchar)(val * 15.0f / 255.0f + 0.5f), 0, 15);
 }
-
-
 
 static __constant short g_codeword_tables[8][4] __attribute__((aligned(16))) = {
 	{-8, -2, 2, 8},
@@ -254,14 +268,7 @@ inline void WriteColors555(__global uchar* block,
 						   const Color color1) {
 	// Table for conversion to 3-bit two complement format.
 	const uchar two_compl_trans_table[8] = {
-		4,  // -4 (100b)
-		5,  // -3 (101b)
-		6,  // -2 (110b)
-		7,  // -1 (111b)
-		0,  //  0 (000b)
-		1,  //  1 (001b)
-		2,  //  2 (010b)
-		3,  //  3 (011b)
+		4, 5, 6, 7, 0, 1, 2, 3,
 	};
 	
 	short delta_r =
@@ -271,7 +278,6 @@ inline void WriteColors555(__global uchar* block,
 	short delta_b =
 	(short)(color1.channels.b >> 3) - (color0.channels.b >> 3);
 	
-	// Write output color for BGRA textures.
 	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
 	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
@@ -303,10 +309,6 @@ inline void WriteDiff(__global uchar* block, bool diff) {
 	block[3] |= (uchar)(diff) << 1;
 }
 
-// Compress and rounds BGR888 into BGR444. The resulting BGR444 color is
-// expanded to BGR888 as it would be in hardware after decompression. The
-// actual 444-bit data is available in the four most significant bits of each
-// channel.
 inline Color makeColor444(const float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
@@ -315,15 +317,10 @@ inline Color makeColor444(const float* bgr) {
 	bgr444.channels.b = (b4 << 4) | b4;
 	bgr444.channels.g = (g4 << 4) | g4;
 	bgr444.channels.r = (r4 << 4) | r4;
-	// Added to distinguish between expanded 555 and 444 colors.
 	bgr444.channels.a = 0x44;
 	return bgr444;
 }
 
-// Compress and rounds BGR888 into BGR555. The resulting BGR555 color is
-// expanded to BGR888 as it would be in hardware after decompression. The
-// actual 555-bit data is available in the five most significant bits of each
-// channel.
 inline Color makeColor555(const float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -332,7 +329,6 @@ inline Color makeColor555(const float* bgr) {
 	bgr555.channels.b = (b5 > 2);
 	bgr555.channels.g = (g5 > 2);
 	bgr555.channels.r = (r5 > 2);
-	// Added to distinguish between expanded 555 and 444 colors.
 	bgr555.channels.a = 0x55;
 	return bgr555;
 }
@@ -340,13 +336,11 @@ inline Color makeColor555(const float* bgr) {
 void getAverageColor(const Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
-	
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
 		sum_r += src[i].channels.r;
 	}
-	
 	const float kInv8 = 1.0f / 8.0f;
 	avg_color[0] = (float)(sum_b) * kInv8;
 	avg_color[1] = (float)(sum_g) * kInv8;
@@ -362,79 +356,49 @@ unsigned long computeLuminance(__global uchar* block,
 {
 	uint best_tbl_err = threshold;
 	uchar best_tbl_idx = 0;
-	uchar best_mod_idx[8][8];  // [table][texel]
-
-	// Try all codeword tables to find the one giving the best results for this
-	// block.
+	uchar best_mod_idx[8][8];  
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
-		// Pre-compute all the candidate colors; combinations of the base color and
-		// all available luminance values.
-		Color candidate_color[4];  // [modifier]
-		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
+		Color candidate_color[4];  
+		for (unsigned int mod_idx = 0; mod_idx < 4; mod_idx++) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
 		}
-		
 		uint tbl_err = 0;
-		
 		for (unsigned int i = 0; i < 8; ++i) {
-			// Try all modifiers in the current table to find which one gives the
-			// smallest error.
 			uint best_mod_err = threshold;
-			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
+			for (unsigned int mod_idx = 0; mod_idx < 4; mod_idx++) {
 				const Color color = candidate_color[mod_idx];
-				
 				uint mod_err = getColorError(src[i], color);
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
-					
-					if (mod_err == 0)
-						break;  // We cannot do any better than this.
+					if (mod_err == 0) break;  
 				}
 			}
-			
 			tbl_err += best_mod_err;
-			if (tbl_err > best_tbl_err)
-				break;  // We're already doing worse than the best table so skip.
+			if (tbl_err > best_tbl_err) break;  
 		}
-		
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
-			
-			if (tbl_err == 0)
-				break;  // We cannot do any better than this.
+			if (tbl_err == 0) break;  
 		}
 	}
-
 	WriteCodewordTable(block, sub_block_id, best_tbl_idx);
-
 	uint pix_data = 0;
-
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
-		
 		uint lsb = pix_idx & 0x1;
 		uint msb = pix_idx >> 1;
-		
-		// Obtain the texel number as specified in the standard.
 		int texel_num = idx_to_num_tab[i];
 		pix_data |= msb << (texel_num + 16);
 		pix_data |= lsb << (texel_num);
 	}
-
 	WritePixelData(block, pix_data);
-
 	return best_tbl_err;
 }
 
-/**
- * Tries to compress the block under the assumption that it's a single color
- * block. If it's not the function will bail out without writing anything to
- * the destination buffer.
- */
 bool tryCompressSolidBlock(__global uchar* dst,
 						   const Color* src,
 						   unsigned long* error)
@@ -443,69 +407,43 @@ bool tryCompressSolidBlock(__global uchar* dst,
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
-	
-	// Clear destination buffer so that we can "or" in the results.
-
-
 	for (unsigned int i = 0; i < 8; i++)
 		dst[i] = 0;
-
-	float src_color_float[3] = {(float)(src->channels.b),
-		(float)(src->channels.g),
-		(float)(src->channels.r)};
+	float src_color_float[3] = {(float)(src->channels.b), (float)(src->channels.g), (float)(src->channels.r)};
 	Color base = makeColor555(src_color_float);
-	
-
-
 	WriteDiff(dst, true);
 	WriteFlip(dst, false);
 	WriteColors555(dst, base, base);
-	
 	uchar best_tbl_idx = 0;
 	uchar best_mod_idx = 0;
 	uint best_mod_err = 0xFFFFFFFF; 
-	
-	// Try all codeword tables to find the one giving the best results for this
-	// block.
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
-		// Try all modifiers in the current table to find which one gives the
-		// smallest error.
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			const Color color = makeColor(base, lum);
-			
 			uint mod_err = getColorError(*src, color);
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
-				
-				if (mod_err == 0)
-					break;  // We cannot do any better than this.
+				if (mod_err == 0) break;  
 			}
 		}
-		
-		if (best_mod_err == 0)
-			break;
+		if (best_mod_err == 0) break;
 	}
-	
 	WriteCodewordTable(dst, 0, best_tbl_idx);
 	WriteCodewordTable(dst, 1, best_tbl_idx);
-	
 	uchar pix_idx = g_mod_to_pix[best_mod_idx];
 	uint lsb = pix_idx & 0x1;
 	uint msb = pix_idx >> 1;
-	
 	uint pix_data = 0;
 	for (unsigned int i = 0; i < 2; ++i) {
 		for (unsigned int j = 0; j < 8; ++j) {
-			// Obtain the texel number as specified in the standard.
 			int texel_num = g_idx_to_num[i][j];
 			pix_data |= msb << (texel_num + 16);
 			pix_data |= lsb << (texel_num);
 		}
 	}
-	
 	WritePixelData(dst, pix_data);
 	*error = 16 * best_mod_err;
 	return true;
@@ -520,29 +458,21 @@ void compressBlock(__global uchar* dst,
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return;
 	}
-	
 	const Color* sub_block_src[4] = {ver_src, ver_src + 8, hor_src, hor_src + 8};
-	
 	Color sub_block_avg[4];
 	bool use_differential[2] = {true, true};
-	
-	// Compute the average color for each sub block and determine if differential
-	// coding can be used.
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
 		Color avg_color_555_0 = makeColor555(avg_color_0);
-		
 		float avg_color_1[3];
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
-		
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
-			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -552,210 +482,147 @@ void compressBlock(__global uchar* dst,
 			}
 		}
 	}
-	
-	// Compute the error of each sub block before adjusting for luminance. These
-	// error values are later used for determining if we should flip the sub
-	// block or not.
 	uint sub_block_err[4] = {0};
 	for (unsigned int i = 0; i < 4; ++i) {
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
 	}
-	
-	bool flip =
-	sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
-	
-	// Clear destination buffer so that we can "or" in the results.
-
-
+	bool flip = sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
 	for (unsigned int i = 0; i < 8; i++)
 		dst[i] = 0;
-	
 	WriteDiff(dst, use_differential[!!flip]);
 	WriteFlip(dst, flip);
-	
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
-	
 	if (use_differential[!!flip]) {
-		WriteColors555(dst, sub_block_avg[sub_block_off_0],
-					   sub_block_avg[sub_block_off_1]);
+		WriteColors555(dst, sub_block_avg[sub_block_off_0], sub_block_avg[sub_block_off_1]);
 	} else {
-		WriteColors444(dst, sub_block_avg[sub_block_off_0],
-					   sub_block_avg[sub_block_off_1]);
+		WriteColors444(dst, sub_block_avg[sub_block_off_0], sub_block_avg[sub_block_off_1]);
 	}
-	
-	// Compute luminance for the first sub block.
-	computeLuminance(dst, sub_block_src[sub_block_off_0],
-								   sub_block_avg[sub_block_off_0], 0,
-								   g_idx_to_num[sub_block_off_0],
-								   threshold);
-	// Compute luminance for the second sub block.
-	computeLuminance(dst, sub_block_src[sub_block_off_1],
-								   sub_block_avg[sub_block_off_1], 1,
-								   g_idx_to_num[sub_block_off_1],
-								   threshold);
+	computeLuminance(dst, sub_block_src[sub_block_off_0], sub_block_avg[sub_block_off_0], 0, g_idx_to_num[sub_block_off_0], threshold);
+	computeLuminance(dst, sub_block_src[sub_block_off_1], sub_block_avg[sub_block_off_1], 1, g_idx_to_num[sub_block_off_1], threshold);
 }
 
-// Functia apelata pentru a fi realizata de kernel
 __kernel void compress(const __global uchar* src,
 						__global uchar* dst,
 						const int width,
 						const int height)
 {
-	// se iau x din impartirea width si y din impartirea height
 	int x = get_global_id(0);
 	int y = get_global_id(1);
-
-	// se calculeaza deplasamentul in src si dst conform
-	// deplasarii din cele 2 for-uri
 	int depl_src = y * width * 16 + x * 16;
 	int depl_dst = 8 * y * width / 4 + x * 8;
-
-	int i, j;
-
-	// definitia block-urilor si a row-urilor
 	Color ver_blocks[16];
 	Color hor_blocks[16];
 	Color row0[4], row1[4], row2[4], row3[4];
-
-	// copierea componentelor din sursa in row0 pornind din
-	// deplasament, camp cu camp, echivalent aici cu byte cu byte
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		row0[i].channels.b = *(src + depl_src + 4 * i);
 		row0[i].channels.g = *(src + depl_src + 4 * i + 1);
 		row0[i].channels.r = *(src + depl_src + 4 * i + 2);
 		row0[i].channels.a = *(src + depl_src + 4 * i + 3);
 	}
-
-	// copierea componentelor din sursa in row1 pornind de pe
-	// randul urmator, camp cu camp, echivalent aici cu byte cu byte
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		row1[i].channels.b = *(src + depl_src + 4 * width + 4 * i);
 		row1[i].channels.g = *(src + depl_src + 4 * width + 4 * i + 1);
 		row1[i].channels.r = *(src + depl_src + 4 * width + 4 * i + 2);
 		row1[i].channels.a = *(src + depl_src + 4 * width + 4 * i + 3);
 	}
-
-	// copierea componentelor din sursa in row2 pornind de pe
-	// randul urmator, camp cu camp, echivalent aici cu byte cu byte
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		row2[i].channels.b = *(src + depl_src + 8 * width + 4 * i);
 		row2[i].channels.g = *(src + depl_src + 8 * width + 4 * i + 1);
 		row2[i].channels.r = *(src + depl_src + 8 * width + 4 * i + 2);
 		row2[i].channels.a = *(src + depl_src + 8 * width + 4 * i + 3);
 	}
-
-	// copierea componentelor din sursa in row3 pornind de pe
-	// randul urmator, camp cu camp, echivalent aici cu byte cu byte
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		row3[i].channels.b = *(src + depl_src + 12 * width + 4 * i);
 		row3[i].channels.g = *(src + depl_src + 12 * width + 4 * i + 1);
 		row3[i].channels.r = *(src + depl_src + 12 * width + 4 * i + 2);
 		row3[i].channels.a = *(src + depl_src + 12 * width + 4 * i + 3);
 	}
-
-	// copierea din rows in blocks, conforma cu cea din sursa,
-	// tot camp cu camp
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (i < 2) {
-
-
 			ver_blocks[i].channels.b = row0[i].channels.b;
 			ver_blocks[i].channels.g = row0[i].channels.g;
 			ver_blocks[i].channels.r = row0[i].channels.r;
 			ver_blocks[i].channels.a = row0[i].channels.a;
-		}
-		else {
+		} else {
 			ver_blocks[i + 6].channels.b = row0[i].channels.b;
 			ver_blocks[i + 6].channels.g = row0[i].channels.g;
 			ver_blocks[i + 6].channels.r = row0[i].channels.r;
-
-
 			ver_blocks[i + 6].channels.a = row0[i].channels.a;
 		}
-
 		hor_blocks[i].channels.b = row0[i].channels.b;
 		hor_blocks[i].channels.g = row0[i].channels.g;
 		hor_blocks[i].channels.r = row0[i].channels.r;
 		hor_blocks[i].channels.a = row0[i].channels.a;
 	}
-
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (i < 2) {
 			ver_blocks[i + 2].channels.b = row1[i].channels.b;
 			ver_blocks[i + 2].channels.g = row1[i].channels.g;
 			ver_blocks[i + 2].channels.r = row1[i].channels.r;
 			ver_blocks[i + 2].channels.a = row1[i].channels.a;
-		}
-		else {
+		} else {
 			ver_blocks[i + 8].channels.b = row1[i].channels.b;
 			ver_blocks[i + 8].channels.g = row1[i].channels.g;
 			ver_blocks[i + 8].channels.r = row1[i].channels.r;
 			ver_blocks[i + 8].channels.a = row1[i].channels.a;
 		}
-
 		hor_blocks[i + 4].channels.b = row1[i].channels.b;
 		hor_blocks[i + 4].channels.g = row1[i].channels.g;
 		hor_blocks[i + 4].channels.r = row1[i].channels.r;
 		hor_blocks[i + 4].channels.a = row1[i].channels.a;
 	}
-
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (i < 2) {
 			ver_blocks[i + 4].channels.b = row2[i].channels.b;
 			ver_blocks[i + 4].channels.g = row2[i].channels.g;
 			ver_blocks[i + 4].channels.r = row2[i].channels.r;
 			ver_blocks[i + 4].channels.a = row2[i].channels.a;
-		}
-		else {
+		} else {
 			ver_blocks[i + 10].channels.b = row2[i].channels.b;
 			ver_blocks[i + 10].channels.g = row2[i].channels.g;
 			ver_blocks[i + 10].channels.r = row2[i].channels.r;
 			ver_blocks[i + 10].channels.a = row2[i].channels.a;
 		}
-
 		hor_blocks[i + 8].channels.b = row2[i].channels.b;
 		hor_blocks[i + 8].channels.g = row2[i].channels.g;
 		hor_blocks[i + 8].channels.r = row2[i].channels.r;
 		hor_blocks[i + 8].channels.a = row2[i].channels.a;
 	}
-
-	for (i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (i < 2) {
 			ver_blocks[i + 6].channels.b = row3[i].channels.b;
 			ver_blocks[i + 6].channels.g = row3[i].channels.g;
 			ver_blocks[i + 6].channels.r = row3[i].channels.r;
 			ver_blocks[i + 6].channels.a = row3[i].channels.a;
-		}
-		else {
+		} else {
 			ver_blocks[i + 12].channels.b = row3[i].channels.b;
 			ver_blocks[i + 12].channels.g = row3[i].channels.g;
 			ver_blocks[i + 12].channels.r = row3[i].channels.r;
 			ver_blocks[i + 12].channels.a = row3[i].channels.a;
 		}
-
 		hor_blocks[i + 12].channels.b = row3[i].channels.b;
 		hor_blocks[i + 12].channels.g = row3[i].channels.g;
 		hor_blocks[i + 12].channels.r = row3[i].channels.r;
 		hor_blocks[i + 12].channels.a = row3[i].channels.a;
 	}
-
-	// apelarea functiei compressBlock, cu block-ul din destinatie
-	// la care se adauga deplasamentul conform algoritmului,
-	// block-urile vertical si orizontal si valoarea maxima INT
 	compressBlock(dst + depl_dst, ver_blocks, hor_blocks, 0x7FFFFFFF);
 }
->>>> file: texture_compress_skl.cpp
+*/
+
+/**
+ * @file texture_compress_skl.cpp
+ * @brief Host-side orchestration for OpenCL texture compression tasks.
+ */
+
+/*
 #include "compress.hpp"
 #include "helper.hpp"
-
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <vector>
+#include <CL/cl.h>
 
 using namespace std;
 
@@ -765,137 +632,61 @@ TextureCompressor::TextureCompressor()
 	cl_uint device_num = 0;
 	cl_uint platform_num = 0;
 	cl_platform_id platform;
-
-	// selectia numarului de platforme si alocarea vectorului
 	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
 	platform_ids = new cl_platform_id[platform_num];
-	DIE(platform_ids == NULL, "alloc platform_list");
-
-	// popularea vectorului cu platforme
 	CL_ERR( clGetPlatformIDs(platform_num, platform_ids, NULL));
-
-	// iterarea prin platforme
 	for (int platf = 0; platf < platform_num; platf++) {
-		// selectia platformei cu indexul platf
 		platform = platform_ids[platf];
-
-		// selectia numarului de device-uri GPU din platforma
 		clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_num);
-
-		// daca exista macar un device GPU
 		if (device_num > 0) {
-			// alocarea vectorului de device-uri
 			device_ids = new cl_device_id[device_num];
-			DIE(device_ids == NULL, "alloc devices");
-
-			// popularea vectorului cu device-urile GPU din platforma
-			CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
-									   device_num, device_ids, NULL));
-
-			// selectia primului device existent
+			CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, device_num, device_ids, NULL));
 			for (int dev = 0; dev < device_num; dev++) {
 				device = device_ids[dev];
 				selected = 1;
 				break;
 			}
 		}
-
-		// daca s-a selectat un device, se iese din bucla
-		if (selected == 1)
-			break;
+		if (selected == 1) break;
 	}
 }
 
-TextureCompressor::~TextureCompressor()
-{
-	// eliberarea vectorilor
-
-
-	delete[] platform_ids;
-	delete[] device_ids;
-}
+TextureCompressor::~TextureCompressor() { delete[] platform_ids; delete[] device_ids; }
 	
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,
 									  int height)
 {
-	cl_mem src_in;
-	cl_mem dst_out;
+	cl_mem src_in, dst_out;
 	int ret;
 	string kernel_src;
-
-	// crearea contextului pe device-ul selectat
 	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
-	CL_ERR( ret );
-
-	// crearea cozii pentru contextul selectat si device
 	command_queue = clCreateCommandQueue(context, device, 0, &ret);
-	CL_ERR( ret );
-
-	// preluarea sursei kernel-ului
 	read_kernel("texture_compress_device.cl", kernel_src);
 	const char* kernel_c_str = kernel_src.c_str();
-
-	// crearea programului cu sursa kernel-ului
-	program = clCreateProgramWithSource(context, 1,
-				&kernel_c_str, NULL, &ret);
-	CL_ERR( ret );
-
-	// constructia programului
+	program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret);
 	ret = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
 	CL_COMPILE_ERR(ret, program, device);
-
-	// crearea kernel-ului propriu-zis, cu functia de apelat
 	kernel = clCreateKernel(program, "compress", &ret);
-	CL_ERR( ret );
-	
-	// crearea buffer-ului pentru sursa imaginii cu dimensiunea din compress.cpp
-	src_in = clCreateBuffer(context,  CL_MEM_READ_ONLY,
-				width * height * 4, NULL, NULL);
-	DIE(src_in == 0, "alloc src_in");
-	// crearea buffer-ului pentru imaginea prelucrata cu dimensiunea din compress.cpp
-	dst_out = clCreateBuffer(context,  CL_MEM_READ_WRITE,
-				width * height * 4 / 8, NULL, NULL);
-	DIE(dst_out == 0, "alloc dst_out");
-
-	// scrierea in buffer a imaginii-sursa,
-	ret = clEnqueueWriteBuffer(command_queue, src_in, CL_TRUE, 0,
-							   width * height * 4, src, 0, NULL, NULL);
-	CL_ERR(ret);
-	// scrierea in buffer-ul imaginii prelucrate din dst (0)
-	ret = clEnqueueWriteBuffer(command_queue, dst_out, CL_TRUE, 0,
-							   width * height * 4 / 8, dst, 0, NULL, NULL);
-	CL_ERR(ret);
-
-	// trimiterea argumentelor la functia "compress" din kernel
+	src_in = clCreateBuffer(context,  CL_MEM_READ_ONLY, width * height * 4, NULL, NULL);
+	dst_out = clCreateBuffer(context,  CL_MEM_READ_WRITE, width * height * 4 / 8, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, src_in, CL_TRUE, 0, width * height * 4, src, 0, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, dst_out, CL_TRUE, 0, width * height * 4 / 8, dst, 0, NULL, NULL);
 	CL_ERR(clSetKernelArg(kernel, 0, sizeof(cl_mem), &src_in));
 	CL_ERR(clSetKernelArg(kernel, 1, sizeof(cl_mem), &dst_out));
 	CL_ERR(clSetKernelArg(kernel, 2, sizeof(int), &width));
 	CL_ERR(clSetKernelArg(kernel, 3, sizeof(int), &height));
-
-	// setarea dimensiunilor imaginii, avand in vedere ca se prelucreaza
-	// blocuri de cate 16 pixeli deodata
 	size_t globalSize[2] = {(size_t)(width / 4), (size_t)(height / 4)};
-
-	// comanda de executie kernel-ului
-	CL_ERR(clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, 
-								globalSize, 0, 0, NULL, NULL));
-
-	// asteptarea executiei comenzii din coada
+	CL_ERR(clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, 0, 0, NULL, NULL));
 	clFinish(command_queue);
-
-	// citirea imaginii destinatie prelucrata in kernel
-	CL_ERR(clEnqueueReadBuffer(command_queue, dst_out, CL_TRUE, 0,
-						width * height * 4 / 8, dst, 0, NULL, NULL));
-
-	// eliberarea resurselor
+	CL_ERR(clEnqueueReadBuffer(command_queue, dst_out, CL_TRUE, 0, width * height * 4 / 8, dst, 0, NULL, NULL));
 	clReleaseMemObject(src_in);
 	clReleaseMemObject(dst_out);
 	clReleaseProgram(program);
 	clReleaseKernel(kernel);
 	clReleaseCommandQueue(command_queue);
 	clReleaseContext(context);
-
 	return 0;
 }
+*/

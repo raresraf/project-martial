@@ -1,3 +1,10 @@
+/**
+ * @raw/cdbae290-6d89-43c4-9f6a-5a10e3c55137/arch/arm64/kvm/vgic/vgic-init.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2015, 2016 ARM Ltd.
@@ -80,6 +87,10 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 	 * emulation. So check this here again. KVM_CREATE_DEVICE does
 	 * the proper checks already.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (type == KVM_DEV_TYPE_ARM_VGIC_V2 &&
 		!kvm_vgic_global_state.can_emulate_gicv2)
 		return -ENODEV;
@@ -99,6 +110,10 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 	 *    concurrent vCPU ioctls for vCPUs already visible to userspace.
 	 */
 	ret = -EBUSY;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm_trylock_all_vcpus(kvm))
 		return ret;
 
@@ -115,25 +130,45 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 	 * The whole combination of this guarantees that no vCPU can get into
 	 * KVM with a VGIC configuration inconsistent with the VM's VGIC.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm->created_vcpus != atomic_read(&kvm->online_vcpus))
 		goto out_unlock;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (irqchip_in_kernel(kvm)) {
 		ret = -EEXIST;
 		goto out_unlock;
 	}
 
 	kvm_for_each_vcpu(i, vcpu, kvm) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (vcpu_has_run_once(vcpu))
 			goto out_unlock;
 	}
 	ret = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (type == KVM_DEV_TYPE_ARM_VGIC_V2)
 		kvm->max_vcpus = VGIC_V2_MAX_CPUS;
 	else
 		kvm->max_vcpus = VGIC_V3_MAX_CPUS;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (atomic_read(&kvm->online_vcpus) > kvm->max_vcpus) {
 		ret = -E2BIG;
 		goto out_unlock;
@@ -141,10 +176,18 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 
 	kvm_for_each_vcpu(i, vcpu, kvm) {
 		ret = vgic_allocate_private_irqs_locked(vcpu, type);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			break;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		kvm_for_each_vcpu(i, vcpu, kvm) {
 			struct vgic_cpu *vgic_cpu = &vcpu->arch.vgic_cpu;
@@ -161,6 +204,10 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 
 	kvm->arch.vgic.vgic_dist_base = VGIC_ADDR_UNDEF;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (type == KVM_DEV_TYPE_ARM_VGIC_V2)
 		kvm->arch.vgic.vgic_cpu_base = VGIC_ADDR_UNDEF;
 	else
@@ -186,6 +233,10 @@ static int kvm_vgic_dist_init(struct kvm *kvm, unsigned int nr_spis)
 	int i;
 
 	dist->spis = kcalloc(nr_spis, sizeof(struct vgic_irq), GFP_KERNEL_ACCOUNT);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dist->spis)
 		return  -ENOMEM;
 
@@ -196,6 +247,10 @@ static int kvm_vgic_dist_init(struct kvm *kvm, unsigned int nr_spis)
 	 * If someone wants to inject an interrupt or does a MMIO access, we
 	 * require prior initialization in case of a virtual GICv3 or trigger
 	 * initialization when using a virtual GICv2.
+	 */
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	 */
 	for (i = 0; i < nr_spis; i++) {
 		struct vgic_irq *irq = &dist->spis[i];
@@ -238,6 +293,10 @@ int kvm_vgic_vcpu_nv_init(struct kvm_vcpu *vcpu)
 	 * a default PPI for the maintenance interrupt. It makes
 	 * things easier to reason about.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vcpu->kvm->arch.vgic.mi_intid == 0)
 		vcpu->kvm->arch.vgic.mi_intid = DEFAULT_MI_INTID;
 	ret = kvm_vgic_set_owner(vcpu, vcpu->kvm->arch.vgic.mi_intid, vcpu);
@@ -252,6 +311,10 @@ static int vgic_allocate_private_irqs_locked(struct kvm_vcpu *vcpu, u32 type)
 
 	lockdep_assert_held(&vcpu->kvm->arch.config_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vgic_cpu->private_irqs)
 		return 0;
 
@@ -259,12 +322,20 @@ static int vgic_allocate_private_irqs_locked(struct kvm_vcpu *vcpu, u32 type)
 					 sizeof(struct vgic_irq),
 					 GFP_KERNEL_ACCOUNT);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!vgic_cpu->private_irqs)
 		return -ENOMEM;
 
 	/*
 	 * Enable and configure all SGIs to be edge-triggered and
 	 * configure all PPIs as level-triggered.
+	 */
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	 */
 	for (i = 0; i < VGIC_NR_PRIVATE_IRQS; i++) {
 		struct vgic_irq *irq = &vgic_cpu->private_irqs[i];
@@ -275,6 +346,10 @@ static int vgic_allocate_private_irqs_locked(struct kvm_vcpu *vcpu, u32 type)
 		irq->vcpu = NULL;
 		irq->target_vcpu = vcpu;
 		kref_init(&irq->refcount);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (vgic_irq_is_sgi(i)) {
 			/* SGIs */
 			irq->enabled = 1;
@@ -331,16 +406,28 @@ int kvm_vgic_vcpu_init(struct kvm_vcpu *vcpu)
 	raw_spin_lock_init(&vgic_cpu->ap_list_lock);
 	atomic_set(&vgic_cpu->vgic_v3.its_vpe.vlpi_count, 0);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!irqchip_in_kernel(vcpu->kvm))
 		return 0;
 
 	ret = vgic_allocate_private_irqs(vcpu, dist->vgic_model);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
 	/*
 	 * If we are creating a VCPU with a GICv3 we must also register the
 	 * KVM io device for the redistributor that belongs to this VCPU.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (dist->vgic_model == KVM_DEV_TYPE_ARM_VGIC_V3) {
 		mutex_lock(&vcpu->kvm->slots_lock);
@@ -352,6 +439,10 @@ int kvm_vgic_vcpu_init(struct kvm_vcpu *vcpu)
 
 static void kvm_vgic_vcpu_enable(struct kvm_vcpu *vcpu)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm_vgic_global_state.type == VGIC_V2)
 		vgic_v2_enable(vcpu);
 	else
@@ -376,18 +467,34 @@ int vgic_init(struct kvm *kvm)
 
 	lockdep_assert_held(&kvm->arch.config_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vgic_initialized(kvm))
 		return 0;
 
 	/* Are we also in the middle of creating a VCPU? */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm->created_vcpus != atomic_read(&kvm->online_vcpus))
 		return -EBUSY;
 
 	/* freeze the number of spis */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dist->nr_spis)
 		dist->nr_spis = VGIC_NR_IRQS_LEGACY - VGIC_NR_PRIVATE_IRQS;
 
 	ret = kvm_vgic_dist_init(kvm, dist->nr_spis);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto out;
 
@@ -395,8 +502,16 @@ int vgic_init(struct kvm *kvm)
 	 * Ensure vPEs are allocated if direct IRQ injection (e.g. vSGIs,
 	 * vLPIs) is supported.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vgic_supports_direct_irqs(kvm)) {
 		ret = vgic_v4_init(kvm);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			goto out;
 	}
@@ -405,6 +520,10 @@ int vgic_init(struct kvm *kvm)
 		kvm_vgic_vcpu_enable(vcpu);
 
 	ret = kvm_vgic_setup_default_irq_routing(kvm);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto out;
 
@@ -427,6 +546,10 @@ static void kvm_vgic_dist_destroy(struct kvm *kvm)
 	dist->nr_spis = 0;
 	dist->vgic_dist_base = VGIC_ADDR_UNDEF;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dist->vgic_model == KVM_DEV_TYPE_ARM_VGIC_V3) {
 		list_for_each_entry_safe(rdreg, next, &dist->rd_regions, list)
 			vgic_v3_free_redist_region(kvm, rdreg);
@@ -435,6 +558,10 @@ static void kvm_vgic_dist_destroy(struct kvm *kvm)
 		dist->vgic_cpu_base = VGIC_ADDR_UNDEF;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vgic_supports_direct_irqs(kvm))
 		vgic_v4_teardown(kvm);
 
@@ -455,6 +582,10 @@ static void __kvm_vgic_vcpu_destroy(struct kvm_vcpu *vcpu)
 	kfree(vgic_cpu->private_irqs);
 	vgic_cpu->private_irqs = NULL;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vcpu->kvm->arch.vgic.vgic_model == KVM_DEV_TYPE_ARM_VGIC_V3) {
 		/*
 		 * If this vCPU is being destroyed because of a failed creation
@@ -471,6 +602,10 @@ static void __kvm_vgic_vcpu_destroy(struct kvm_vcpu *vcpu)
 		 * kvm->arch.config_lock and do not get unregistered in
 		 * kvm_vgic_destroy(), meaning it is both safe and necessary to
 		 * do so here.
+		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
 		 */
 		if (kvm_get_vcpu_by_id(vcpu->kvm, vcpu->vcpu_id) != vcpu)
 			vgic_unregister_redist_iodev(vcpu);
@@ -505,6 +640,10 @@ void kvm_vgic_destroy(struct kvm *kvm)
 
 	mutex_unlock(&kvm->arch.config_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm->arch.vgic.vgic_model == KVM_DEV_TYPE_ARM_VGIC_V3)
 		kvm_for_each_vcpu(i, vcpu, kvm)
 			vgic_unregister_redist_iodev(vcpu);
@@ -522,12 +661,20 @@ int vgic_lazy_init(struct kvm *kvm)
 {
 	int ret = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(!vgic_initialized(kvm))) {
 		/*
 		 * We only provide the automatic initialization of the VGIC
 		 * for the legacy case of a GICv2. Any other type must
 		 * be explicitly initialized once setup with the respective
 		 * KVM device call.
+		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
 		 */
 		if (kvm->arch.vgic.vgic_model != KVM_DEV_TYPE_ARM_VGIC_V2)
 			return -EBUSY;
@@ -560,17 +707,33 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 	gpa_t dist_base;
 	int ret = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (likely(vgic_ready(kvm)))
 		return 0;
 
 	mutex_lock(&kvm->slots_lock);
 	mutex_lock(&kvm->arch.config_lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vgic_ready(kvm))
 		goto out;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!irqchip_in_kernel(kvm))
 		goto out;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dist->vgic_model == KVM_DEV_TYPE_ARM_VGIC_V2) {
 		ret = vgic_v2_map_resources(kvm);
 		type = VGIC_V2;
@@ -579,6 +742,10 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 		type = VGIC_V3;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto out;
 
@@ -586,6 +753,10 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 	mutex_unlock(&kvm->arch.config_lock);
 
 	ret = vgic_register_dist_iodev(kvm, dist_base, type);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		kvm_err("Unable to register VGIC dist MMIO regions\n");
 		goto out_slots;
@@ -603,6 +774,10 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 out:
 	mutex_unlock(&kvm->arch.config_lock);
 out_slots:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		kvm_vm_dead(kvm);
 
@@ -637,6 +812,10 @@ static irqreturn_t vgic_maintenance_handler(int irq, void *data)
 	 * Of course, NV throws a wrench in this plan, and needs
 	 * something special.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (vcpu && vgic_state_is_nested(vcpu))
 		vgic_v3_handle_nested_maint_irq(vcpu);
 
@@ -649,6 +828,10 @@ void __init vgic_set_kvm_info(const struct gic_kvm_info *info)
 {
 	BUG_ON(gic_kvm_info != NULL);
 	gic_kvm_info = kmalloc(sizeof(*info), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (gic_kvm_info)
 		*gic_kvm_info = *info;
 }
@@ -665,6 +848,10 @@ void kvm_vgic_init_cpu_hardware(void)
 	/*
 	 * We want to make sure the list registers start out clear so that we
 	 * only have the program the used registers.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (kvm_vgic_global_state.type == VGIC_V2)
 		vgic_v2_init_lrs();
@@ -683,11 +870,19 @@ int kvm_vgic_hyp_init(void)
 	bool has_mask;
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!gic_kvm_info)
 		return -ENODEV;
 
 	has_mask = !gic_kvm_info->no_maint_irq_mask;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (has_mask && !gic_kvm_info->maint_irq) {
 		kvm_err("No vgic maintenance irq\n");
 		return -ENXIO;
@@ -696,6 +891,10 @@ int kvm_vgic_hyp_init(void)
 	/*
 	 * If we get one of these oddball non-GICs, taint the kernel,
 	 * as we have no idea of how they *really* behave.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (gic_kvm_info->no_hw_deactivation) {
 		kvm_info("Non-architectural vgic, tainting kernel\n");
@@ -709,6 +908,10 @@ int kvm_vgic_hyp_init(void)
 		break;
 	case GIC_V3:
 		ret = vgic_v3_probe(gic_kvm_info);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!ret) {
 			static_branch_enable(&kvm_vgic_global_state.gicv3_cpuif);
 			kvm_info("GIC system register CPU interface enabled\n");
@@ -723,15 +926,27 @@ int kvm_vgic_hyp_init(void)
 	kfree(gic_kvm_info);
 	gic_kvm_info = NULL;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!has_mask && !kvm_vgic_global_state.maint_irq)
 		return 0;
 
 	ret = request_percpu_irq(kvm_vgic_global_state.maint_irq,
 				 vgic_maintenance_handler,
 				 "vgic", kvm_get_running_vcpus());
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		kvm_err("Cannot register interrupt %d\n",
 			kvm_vgic_global_state.maint_irq);

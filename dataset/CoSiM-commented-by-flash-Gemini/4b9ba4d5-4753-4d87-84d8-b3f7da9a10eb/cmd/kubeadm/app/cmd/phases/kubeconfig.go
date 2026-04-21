@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file kubeconfig.go
+ * @brief Command definitions for the kubeadm kubeconfig generation phase.
+ * 
+ * Functional Intent: Manages the generation of KubeConfig files required for 
+ * cluster components (Admin, Kubelet, Controller Manager, Scheduler) to 
+ * authenticate with the Kubernetes API server. It provides a modular CLI 
+ * for bootstrapping initial credentials, supporting both certificate-based 
+ * and token-based authentication strategies for system and additional users.
+ * 
+ * Domain: Production Systems, Security, Cluster Identity (Kubernetes).
+ */
+
 package phases
 
 import (
@@ -29,7 +42,9 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 )
 
-// NewCmdKubeConfig return main command for kubeconfig phase
+/**
+ * NewCmdKubeConfig - Main entry point for the 'kubeconfig' phase command group.
+ */
 func NewCmdKubeConfig(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kubeconfig",
@@ -37,15 +52,23 @@ func NewCmdKubeConfig(out io.Writer) *cobra.Command {
 		RunE:  subCmdRunE("kubeconfig"),
 	}
 
+	// Logic: Hooks up subcommands for individual and batch configuration generation.
 	cmd.AddCommand(getKubeConfigSubCommands(out, kubeadmconstants.KubernetesDir)...)
 	return cmd
 }
 
-// getKubeConfigSubCommands returns sub commands for kubeconfig phase
+/**
+ * getKubeConfigSubCommands - Factory for generating component-specific credential subcommands.
+ * 
+ * Algorithm: Property-driven command construction.
+ * Logic: Maps component roles (admin, kubelet, etc.) to their respective 
+ * configuration implementation functions, handling specific flag requirements 
+ * for node identities and user names.
+ */
 func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 
 	cfg := &kubeadmapiext.MasterConfiguration{}
-	// Default values for the cobra help text
+	// Pre-condition: Set default configuration for schema validation and help-text parity.
 	api.Scheme.Default(cfg)
 
 	var cfgPath, token, clientName string
@@ -89,35 +112,38 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 					return fmt.Errorf("missing required argument client-name")
 				}
 
-				// if the kubeconfig file for an additional user has to use a token, use it
+				// Logic: Polymorphic credential generation (Token vs Cert).
 				if token != "" {
 					return kubeconfigphase.WriteKubeConfigWithToken(out, cfg, clientName, token)
 				}
 
-				// Otherwise, write a kubeconfig file with a generate client cert
 				return kubeconfigphase.WriteKubeConfigWithClientCert(out, cfg, clientName)
 			},
 		},
 	}
 
 	for _, properties := range subCmdProperties {
-		// Creates the UX Command
+		// Logic: Initialization of the Cobra UX command.
 		cmd := &cobra.Command{
 			Use:   properties.use,
 			Short: properties.short,
 			Run:   runCmdPhase(properties.cmdFunc, &outDir, &cfgPath, cfg),
 		}
 
-		// Add flags to the command
+		// Block Logic: Standard flag bindings.
 		if properties.use != "user" {
 			cmd.Flags().StringVar(&cfgPath, "config", cfgPath, "Path to kubeadm config file (WARNING: Usage of a configuration file is experimental)")
 		}
 		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, "The path where to save and store the certificates")
 		cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address the API Server will advertise it's listening on. 0.0.0.0 means the default network interface's address.")
 		cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "Port for the API Server to bind to")
+		
+		// Block Logic: Identity flags.
 		if properties.use == "all" || properties.use == "kubelet" {
 			cmd.Flags().StringVar(&cfg.NodeName, "node-name", cfg.NodeName, `Specify the node name`)
 		}
+		
+		// Block Logic: User-specific authentication flags.
 		if properties.use == "user" {
 			cmd.Flags().StringVar(&token, "token", token, "The path to the directory where the certificates are.")
 			cmd.Flags().StringVar(&clientName, "client-name", clientName, "The name of the client for which the KubeConfig file will be generated.")

@@ -1,4 +1,16 @@
+/**
+ * @6e3a7cff-3837-4dfc-8e7e-81c1f686a268/gpu_kernel.cl
+ * @brief GPU-accelerated texture compression implementation using OpenCL.
+ * Functional Utility: Implements a block-based image compression kernel (ETC/BC style) 
+ * with a host-side C++ interface. Performs massively parallel tile-wise error 
+ * minimization to find optimal low-bitrate color representations.
+ * Domain: HPC Graphics, GPGPU Image Compression.
+ */
 
+/**
+ * @union UColor (Color)
+ * @brief Multi-view representation of a 32-bit pixel in BGRA space.
+ */
 typedef union UColor {
   struct BgraColorType {
     uchar b;
@@ -10,6 +22,10 @@ typedef union UColor {
   uint bits;
 } Color;
 
+/**
+ * @constant g_codeword_tables
+ * @brief Predefined quantization tables for luminance modulation during compression.
+ */
 __attribute__ ((aligned (16))) __constant short g_codeword_tables[8][4] = {
   {-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -23,6 +39,10 @@ __attribute__ ((aligned (16))) __constant short g_codeword_tables[8][4] = {
 
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
+/**
+ * @constant g_idx_to_num
+ * @brief Block-to-texture coordinate mapping for sub-block partitioning.
+ */
 __constant uchar g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        
 	{8, 12, 9, 13, 10, 14, 11, 15},  
@@ -30,14 +50,20 @@ __constant uchar g_idx_to_num[4][8] = {
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 };
 
+/**
+ * Functional Utility: Safe numerical clamping for color channel arithmetic.
+ */
 int clamp_signed(int val, int min, int max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
 uint clamp_unsigned(uint val, uint min, uint max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * Functional Utility: Quantization primitives for lossy color encoding.
+ */
 uchar round_to_5_bits(float val) {
 	return (uchar) clamp_unsigned((uint) (val * 31.0f / 255.0f + 0.5f), 0, 31);
 }
@@ -46,6 +72,9 @@ uchar round_to_4_bits(float val) {
 	return (uchar) clamp_unsigned((uint) (val * 15.0f / 255.0f + 0.5f), 0, 15);
 }
 
+/**
+ * @brief Adjusts base color luminance based on precomputed codeword tables.
+ */
 Color makeColor(const Color *base, short lum) {
 	int b = (int) (base->channels.b) + lum;
 	int g = (int) (base->channels.g) + lum;
@@ -57,6 +86,9 @@ Color makeColor(const Color *base, short lum) {
 	return color;
 }
 
+/**
+ * @brief Computes squared Euclidean distance (L2 norm) between two colors.
+ */
 uint getColorError(const Color *u, const Color *v) {
 	int delta_b = (int) (u->channels.b) - v->channels.b;
 	int delta_g = (int) (u->channels.g) - v->channels.g;
@@ -64,6 +96,9 @@ uint getColorError(const Color *u, const Color *v) {
 	return delta_b * delta_b + delta_g * delta_g + delta_r * delta_r;
 }
 
+/**
+ * @brief Serializes uncompressed 444 colors into the target block buffer.
+ */
 void WriteColors444(__global uchar *block,
 						   const Color *color0,
 						   const Color *color1) {
@@ -73,6 +108,9 @@ void WriteColors444(__global uchar *block,
 	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
 }
 
+/**
+ * @brief Serializes 555 colors using differential offset encoding in header.
+ */
 void WriteColors555(__global uchar *block,
 						   const Color *color0,
 						   const Color *color1) {
@@ -127,6 +165,9 @@ void WriteDiff(__global uchar *block, int diff) {
 	block[3] |= ((uchar) diff) << 1;
 }
 
+/**
+ * @brief Transfers 4x4 texels from source global memory to private registers.
+ */
 void ExtractBlock(__global uchar *dst, const uchar *src, int width) {
   int i, j;
 
@@ -163,6 +204,9 @@ Color makeColor555(const float *bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Computes centroid color for an image tile.
+ */
 void getAverageColor(const Color *src, float *avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -182,6 +226,10 @@ void getAverageColor(const Color *src, float *avg_color)
 	avg_color[2] = (float) sum_r * kInv8;
 }
 
+/**
+ * @brief Identifies the best-fit luminance modulation table.
+ * Algorithm: Minimizes Mean Squared Error over the discrete modulation space.
+ */
 unsigned long computeLuminance(__global uchar *block,
 						   const Color *src,
 						   const Color *base,
@@ -194,10 +242,6 @@ unsigned long computeLuminance(__global uchar *block,
 	uchar best_mod_idx[8][8];  
   unsigned int tbl_idx, mod_idx, i;
 	uint pix_data = 0;
-
-	
-	
-
 
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
@@ -261,6 +305,9 @@ unsigned long computeLuminance(__global uchar *block,
 	return best_tbl_err;
 }
 
+/**
+ * @brief Optimized fast-path for uniform color blocks.
+ */
 int tryCompressSolidBlock(__global uchar *dst,
 						   const Color *src,
 						   unsigned long *error)
@@ -289,10 +336,6 @@ int tryCompressSolidBlock(__global uchar *dst,
 	uchar best_tbl_idx = 0;
 	uchar best_mod_idx = 0;
 	uint best_mod_err = 0x7FFFFFFF; 
-	
-	
-	
-
 
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
@@ -340,6 +383,11 @@ int tryCompressSolidBlock(__global uchar *dst,
 	return true;
 }
 
+/**
+ * @brief Core block-wise compression engine.
+ * Logic: Decides between partitioning modes and color quantization levels to 
+ * minimize local reconstruction error.
+ */
 unsigned long compressBlock(__global uchar *dst,
 												   const Color *ver_src,
 												   const Color *hor_src,
@@ -374,7 +422,7 @@ unsigned long compressBlock(__global uchar *dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -384,9 +432,6 @@ unsigned long compressBlock(__global uchar *dst,
 			}
 		}
 	}
-	
-	
-	
 	
 
 
@@ -442,6 +487,12 @@ void my_memcpy(uchar *dst, __global uchar *src, int size)
     dst[i] = src[i];
 }
 
+/**
+ * @kernel gpuCompressProcess
+ * @brief Top-level OpenCL kernel for parallel image compression.
+ * Memory Strategy: Distributes 4x4 image tiles across global work items. Handles 
+ * image boundary padding via coordinate aliasing.
+ */
 __kernel void gpuCompressProcess(__global uchar *src,
                                 __global uchar *dst,
                                 int width, int height,
@@ -509,6 +560,12 @@ __kernel void gpuCompressProcess(__global uchar *src,
 
 using namespace std;
 
+/**
+ * @class TextureCompressor
+ * @brief C++ host orchestrator for the OpenCL compression task.
+ * Functional Utility: Manages resource allocation, kernel compilation, and 
+ * data marshaling between host and GPU.
+ */
 TextureCompressor::TextureCompressor()
 {
   cl_uint num_platforms;
@@ -535,6 +592,11 @@ TextureCompressor::~TextureCompressor()
   clReleaseContext(context);
 }
 
+/**
+ * @brief Performs image-wide compression.
+ * Logic: Maps the input buffer to GPU memory, executes the tile kernel, and 
+ * retrieves the compressed bitstream and aggregate error.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,

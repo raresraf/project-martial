@@ -1,3 +1,12 @@
+/**
+ * @file gpu_kernel.cl
+ * @brief High-performance ETC1 Texture Compression suite.
+ * 
+ * This file contains a multi-module implementation of the Ericsson Texture 
+ * Compression (ETC1) algorithm, optimized for GPGPU execution via OpenCL.
+ * It includes the kernel routines, hardware management helpers, and the 
+ * host-side orchestration logic.
+ */
 
 #define uint8_t unsigned char
 #define int16_t short
@@ -5,6 +14,10 @@
 #define INT32_MAX        2147483647
 #define UINT32_MAX       0xffffffff
 
+/**
+ * @union Color
+ * @brief Semantic color container for 32-bit RGBA texels.
+ */
 typedef union Color_u {
     struct BgraColorType {
         uint8_t b;
@@ -16,6 +29,9 @@ typedef union Color_u {
     uint32_t bits;
 } Color;
 
+/**
+ * @brief Minimalist memory copy for kernel-local operations.
+ */
 void myMemCpy(char *dest, char *src, size_t n)
 {
     
@@ -24,6 +40,9 @@ void myMemCpy(char *dest, char *src, size_t n)
         dest[i] = src[i];
 }
 
+/**
+ * @brief Minimalist memory set for kernel-local operations.
+ */
 void myMemSet(char *dest, char c, size_t n)
 {
     
@@ -32,16 +51,24 @@ void myMemSet(char *dest, char c, size_t n)
         dest[i] = c;
 }
 
+/**
+ * @brief Quantizes a color component to 5 bits for ETC1 encoding.
+ */
 uint8_t round_to_5_bits(float val) {
     return clamp(val * 31.0f / 255.0f + 0.5f, 0.f, 31.f);
 }
 
+/**
+ * @brief Quantizes a color component to 4 bits for ETC1 encoding.
+ */
 uint8_t round_to_4_bits(float val) {
     return clamp(val * 15.0f / 255.0f + 0.5f, 0.f, 15.f);
 }
 
 
-
+/**
+ * @brief ETC1 luminance modulation tables.
+ */
 __constant int16_t g_codeword_tables[8][4] = {
     { -8, -2, 2, 8 },
 { -17, -5, 5, 17 },
@@ -54,29 +81,15 @@ __constant int16_t g_codeword_tables[8][4] = {
 };
 
 
-
+/**
+ * @brief Maps internal modifier indices to ETC1 pixel indices.
+ */
 __constant uint8_t g_mod_to_pix[4] = { 3, 2, 0, 1 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * @brief Mapping from sub-block local indices to global block texel indices.
+ * [PartitionMode][SubBlockIndex]
+ */
 __constant uint8_t g_idx_to_num[4][8] = {
     { 0, 4, 1, 5, 2, 6, 3, 7 },        
     { 8, 12, 9, 13, 10, 14, 11, 15 },  
@@ -84,7 +97,9 @@ __constant uint8_t g_idx_to_num[4][8] = {
     { 2, 6, 10, 14, 3, 7, 11, 15 }     
 };
 
-
+/**
+ * @brief Generates a color by modulating a base color with a luminance offset.
+ */
 Color makeColor(const Color base, int16_t lum) {
     int b = (int)(base.channels.b) + lum;
     int g = (int)(base.channels.g) + lum;
@@ -97,7 +112,9 @@ Color makeColor(const Color base, int16_t lum) {
 }
 
 
-
+/**
+ * @brief Calculates color error, optionally using a perception-weighted metric.
+ */
 uint32_t getColorError(const Color u, const Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
     float delta_b = (float)(u.channels.b) - v.channels.b;
@@ -116,6 +133,9 @@ uint32_t getColorError(const Color u, const Color v) {
 #endif
 }
 
+/**
+ * @brief Writes 4-bit per channel colors for 'Individual' mode.
+ */
 void WriteColors444( uint8_t* block,
     const Color color0,
     const Color color1) {
@@ -127,6 +147,9 @@ void WriteColors444( uint8_t* block,
     block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
+/**
+ * @brief Writes 5-bit base color and 3-bit delta for 'Differential' mode.
+ */
 void WriteColors555(uint8_t* block,
     const Color color0,
     const Color color1) {
@@ -157,6 +180,9 @@ void WriteColors555(uint8_t* block,
     block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Encodes the luminance codeword table index.
+ */
 void WriteCodewordTable(uint8_t* block,
     uint8_t sub_block_id,
     uint8_t table) {
@@ -166,6 +192,9 @@ void WriteCodewordTable(uint8_t* block,
     block[3] |= table << shift;
 }
 
+/**
+ * @brief Serializes the 2-bit pixel indices into the block.
+ */
 void WritePixelData(uint8_t* block, uint32_t pixel_data) {
     block[4] |= pixel_data >> 24;
     block[5] |= (pixel_data >> 16) & 0xff;
@@ -175,11 +204,17 @@ void WritePixelData(uint8_t* block, uint32_t pixel_data) {
     block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Sets the partitioning 'flip' bit.
+ */
 void WriteFlip(uint8_t* block, bool flip) {
     block[3] &= ~0x01;
     block[3] |= (uint8_t)(flip);
 }
 
+/**
+ * @brief Sets the 'diff' mode bit.
+ */
 void WriteDiff(uint8_t* block, bool diff) {
     block[3] &= ~0x02;
 
@@ -187,6 +222,9 @@ void WriteDiff(uint8_t* block, bool diff) {
     block[3] |= (uint8_t)(diff) << 1;
 }
 
+/**
+ * @brief Extracts a 4x4 texel block from linear source memory.
+ */
 void ExtractBlock(uint8_t* dst, const uint8_t* src, int width) {
     #pragma unroll
     for (int j = 0; j < 4; ++j) {
@@ -199,6 +237,9 @@ void ExtractBlock(uint8_t* dst, const uint8_t* src, int width) {
 
 
 
+/**
+ * @brief Quantizes a color to 444 format.
+ */
 Color makeColor444(const float* bgr) {
     uint8_t b4 = round_to_4_bits(bgr[0]);
     uint8_t g4 = round_to_4_bits(bgr[1]);
@@ -216,6 +257,9 @@ Color makeColor444(const float* bgr) {
 
 
 
+/**
+ * @brief Quantizes a color to 555 format.
+ */
 Color makeColor555(const float* bgr) {
     uint8_t b5 = round_to_5_bits(bgr[0]);
     uint8_t g5 = round_to_5_bits(bgr[1]);
@@ -229,6 +273,9 @@ Color makeColor555(const float* bgr) {
     return bgr555;
 }
 
+/**
+ * @brief Computes average color for an 8-texel sub-block.
+ */
 void getAverageColor(const Color* src, float* avg_color)
 {
     uint32_t sum_b = 0, sum_g = 0, sum_r = 0;
@@ -246,6 +293,9 @@ void getAverageColor(const Color* src, float* avg_color)
     avg_color[2] = (float)(sum_r) * kInv8;
 }
 
+/**
+ * @brief Optimization search for best luminance modifiers in a sub-block.
+ */
 unsigned long computeLuminance(uint8_t* block,
     const Color* src,
     const Color base,
@@ -329,6 +379,9 @@ unsigned long computeLuminance(uint8_t* block,
 }
 
 
+/**
+ * @brief Fast-path for compressing blocks with uniform color.
+ */
 bool tryCompressSolidBlock(uint8_t* dst,
     const Color* src,
     unsigned long* error)
@@ -411,6 +464,9 @@ bool tryCompressSolidBlock(uint8_t* dst,
     return true;
 }
 
+/**
+ * @brief Evaluates partition modes and encodes a 4x4 block.
+ */
 unsigned long compressBlock(char* dst,
     const Color* ver_src,
     const Color* hor_src,
@@ -444,7 +500,7 @@ unsigned long compressBlock(char* dst,
             int v = avg_color_555_1.components[light_idx] >> 3;
 
             int component_diff = v - u;
-            if (component_diff  3) {
+            if (component_diff < -4 || component_diff > 3) {
                 use_differential[i / 2] = false;
                 sub_block_avg[i] = makeColor444(avg_color_0);
                 sub_block_avg[j] = makeColor444(avg_color_1);
@@ -505,6 +561,9 @@ unsigned long compressBlock(char* dst,
     return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @brief OpenCL entry point for block-parallel compression.
+ */
 __kernel void gpu_compress(const __global unsigned char* src,
     __global unsigned char* dst)
 {
@@ -554,12 +613,19 @@ __kernel void gpu_compress(const __global unsigned char* src,
     for (int i = 0; i < 8; i++) {
         dst[dstOffset + i] = local_dst[i];
     }
-}>>>> file: helper.cpp
+}
+
+/* ============================================================================
+ * MODULE: helper.cpp
+ * ============================================================================ */
+>>>> file: helper.cpp
 #include "helper.hpp"
 
 using namespace std;
 
-
+/**
+ * @brief Validates OpenCL API return codes.
+ */
 int CL_ERR(int cl_ret)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -569,7 +635,9 @@ int CL_ERR(int cl_ret)
 	return 0;
 }
 
-
+/**
+ * @brief Validates OpenCL program build status and prints logs on failure.
+ */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device)
@@ -582,7 +650,9 @@ int CL_COMPILE_ERR(int cl_ret,
 	return 0;
 }
 
-
+/**
+ * @brief Loads OpenCL kernel source from disk.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -595,7 +665,9 @@ void read_kernel(string file_name, string &str_kernel)
 	str_kernel = str_stream.str();
 }
 
-
+/**
+ * @brief String conversion for OpenCL error codes.
+ */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
@@ -648,7 +720,9 @@ switch (err) {
   }
 }
 
-
+/**
+ * @brief Prints the OpenCL compilation log.
+ */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
 {
@@ -666,6 +740,11 @@ void cl_get_compiler_err_log(cl_program program,
 	build_log[ log_size ] = '\0';
 	cout << endl << build_log << endl;
 }
+
+/* ============================================================================
+ * MODULE: helper.hpp
+ * ============================================================================ */
+>>>> file: helper.hpp
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
@@ -698,6 +777,11 @@ do {                                                        \
 } while(0);
 
 #endif
+
+/* ============================================================================
+ * MODULE: compress.cpp
+ * ============================================================================ */
+>>>> file: compress.cpp
 #include "compress.hpp"
 #include "helper.hpp"
 
@@ -706,6 +790,9 @@ using namespace std;
 
 #define uint unsigned int
 
+/**
+ * @brief Ranks an OpenCL device based on its computational capacity.
+ */
 cl_uint evaluateDevice(cl_device_id device) {
     cl_uint score = 0;
     cl_uint value;
@@ -764,6 +851,9 @@ cl_uint evaluateDevice(cl_device_id device) {
     return value;
 }
 
+/**
+ * @brief Constructor: Finds the best GPU and initializes the OpenCL environment.
+ */
 TextureCompressor::TextureCompressor() {
     
     cl_uint platform_num = 0;
@@ -879,6 +969,9 @@ TextureCompressor::TextureCompressor() {
     CL_ERR(ret);
 }
 
+/**
+ * @brief Destructor: Releases OpenCL resources.
+ */
 TextureCompressor::~TextureCompressor() { 
     delete[] platform_ids;
     delete[] device_ids;
@@ -895,6 +988,9 @@ unsigned long TextureCompressor::compressBlock(uint8_t* dst,
     unsigned long threshold)
 {}
 
+/**
+ * @brief Full-image compression orchestrator.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
     uint8_t* dst,
     int width,
@@ -919,7 +1015,7 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
     CL_ERR(ret);
 
     
-    size_t global[2] = { width / 4, height / 4 };
+    size_t global[2] = { (size_t)(width / 4), (size_t)(height / 4) };
 
     ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL,
         global, NULL, 0, NULL, NULL);

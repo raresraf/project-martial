@@ -1,8 +1,31 @@
 
 #include "utils.h"
 
+/**
+ * @file solver_opt.c
+ * @brief Manually optimized matrix solver implementation.
+ * 
+ * Functional Intent: Computes the resulting matrix for the expression:
+ * Result = (A^T * A) + A * (B * B^T)
+ * where A is an upper triangular matrix.
+ * 
+ * Performance Optimization: Employs several manual C tuning techniques:
+ * 1. Explicit Transposition: Pre-computes A^T and B^T to convert strided 
+ *    column access into sequential row access, significantly improving 
+ *    spatial locality in the innermost loops.
+ * 2. Pointer Arithmetic: Uses direct pointer increments instead of array 
+ *    indexing to reduce address calculation overhead.
+ * 3. Register Caching: Keeps loop counters and frequently used pointers 
+ *    in CPU registers to minimize memory latency.
+ * 4. Triangular Optimization: Restricts dot-product ranges for matrix A.
+ * 
+ * Domain: HPC, Linear Algebra, Manual Performance Tuning.
+ */
 
-double* my_solver(int N, double *A, double* B) {
+/**
+ * my_solver - Optimized matrix solver with pre-transposition and pointer-based loops.
+ */
+double* my_solver(int N, double *A, double *B) {
 	double *C;
 	double *AtA, *BBt, *ABBt;
 	double *At, *Bt;
@@ -21,6 +44,11 @@ double* my_solver(int N, double *A, double* B) {
 		exit(EXIT_FAILURE);
 	}
 
+	/**
+	 * Block Logic: Pre-transposition phase.
+	 * Optimization: Reorders memory for A and B to enable cache-friendly sequential 
+	 * access in subsequent multiplication phases.
+	 */
 	for (i = 0; i < N; ++i) {
 		register double *At_col = At + i;
 		register double *Bt_col = Bt + i;
@@ -37,7 +65,11 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Compute AtA = A^T * A.
+	 * Optimization: Uses pre-computed At to enable sequential pointer traversal 
+	 * (pat++) for the first operand.
+	 */
 	register double *AtA_ptr = AtA;
 	for (i = 0; i < N; ++i) {
 		register double *orig_pat = At + i * N;
@@ -55,7 +87,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Compute BBt = B * B^T.
+	 * Optimization: Dual sequential access using pre-computed Bt.
+	 */
 	register double *BBt_ptr = BBt;
 	for (i = 0; i < N; ++i) {
 		register double *orig_pb = B + i * N;
@@ -73,7 +108,11 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Compute ABBt = A * BBt.
+	 * Optimization: Triangular pointer increments.
+	 * Logic: Starts k from i to skip zeroes in upper-triangular matrix A.
+	 */
 	register double *ABBt_ptr = ABBt;
 	for (i = 0; i < N; ++i) {
 		register double *orig_pa = A + i * N;
@@ -91,7 +130,9 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Final aggregation.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			*(C + i * N + j) = *(ABBt + i * N + j) + *(AtA + i * N + j);

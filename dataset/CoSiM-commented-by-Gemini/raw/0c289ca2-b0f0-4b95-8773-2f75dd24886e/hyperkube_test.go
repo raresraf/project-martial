@@ -1,3 +1,5 @@
+// Package component hyperkube_test.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2014 The Kubernetes Authors All rights reserved.
 
@@ -33,6 +35,7 @@ type result struct {
 	output string
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func testServer(n string) *Server {
 	return &Server{
 		SimpleUsage: n,
@@ -43,6 +46,7 @@ func testServer(n string) *Server {
 		},
 	}
 }
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func testServerError(n string) *Server {
 	return &Server{
 		SimpleUsage: n,
@@ -54,6 +58,7 @@ func testServerError(n string) *Server {
 	}
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func runFull(t *testing.T, args string) *result {
 	buf := new(bytes.Buffer)
 	hk := HyperKube{
@@ -77,29 +82,34 @@ func runFull(t *testing.T, args string) *result {
 	return r
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestRun(t *testing.T) {
 	x := runFull(t, "hyperkube test1")
 	assert.Contains(t, x.output, "test1 Run")
 	assert.NoError(t, x.err)
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestLinkRun(t *testing.T) {
 	x := runFull(t, "test1")
 	assert.Contains(t, x.output, "test1 Run")
 	assert.NoError(t, x.err)
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestTopNoArgs(t *testing.T) {
 	x := runFull(t, "hyperkube")
 	assert.EqualError(t, x.err, "No server specified")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestBadServer(t *testing.T) {
 	x := runFull(t, "hyperkube bad-server")
 	assert.EqualError(t, x.err, "Server not found: bad-server")
 	assert.Contains(t, x.output, "Usage")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestTopHelp(t *testing.T) {
 	x := runFull(t, "hyperkube --help")
 	assert.NoError(t, x.err)
@@ -107,6 +117,7 @@ func TestTopHelp(t *testing.T) {
 	assert.Contains(t, x.output, "A simple server named test1")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestTopFlags(t *testing.T) {
 	x := runFull(t, "hyperkube --help test1")
 	assert.NoError(t, x.err)
@@ -115,6 +126,7 @@ func TestTopFlags(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestTopFlagsBad(t *testing.T) {
 	x := runFull(t, "hyperkube --bad-flag")
 	assert.EqualError(t, x.err, "unknown flag: --bad-flag")
@@ -122,6 +134,7 @@ func TestTopFlagsBad(t *testing.T) {
 	assert.Contains(t, x.output, "A simple server named test1")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestServerHelp(t *testing.T) {
 	x := runFull(t, "hyperkube test1 --help")
 	assert.NoError(t, x.err)
@@ -130,6 +143,7 @@ func TestServerHelp(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestServerFlagsBad(t *testing.T) {
 	x := runFull(t, "hyperkube test1 --bad-flag")
 	assert.EqualError(t, x.err, "unknown flag: --bad-flag")
@@ -138,6 +152,7 @@ func TestServerFlagsBad(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func TestServerError(t *testing.T) {
 	x := runFull(t, "hyperkube test-error")
 	assert.Contains(t, x.output, "test-error Run")

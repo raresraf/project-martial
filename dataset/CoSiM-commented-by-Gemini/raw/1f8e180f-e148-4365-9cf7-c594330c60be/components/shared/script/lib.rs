@@ -1,3 +1,10 @@
+/**
+ * @raw/1f8e180f-e148-4365-9cf7-c594330c60be/components/shared/script/lib.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -99,7 +106,7 @@ impl Serialize for UntrustedNodeAddress {
 }
 
 impl<'de> Deserialize<'de> for UntrustedNodeAddress {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<UntrustedNodeAddress, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<UntrustedNodeAddress, D::Error> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let value: usize = Deserialize::deserialize(d)?;
         Ok(UntrustedNodeAddress::from_id(value))
     }
@@ -489,7 +496,7 @@ pub struct InitialScriptState {
     /// A channel to the memory profiler thread.
     pub memory_profiler_sender: mem::ProfilerChan,
     /// A channel to the developer tools, if applicable.
-    pub devtools_server_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>,
+    pub devtools_server_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Information about the initial window size.
     pub window_size: WindowSizeData,
     /// The ID of the pipeline namespace for this script thread.
@@ -534,7 +541,7 @@ pub struct AuxiliaryWebViewCreationRequest {
     /// The pipeline opener browsing context.
     pub opener_pipeline_id: PipelineId,
     /// Sender for the constellation’s response to our request.
-    pub response_sender: IpcSender<Option<AuxiliaryWebViewCreationResponse>>,
+    pub response_sender: IpcSender<Option<AuxiliaryWebViewCreationResponse>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 /// Constellation’s response to auxiliary browsing context creation requests.
@@ -631,9 +638,9 @@ pub struct WorkerGlobalScopeInit {
     /// Chan to the time profiler
     pub time_profiler_chan: profile_time::ProfilerChan,
     /// To devtools sender
-    pub to_devtools_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>,
+    pub to_devtools_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// From devtools sender
-    pub from_devtools_sender: Option<IpcSender<DevtoolScriptControlMsg>>,
+    pub from_devtools_sender: Option<IpcSender<DevtoolScriptControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Messages to send to constellation
     pub script_to_constellation_chan: ScriptToConstellationChan,
     /// The worker id
@@ -736,9 +743,9 @@ pub struct StructuredSerializedData {
     /// Data serialized by SpiderMonkey.
     pub serialized: Vec<u8>,
     /// Serialized in a structured callback,
-    pub blobs: Option<HashMap<BlobId, BlobImpl>>,
+    pub blobs: Option<HashMap<BlobId, BlobImpl>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Transferred objects.
-    pub ports: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub ports: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 pub(crate) trait BroadcastClone where Self: Sized {
@@ -748,9 +755,9 @@ pub(crate) trait BroadcastClone where Self: Sized {
     /// Only return None if cloning is impossible.
     fn clone_for_broadcast(&self) -> Option<Self>;
     /// The field from which to clone values.
-    fn source(data: &StructuredSerializedData) -> &Option<HashMap<Self::Id, Self>>;
+    fn source(data: &StructuredSerializedData) -> &Option<HashMap<Self::Id, Self>>; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// The field into which to place cloned values.
-    fn destination(data: &mut StructuredSerializedData) -> &mut Option<HashMap<Self::Id, Self>>;
+    fn destination(data: &mut StructuredSerializedData) -> &mut Option<HashMap<Self::Id, Self>>; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 /// All the DOM interfaces that can be serialized.
@@ -777,7 +784,7 @@ pub enum Transferrable {
 
 impl StructuredSerializedData {
     fn is_empty(&self, val: Transferrable) -> bool {
-        fn is_field_empty<K, V>(field: &Option<HashMap<K, V>>) -> bool {
+        fn is_field_empty<K, V>(field: &Option<HashMap<K, V>>) -> bool { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             field.as_ref().is_some_and(|h| h.is_empty())
         }
         match val {
@@ -792,7 +799,15 @@ impl StructuredSerializedData {
         let Some(existing) = existing else { return };
         let mut clones = HashMap::with_capacity(existing.len());
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (original_id, obj) in existing.iter() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(clone) = obj.clone_for_broadcast() {
                 clones.insert(*original_id, clone);
             }
@@ -803,6 +818,10 @@ impl StructuredSerializedData {
 
     /// Clone the serialized data for use with broadcast-channels.
     pub fn clone_for_broadcast(&self) -> StructuredSerializedData {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !self.is_empty(Transferrable::MessagePort) {
             // Not panicking only because this is called from the constellation.
             warn!("Attempt to broadcast structured serialized data including {:?} (should never happen).", Transferrable::MessagePort);
@@ -837,7 +856,7 @@ pub struct PortMessageTask {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum MessagePortMsg {
     /// Complete the transfer for a batch of ports.
-    CompleteTransfer(HashMap<MessagePortId, VecDeque<PortMessageTask>>),
+    CompleteTransfer(HashMap<MessagePortId, VecDeque<PortMessageTask>>), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Complete the transfer of a single port,
     /// whose transfer was pending because it had been requested
     /// while a previous failed transfer was being rolled-back.

@@ -5,6 +5,18 @@
  * 2.0.
  */
 
+/**
+ * @file GoogleVertexAiUnifiedStreamingProcessor.java
+ * @brief Streaming response processor for Google Vertex AI chat completions.
+ * 
+ * Architectural Intent: Translates Vertex AI's native Server-Sent Event (SSE) stream into the 
+ * Elasticsearch unified inference model. It acts as an adapter layer that normalizes 
+ * provider-specific JSON structures (like tool calls and usage metadata) into a standard format.
+ * 
+ * Design Pattern: Delegating Data Transformation. Decouples the low-level HTTP stream handling 
+ * from the high-level semantic result mapping.
+ */
+
 package org.elasticsearch.xpack.inference.services.googlevertexai;
 
 import org.apache.logging.log4j.LogManager;
@@ -37,6 +49,10 @@ import java.util.function.BiFunction;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.xpack.inference.external.response.XContentUtils.moveToFirstToken;
 
+/**
+ * @class GoogleVertexAiUnifiedStreamingProcessor
+ * @brief Logic for transforming a queue of SSE events into unified chat chunks.
+ */
 public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor<
     Deque<ServerSentEvent>,
     StreamingUnifiedChatCompletionResults.Results> {
@@ -69,6 +85,11 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
         this.errorParser = errorParser;
     }
 
+    /**
+     * @brief Processes the next batch of server-sent events.
+     * Logic: Iteratively parses each SSE raw data string and pushes normalized chunks downstream.
+     * Invariant: If the result set is empty, triggers an upstream request for more data.
+     */
     @Override
     protected void next(Deque<ServerSentEvent> events) throws Exception {
 
@@ -93,6 +114,9 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
         }
     }
 
+    /**
+     * @brief Parses a single JSON event into internal chunk objects.
+     */
     private Iterator<StreamingUnifiedChatCompletionResults.ChatCompletionChunk> parse(
         XContentParserConfiguration parserConfig,
         String event
@@ -106,6 +130,10 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
         }
     }
 
+    /**
+     * @class GoogleVertexAiChatCompletionChunkParser
+     * @brief High-level parser definition for the Vertex AI response structure.
+     */
     public static class GoogleVertexAiChatCompletionChunkParser {
         private static @Nullable StreamingUnifiedChatCompletionResults.ChatCompletionChunk.Usage usageMetadataToChunk(
             @Nullable UsageMetadata usage
@@ -120,6 +148,10 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
             );
         }
 
+        /**
+         * @brief Normalizes a Vertex AI 'Candidate' into a unified 'Choice'.
+         * Logic: Aggregates text parts and transforms function calls into tool call deltas.
+         */
         private static StreamingUnifiedChatCompletionResults.ChatCompletionChunk.Choice candidateToChoice(Candidate candidate) {
             StringBuilder contentTextBuilder = new StringBuilder();
             List<StreamingUnifiedChatCompletionResults.ChatCompletionChunk.Choice.Delta.ToolCall> toolCalls = new ArrayList<>();
@@ -130,8 +162,12 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
                 && candidate.content().parts() != null
                 && candidate.content().parts().isEmpty() == false;
 
+            /**
+             * Block Logic: Content part iteration.
+             * Invariant: Extracts either textual deltas or structured tool calls from the message parts.
+             */
             if (contentAndPartsAreNotEmpty) {
-                role = candidate.content().role(); // Role is at the content level
+                role = candidate.content().role(); 
                 for (Part part : candidate.content().parts()) {
                     if (part.text() != null) {
                         contentTextBuilder.append(part.text());
@@ -144,8 +180,8 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
                         );
                         toolCalls.add(
                             new StreamingUnifiedChatCompletionResults.ChatCompletionChunk.Choice.Delta.ToolCall(
-                                0, // No explicit ID from VertexAI so we use 0
-                                function.name(), // VertexAI does not provide an id for the function call so we use the name
+                                0, 
+                                function.name(), 
                                 function,
                                 FUNCTION_TYPE
                             )
@@ -261,7 +297,7 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
         }
     }
 
-    private record Part(@Nullable String text, @Nullable FunctionCall functionCall) {} // Modified
+    private record Part(@Nullable String text, @Nullable FunctionCall functionCall) {} 
 
     private static class PartParser {
         private static final ConstructingObjectParser<Part, Void> PARSER = new ConstructingObjectParser<>(
@@ -299,6 +335,7 @@ public class GoogleVertexAiUnifiedStreamingProcessor extends DelegatingProcessor
                     return new FunctionCall(name, null);
                 }
                 try {
+                    // Logic: Serializes function arguments back to JSON to satisfy unified processor requirements.
                     var builder = XContentFactory.jsonBuilder().map(argsMap);
                     var json = XContentHelper.convertToJson(BytesReference.bytes(builder), false, XContentType.JSON);
                     return new FunctionCall(name, json);

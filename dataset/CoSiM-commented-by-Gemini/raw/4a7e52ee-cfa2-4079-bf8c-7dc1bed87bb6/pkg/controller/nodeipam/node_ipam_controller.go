@@ -1,3 +1,7 @@
+// @raw/4a7e52ee-cfa2-4079-bf8c-7dc1bed87bb6/pkg/controller/nodeipam/node_ipam_controller.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -81,18 +85,28 @@ func NewNodeIpamController(
 	nodeCIDRMaskSizes []int,
 	allocatorType ipam.CIDRAllocatorType) (*Controller, error) {
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if kubeClient == nil {
 		klog.Fatalf("kubeClient is nil when starting Controller")
 	}
 
 	// Cloud CIDR allocator does not rely on clusterCIDR or nodeCIDRMaskSize for allocation.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if allocatorType != ipam.CloudAllocatorType {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if len(clusterCIDRs) == 0 {
 			klog.Fatal("Controller: Must specify --cluster-cidr if --allocate-node-cidrs is set")
 		}
 
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for idx, cidr := range clusterCIDRs {
 			mask := cidr.Mask
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if maskSize, _ := mask.Size(); maskSize > nodeCIDRMaskSizes[idx] {
 				klog.Fatal("Controller: Invalid --cluster-cidr, mask size of cluster CIDR must be less than or equal to --node-cidr-mask-size configured for CIDR family")
 			}
@@ -111,6 +125,8 @@ func NewNodeIpamController(
 	}
 
 	// TODO: Abstract this check into a generic controller manager should run method.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if ic.allocatorType == ipam.IPAMFromClusterAllocatorType || ic.allocatorType == ipam.IPAMFromCloudAllocatorType {
 		startLegacyIPAM(ic, nodeInformer, cloud, kubeClient, clusterCIDRs, serviceCIDR, nodeCIDRMaskSizes)
 	} else {
@@ -124,6 +140,8 @@ func NewNodeIpamController(
 		}
 
 		ic.cidrAllocator, err = ipam.New(kubeClient, cloud, nodeInformer, clusterCIDRInformer, ic.allocatorType, allocatorParams)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return nil, err
 		}
@@ -147,10 +165,14 @@ func (nc *Controller) Run(stopCh <-chan struct{}) {
 	klog.Infof("Starting ipam controller")
 	defer klog.Infof("Shutting down ipam controller")
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !cache.WaitForNamedCacheSync("node", stopCh, nc.nodeInformerSynced) {
 		return
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if nc.allocatorType != ipam.IPAMFromClusterAllocatorType && nc.allocatorType != ipam.IPAMFromCloudAllocatorType {
 		go nc.cidrAllocator.Run(stopCh)
 	}

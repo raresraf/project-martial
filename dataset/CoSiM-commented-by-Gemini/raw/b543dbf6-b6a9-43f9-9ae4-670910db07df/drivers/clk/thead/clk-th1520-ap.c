@@ -1,3 +1,10 @@
+/**
+ * @raw/b543dbf6-b6a9-43f9-9ae4-670910db07df/drivers/clk/thead/clk-th1520-ap.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2023 Jisheng Zhang <jszhang@kernel.org>
@@ -134,7 +141,7 @@ static u8 ccu_get_parent_helper(struct ccu_common *common,
 	u8 parent;
 
 	regmap_read(common->map, common->cfg0, &val);
-	parent = val >> mux->shift;
+	parent = val >> mux->shift; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	parent &= GENMASK(mux->width - 1, 0);
 
 	return parent;
@@ -145,12 +152,16 @@ static int ccu_set_parent_helper(struct ccu_common *common,
 				 u8 index)
 {
 	return regmap_update_bits(common->map, common->cfg0,
-			GENMASK(mux->width - 1, 0) << mux->shift,
-			index << mux->shift);
+			GENMASK(mux->width - 1, 0) << mux->shift, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			index << mux->shift); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static void ccu_disable_helper(struct ccu_common *common, u32 gate)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!gate)
 		return;
 	regmap_update_bits(common->map, common->cfg0,
@@ -162,6 +173,10 @@ static int ccu_enable_helper(struct ccu_common *common, u32 gate)
 	unsigned int val;
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!gate)
 		return 0;
 
@@ -174,11 +189,15 @@ static int ccu_is_enabled_helper(struct ccu_common *common, u32 gate)
 {
 	unsigned int val;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!gate)
 		return true;
 
 	regmap_read(common->map, common->cfg0, &val);
-	return val & gate;
+	return val & gate; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static unsigned long ccu_div_recalc_rate(struct clk_hw *hw,
@@ -189,7 +208,7 @@ static unsigned long ccu_div_recalc_rate(struct clk_hw *hw,
 	unsigned int val;
 
 	regmap_read(cd->common.map, cd->common.cfg0, &val);
-	val = val >> cd->div.shift;
+	val = val >> cd->div.shift; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	val &= GENMASK(cd->div.width - 1, 0);
 	rate = divider_recalc_rate(hw, parent_rate, val, NULL,
 				   cd->div.flags, cd->div.width);
@@ -245,7 +264,7 @@ static const struct clk_ops ccu_div_ops = {
 static unsigned long th1520_pll_vco_recalc_rate(struct clk_hw *hw,
 						unsigned long parent_rate)
 {
-	struct ccu_pll *pll = hw_to_ccu_pll(hw);
+	struct ccu_pll *pll = hw_to_ccu_pll(hw); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	unsigned long div, mul, frac;
 	unsigned int cfg0, cfg1;
 	u64 rate = parent_rate;
@@ -255,11 +274,15 @@ static unsigned long th1520_pll_vco_recalc_rate(struct clk_hw *hw,
 
 	mul = FIELD_GET(TH1520_PLL_FBDIV, cfg0);
 	div = FIELD_GET(TH1520_PLL_REFDIV, cfg0);
-	if (!(cfg1 & TH1520_PLL_DSMPD)) {
-		mul <<= TH1520_PLL_FRAC_BITS;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (!(cfg1 & TH1520_PLL_DSMPD)) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		mul <<= TH1520_PLL_FRAC_BITS; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		frac = FIELD_GET(TH1520_PLL_FRAC, cfg1);
 		mul += frac;
-		div <<= TH1520_PLL_FRAC_BITS;
+		div <<= TH1520_PLL_FRAC_BITS; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 	rate = parent_rate * mul;
 	rate = rate / div;
@@ -269,14 +292,18 @@ static unsigned long th1520_pll_vco_recalc_rate(struct clk_hw *hw,
 static unsigned long th1520_pll_postdiv_recalc_rate(struct clk_hw *hw,
 						    unsigned long parent_rate)
 {
-	struct ccu_pll *pll = hw_to_ccu_pll(hw);
+	struct ccu_pll *pll = hw_to_ccu_pll(hw); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	unsigned long div, rate = parent_rate;
 	unsigned int cfg0, cfg1;
 
 	regmap_read(pll->common.map, pll->common.cfg0, &cfg0);
 	regmap_read(pll->common.map, pll->common.cfg1, &cfg1);
 
-	if (cfg1 & TH1520_PLL_BYPASS)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (cfg1 & TH1520_PLL_BYPASS) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return rate;
 
 	div = FIELD_GET(TH1520_PLL_POSTDIV1, cfg0) *
@@ -539,7 +566,7 @@ static const struct clk_parent_data perisys_ahb_hclk_pd[] = {
 	{ .hw = &perisys_ahb_hclk.common.hw }
 };
 
-static const struct clk_hw *perisys_ahb_hclk_parent[] = {
+static const struct clk_hw *perisys_ahb_hclk_parent[] = { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	&perisys_ahb_hclk.common.hw
 };
 
@@ -1094,11 +1121,11 @@ static const struct th1520_plat_data th1520_vo_platdata = {
 	.nr_gate_clks = ARRAY_SIZE(th1520_vo_gate_clks),
 };
 
-static int th1520_clk_probe(struct platform_device *pdev)
+static int th1520_clk_probe(struct platform_device *pdev) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
-	const struct th1520_plat_data *plat_data;
+	const struct th1520_plat_data *plat_data; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct device *dev = &pdev->dev;
-	struct clk_hw_onecell_data *priv;
+	struct clk_hw_onecell_data *priv; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	struct regmap *map;
 	void __iomem *base;
@@ -1106,60 +1133,104 @@ static int th1520_clk_probe(struct platform_device *pdev)
 	int ret, i;
 
 	plat_data = device_get_match_data(&pdev->dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!plat_data)
 		return dev_err_probe(&pdev->dev, -ENODEV,
 				     "No device match data found\n");
 
 	priv = devm_kzalloc(dev, struct_size(priv, hws, plat_data->nr_clks), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!priv)
 		return -ENOMEM;
 
 	priv->num = plat_data->nr_clks;
 
 	base = devm_platform_ioremap_resource(pdev, 0);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
 	map = devm_regmap_init_mmio(dev, base, &th1520_clk_regmap_config);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < plat_data->nr_pll_clks; i++) {
 		struct ccu_pll *cp = hw_to_ccu_pll(&plat_data->th1520_pll_clks[i]->hw);
 
 		plat_data->th1520_pll_clks[i]->map = map;
 
 		ret = devm_clk_hw_register(dev, &plat_data->th1520_pll_clks[i]->hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 
 		priv->hws[cp->common.clkid] = &cp->common.hw;
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < plat_data->nr_div_clks; i++) {
 		struct ccu_div *cd = hw_to_ccu_div(&plat_data->th1520_div_clks[i]->hw);
 
 		plat_data->th1520_div_clks[i]->map = map;
 
 		ret = devm_clk_hw_register(dev, &plat_data->th1520_div_clks[i]->hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 
 		priv->hws[cd->common.clkid] = &cd->common.hw;
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < plat_data->nr_mux_clks; i++) {
 		struct ccu_mux *cm = plat_data->th1520_mux_clks[i];
 
 		cm->mux.reg = base + cm->reg;
 
 		ret = devm_clk_hw_register(dev, &cm->mux.hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 
 		priv->hws[cm->clkid] = &cm->mux.hw;
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < plat_data->nr_gate_clks; i++) {
 		struct ccu_gate *cg = hw_to_ccu_gate(&plat_data->th1520_gate_clks[i]->hw);
 
@@ -1171,29 +1242,53 @@ static int th1520_clk_probe(struct platform_device *pdev)
 							   cg->common.hw.init->flags,
 							   base + cg->common.cfg0,
 							   ffs(cg->enable) - 1, 0, NULL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (IS_ERR(hw))
 			return PTR_ERR(hw);
 
 		priv->hws[cg->common.clkid] = hw;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (plat_data == &th1520_ap_platdata) {
 		ret = devm_clk_hw_register(dev, &osc12m_clk.hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 		priv->hws[CLK_OSC12M] = &osc12m_clk.hw;
 
 		ret = devm_clk_hw_register(dev, &gmac_pll_clk_100m.hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 		priv->hws[CLK_PLL_GMAC_100M] = &gmac_pll_clk_100m.hw;
 
 		ret = devm_clk_hw_register(dev, &emmc_sdio_ref_clk.hw);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 	}
 
 	ret = devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, priv);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 

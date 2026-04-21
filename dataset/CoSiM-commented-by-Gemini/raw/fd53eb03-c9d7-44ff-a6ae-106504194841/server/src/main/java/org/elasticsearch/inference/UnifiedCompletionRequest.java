@@ -1,3 +1,10 @@
+/**
+ * @raw/fd53eb03-c9d7-44ff-a6ae-106504194841/server/src/main/java/org/elasticsearch/inference/UnifiedCompletionRequest.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -199,27 +206,55 @@ public record UnifiedCompletionRequest(
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(MESSAGES_FIELD, messages);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (stop != null && (stop.isEmpty() == false)) {
             builder.field(STOP_FIELD, stop);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (temperature != null) {
             builder.field(TEMPERATURE_FIELD, temperature);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (toolChoice != null) {
             toolChoice.toXContent(builder, params);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (tools != null && (tools.isEmpty() == false)) {
             builder.field(TOOL_FIELD, tools);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (topP != null) {
             builder.field(TOP_P_FIELD, topP);
         }
         // some providers only support the now-deprecated max_tokens, others have migrated to max_completion_tokens
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (maxCompletionTokens != null && params.param(MAX_TOKENS_PARAM) != null) {
             builder.field(params.param(MAX_TOKENS_PARAM), maxCompletionTokens);
         }
         // some implementations handle modelId differently, for example OpenAI has a default in the server settings and override it there
         // so we allow implementations to pass in the model id via the params
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (params.param(MODEL_ID_PARAM) != null) {
             builder.field(MODEL_FIELD, params.param(MODEL_ID_PARAM));
         }
@@ -251,6 +286,10 @@ public record UnifiedCompletionRequest(
 
         private static Content parseContent(XContentParser parser) throws IOException {
             var token = parser.currentToken();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (token == XContentParser.Token.START_ARRAY) {
                 var parsedContentObjects = XContentParserUtils.parseList(parser, (p) -> ContentObject.PARSER.apply(p, null));
                 return new ContentObjects(parsedContentObjects);
@@ -282,13 +321,25 @@ public record UnifiedCompletionRequest(
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             builder.startObject();
 
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (content != null) {
                 content.toXContent(builder, params);
             }
             builder.field(ROLE_FIELD, role);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (toolCallId != null) {
                 builder.field(TOOL_CALL_ID_FIELD, toolCallId);
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (toolCalls != null) {
                 builder.field(TOOL_CALLS_FIELD, toolCalls);
             }
@@ -453,6 +504,10 @@ public record UnifiedCompletionRequest(
 
     private static ToolChoice parseToolChoice(XContentParser parser) throws IOException {
         var token = parser.currentToken();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (token == XContentParser.Token.START_OBJECT) {
             return ToolChoiceObject.PARSER.apply(parser, null);
         } else if (token == XContentParser.Token.VALUE_STRING) {
@@ -625,6 +680,10 @@ public record UnifiedCompletionRequest(
                 builder.field(DESCRIPTION_FIELD, description);
                 builder.field(NAME_FIELD, name);
                 builder.field(PARAMETERS_FIELD, parameters);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (strict != null) {
                     builder.field(STRICT_FIELD, strict);
                 }

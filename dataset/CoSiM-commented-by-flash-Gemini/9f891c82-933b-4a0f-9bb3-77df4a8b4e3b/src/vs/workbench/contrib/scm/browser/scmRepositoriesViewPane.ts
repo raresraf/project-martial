@@ -3,6 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file scmRepositoriesViewPane.ts
+ * @brief View pane implementation for managing and displaying Source Control (SCM) repositories.
+ * 
+ * Functional Intent: Provides a hierarchical tree view of all active SCM repositories 
+ * in the workbench. It supports repository-level actions, context menus, and dynamic 
+ * resizing based on the number of visible providers. Leverages reactive observables 
+ * to synchronize the UI with underlying repository lifecycle events (add/remove).
+ * 
+ * Domain: Production Systems, IDE Development, Source Control Management, UI Framework.
+ */
+
 import './media/scm.css';
 import { localize } from '../../../../nls.js';
 import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
@@ -30,6 +42,10 @@ import { observableConfigValue } from '../../../../platform/observable/common/pl
 import { autorun, IObservable, observableFromEvent, observableSignalFromEvent } from '../../../../base/common/observable.js';
 import { Sequencer } from '../../../../base/common/async.js';
 
+/**
+ * @class ListDelegate
+ * @brief Manages layout and template mapping for repository list items.
+ */
 class ListDelegate implements IListVirtualDelegate<ISCMRepository> {
 
 	getHeight(): number {
@@ -41,6 +57,13 @@ class ListDelegate implements IListVirtualDelegate<ISCMRepository> {
 	}
 }
 
+/**
+ * @class RepositoryTreeDataSource
+ * @brief Hierarchical data provider for the repository tree.
+ * 
+ * Logic: Resolves repository parent-child relationships using provider IDs. 
+ * Allows the tree to display nested or grouped repositories based on the SCM provider topology.
+ */
 class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<ISCMViewService, ISCMRepository> {
 	constructor(@ISCMViewService private readonly scmViewService: ISCMViewService) {
 		super();
@@ -69,17 +92,30 @@ class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<IS
 	}
 }
 
+/**
+ * @class RepositoryTreeIdentityProvider
+ * @brief Ensures stable identity tracking for repository nodes across tree updates.
+ */
 class RepositoryTreeIdentityProvider implements IIdentityProvider<ISCMRepository> {
 	getId(element: ISCMRepository): string {
 		return element.provider.id;
 	}
 }
 
+/**
+ * @class SCMRepositoriesViewPane
+ * @brief Reactive UI pane for managing the collection of active SCM repositories.
+ * 
+ * Logic: Orchestrates the `WorkbenchCompressibleAsyncDataTree` and binds it to 
+ * global SCM state. Manages asynchronous tree operations via a `Sequencer` to 
+ * prevent race conditions during rapid state transitions.
+ */
 export class SCMRepositoriesViewPane extends ViewPane {
 
 	private tree!: WorkbenchCompressibleAsyncDataTree<ISCMViewService, ISCMRepository, any>;
 	private treeDataSource!: RepositoryTreeDataSource;
 	private treeIdentityProvider!: RepositoryTreeIdentityProvider;
+	// Synchronization: Ensures serial execution of tree updates to maintain UI consistency.
 	private readonly treeOperationSequencer = new Sequencer();
 
 	private readonly visibleCountObs: IObservable<number>;
@@ -103,6 +139,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 	) {
 		super({ ...options, titleMenuId: MenuId.SCMSourceControlTitle }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
+		// Reactive Settings: Binds UI visibility and badges to user configuration.
 		this.visibleCountObs = observableConfigValue('scm.repositories.visible', 10, this.configurationService);
 		this.providerCountBadgeObs = observableConfigValue<'hidden' | 'auto' | 'visible'>('scm.providerCountBadge', 'hidden', this.configurationService);
 	}
@@ -112,7 +149,8 @@ export class SCMRepositoriesViewPane extends ViewPane {
 
 		const treeContainer = append(container, $('.scm-view.scm-repositories-view'));
 
-		// scm.providerCountBadge setting
+		// Block Logic: Dynamic style adjustment based on provider count badge settings.
+		// Invariant: CSS classes are synchronized with the reactive config observable.
 		this._register(autorun(reader => {
 			const providerCountBadge = this.providerCountBadgeObs.read(reader);
 			treeContainer.classList.toggle('hide-provider-counts', providerCountBadge === 'hidden');
@@ -121,6 +159,10 @@ export class SCMRepositoriesViewPane extends ViewPane {
 
 		this.createTree(treeContainer);
 
+		/**
+		 * Invariant: Lifecycle-aware event binding.
+		 * Logic: Subscriptions are activated only when the body is visible to optimize performance.
+		 */
 		this.onDidChangeBodyVisibility(async visible => {
 			if (!visible) {
 				this.visibilityDisposables.clear();
@@ -131,13 +173,13 @@ export class SCMRepositoriesViewPane extends ViewPane {
 				// Initial rendering
 				await this.tree.setInput(this.scmViewService);
 
-				// scm.repositories.visible setting
+				// Block Logic: Reactive body sizing.
 				this.visibilityDisposables.add(autorun(reader => {
 					const visibleCount = this.visibleCountObs.read(reader);
 					this.updateBodySize(this.tree.contentHeight, visibleCount);
 				}));
 
-				// Update tree (add/remove repositories)
+				// Block Logic: Differential tree updates.
 				const addedRepositoryObs = observableFromEvent(
 					this, this.scmService.onDidAddRepository, e => e);
 
@@ -153,6 +195,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 						return;
 					}
 
+					// Atomic Update: Refreshes specific branch of the tree on repository change.
 					if (addedRepository) {
 						await this.updateRepository(addedRepository);
 					}
@@ -162,7 +205,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 					}
 				}));
 
-				// Update tree selection
+				// Block Logic: Selection synchronization.
 				const onDidChangeVisibleRepositoriesSignal = observableSignalFromEvent(
 					this, this.scmViewService.onDidChangeVisibleRepositories);
 
@@ -184,6 +227,9 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		this.tree.domFocus();
 	}
 
+	/**
+	 * @brief Component factory for the async tree widget.
+	 */
 	private createTree(container: HTMLElement): void {
 		this.treeIdentityProvider = new RepositoryTreeIdentityProvider();
 		this.treeDataSource = this.instantiationService.createInstance(RepositoryTreeDataSource);
@@ -207,6 +253,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 				identityProvider: this.treeIdentityProvider,
 				horizontalScrolling: false,
 				collapseByDefault: (e: unknown) => {
+					// Logic: Root-level repositories remain expanded for visibility.
 					if (isSCMRepository(e) && e.provider.parentId === undefined) {
 						return false;
 					}
@@ -228,12 +275,16 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		) as WorkbenchCompressibleAsyncDataTree<ISCMViewService, ISCMRepository, any>;
 		this._register(this.tree);
 
+		// Event Orchestration: Mapping widget signals to view-service operations.
 		this._register(this.tree.onDidChangeSelection(this.onTreeSelectionChange, this));
 		this._register(this.tree.onDidChangeFocus(this.onTreeDidChangeFocus, this));
 		this._register(this.tree.onContextMenu(this.onTreeContextMenu, this));
 		this._register(this.tree.onDidChangeContentHeight(this.onTreeContentHeightChange, this));
 	}
 
+	/**
+	 * @brief Dispatches context menu actions for a specific repository.
+	 */
 	private onTreeContextMenu(e: ITreeContextMenuEvent<ISCMRepository>): void {
 		if (!e.element) {
 			return;
@@ -277,10 +328,13 @@ export class SCMRepositoriesViewPane extends ViewPane {
 	private onTreeContentHeightChange(height: number): void {
 		this.updateBodySize(height);
 
-		// Refresh the selection
+		// Logic: Refresh selection state as vertical movement might shift node visibility.
 		this.treeOperationSequencer.queue(() => this.updateTreeSelection());
 	}
 
+	/**
+	 * @brief Triggers an asynchronous refresh of child nodes.
+	 */
 	private async updateChildren(element?: ISCMRepository): Promise<void> {
 		await this.treeOperationSequencer.queue(async () => {
 			if (element && this.tree.hasNode(element)) {
@@ -315,6 +369,9 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		await this.expand(parentRepository);
 	}
 
+	/**
+	 * @brief Dynamically adjusts the pane's viewport based on content density.
+	 */
 	private updateBodySize(contentHeight: number, visibleCount?: number): void {
 		if (this.orientation === Orientation.HORIZONTAL) {
 			return;
@@ -328,6 +385,13 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		this.maximumBodySize = visibleCount === 0 ? Number.POSITIVE_INFINITY : empty ? Number.POSITIVE_INFINITY : size;
 	}
 
+	/**
+	 * updateTreeSelection - Synchronizes widget selection with global view service state.
+	 * 
+	 * Algorithm: Set-based delta reconciliation.
+	 * Logic: Computes the symmetric difference between old and new selection states 
+	 * and applies minimal updates to the tree widget.
+	 */
 	private async updateTreeSelection(): Promise<void> {
 		const oldSelection = this.tree.getSelection();
 		const oldSet = new Set(oldSelection);

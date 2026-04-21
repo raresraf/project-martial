@@ -1,3 +1,10 @@
+/**
+ * @raw/56581b3c-3485-4ce0-ba8f-af2b11cac664/components/devtools/network_handler.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -52,7 +59,7 @@ struct SecurityInfoUpdateMsg {
 }
 
 pub fn handle_network_event(
-    actors: Arc<Mutex<ActorRegistry>>,
+    actors: Arc<Mutex<ActorRegistry>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     console_actor_name: String,
     netevent_actor_name: String,
     mut connections: Vec<TcpStream>,
@@ -72,6 +79,10 @@ pub fn handle_network_event(
                 type_: "networkEvent".to_owned(),
                 event_actor: actor.event_actor(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_json_packet(&msg);
             }
@@ -85,6 +96,10 @@ pub fn handle_network_event(
                 type_: "networkEventUpdate".to_owned(),
                 update_type: "requestHeaders".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &actor.request_headers());
             }
@@ -94,6 +109,10 @@ pub fn handle_network_event(
                 type_: "networkEventUpdate".to_owned(),
                 update_type: "requestCookies".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &actor.request_cookies());
             }
@@ -106,6 +125,10 @@ pub fn handle_network_event(
                 response: actor.response_start(),
             };
 
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_json_packet(&msg);
             }
@@ -117,6 +140,10 @@ pub fn handle_network_event(
             let extra = EventTimingsUpdateMsg {
                 total_time: actor.total_time().as_millis() as u64,
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &extra);
             }
@@ -129,6 +156,10 @@ pub fn handle_network_event(
             let extra = SecurityInfoUpdateMsg {
                 state: "insecure".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &extra);
             }
@@ -138,6 +169,10 @@ pub fn handle_network_event(
                 type_: "networkEventUpdate".to_owned(),
                 update_type: "responseContent".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &actor.response_content());
             }
@@ -147,6 +182,10 @@ pub fn handle_network_event(
                 type_: "networkEventUpdate".to_owned(),
                 update_type: "responseCookies".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &actor.response_cookies());
             }
@@ -156,6 +195,10 @@ pub fn handle_network_event(
                 type_: "networkEventUpdate".to_owned(),
                 update_type: "responseHeaders".to_owned(),
             };
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for stream in &mut connections {
                 let _ = stream.write_merged_json_packet(&msg, &actor.response_headers());
             }

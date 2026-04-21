@@ -1,3 +1,10 @@
+/**
+ * @raw/82b07fe8-8eb1-426a-960e-8a0c11ce8db8/components/webdriver_server/actions.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -143,6 +150,10 @@ impl Handler {
         browsing_context: BrowsingContextId,
     ) -> Result<(), ErrorStatus> {
         // Step 1. For each item tick actions in actions by tick
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for tick_actions in actions_by_tick.iter() {
             // Step 1.1. If browsing context is no longer open,
             // return error with error code no such window.
@@ -154,6 +165,10 @@ impl Handler {
 
             // FIXME: This is out of spec, but the test `perform_actions/invalid.py` requires
             // that duration more than `MAXIMUM_SAFE_INTEGER` is considered invalid.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if tick_duration > MAXIMUM_SAFE_INTEGER {
                 return Err(ErrorStatus::InvalidArgument);
             }
@@ -169,6 +184,10 @@ impl Handler {
             self.wait_for_user_agent_handling_complete()?;
             // At least tick duration milliseconds have passed.
             let elapsed = now.elapsed();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if elapsed.as_millis() < tick_duration as u128 {
                 let sleep_duration = tick_duration - elapsed.as_millis() as u64;
                 thread::sleep(Duration::from_millis(sleep_duration));
@@ -186,6 +205,10 @@ impl Handler {
         // Whenever a new event is generated, the message id is passed to it.
         //
         // Wait for num_pending_actions number of responses
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for _ in 0..self.num_pending_actions.get() {
             match self.webdriver_response_receiver.recv() {
                 Ok(response) => {
@@ -194,6 +217,10 @@ impl Handler {
                         .get()
                         .expect("Current id should be set before dispatch_actions_inner is called");
 
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if current_waiting_id != response.id {
                         error!("Dispatch actions completed with wrong id in response");
                         return Err(ErrorStatus::UnknownError);
@@ -219,6 +246,10 @@ impl Handler {
     ) -> Result<(), ErrorStatus> {
         // Step 1. For each action object in tick actions:
         // Step 1.1. Let input_id be the value of the id property of action object.
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (input_id, action) in tick_actions.iter() {
             // Step 6. Let subtype be action object's subtype.
             // Steps 7, 8. Try to run specific algorithm based on the action type.
@@ -335,10 +366,18 @@ impl Handler {
         // https://github.com/servo/servo/issues/37579#issuecomment-2990762713
         {
             let mut input_cancel_list = session.input_cancel_list.borrow_mut();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(pos) = input_cancel_list.iter().rposition(|(id, item)| {
                 id == source_id &&
                     matches!(item,
                         ActionItem::Key(KeyActionItem::Key(KeyAction::Up(KeyUpAction { value })))
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if *value == action.value )
             }) {
                 info!("dispatch_keyup_action: removing last matching keyup from input_cancel_list");
@@ -353,6 +392,10 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(keyboard_event) = key_input_state.dispatch_keyup(raw_key) {
             // Step 12
             self.increment_num_pending_actions();
@@ -373,6 +416,10 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if pointer_input_state.pressed.contains(&action.button) {
             return;
         }
@@ -401,6 +448,10 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !pointer_input_state.pressed.contains(&action.button) {
             return;
         }
@@ -411,6 +462,10 @@ impl Handler {
         // https://github.com/servo/servo/issues/37579#issuecomment-2990762713
         {
             let mut input_cancel_list = session.input_cancel_list.borrow_mut();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(pos) = input_cancel_list.iter().position(|(id, item)| {
                 id == source_id &&
                     matches!(item, ActionItem::Pointer(PointerActionItem::Pointer(PointerAction::Up(
@@ -511,6 +566,10 @@ impl Handler {
 
         // Step 8. If duration is greater than 0 and inside any implementation-defined bounds,
         // asynchronously wait for an implementation defined amount of time to pass.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if duration > 0 {
             thread::sleep(Duration::from_millis(POINTERMOVE_INTERVAL));
         }
@@ -586,6 +645,10 @@ impl Handler {
             // Step 7
             // Actually "last" should not be checked here based on spec.
             // However, we need to send the webdriver id at the final perform.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if x != current_x || y != current_y || last {
                 // Step 7.2
                 let msg_id = if last {
@@ -607,6 +670,10 @@ impl Handler {
             }
 
             // Step 8
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if last {
                 return;
             }
@@ -671,6 +738,10 @@ impl Handler {
 
         // Step 10. If duration is greater than 0 and inside any implementation-defined bounds,
         // asynchronously wait for an implementation defined amount of time to pass.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if duration > 0 {
             thread::sleep(Duration::from_millis(WHEELSCROLL_INTERVAL));
         }
@@ -736,6 +807,10 @@ impl Handler {
         // Step 5
         // Actually "last" should not be checked here based on spec.
         // However, we need to send the webdriver id at the final perform.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if delta_x != 0.0 || delta_y != 0.0 || last {
             // Perform implementation-specific action dispatch steps
             let msg_id = if last {
@@ -759,6 +834,10 @@ impl Handler {
         }
 
         // Step 6
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if last {
             return;
         }
@@ -792,6 +871,10 @@ impl Handler {
             Ok(response) => response,
             Err(WebDriverError { error, .. }) => return Err(error),
         };
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if x < 0.0 || x > viewport_size.width.into() || y < 0.0 || y > viewport_size.height.into() {
             Err(ErrorStatus::MoveTargetOutOfBounds)
         } else {
@@ -838,6 +921,10 @@ impl Handler {
         let mut actions_by_tick: ActionsByTick = Vec::new();
 
         // Step 4. For each value action sequence corresponding to an indexed property in actions
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for action_sequence in actions {
             // Store id before moving action_sequence
             let id = action_sequence.id.clone();
@@ -845,11 +932,19 @@ impl Handler {
             let source_actions = self.process_an_input_source_action_sequence(action_sequence);
 
             // Step 4.2.2. Ensure we have enough ticks to hold all actions
+            /**
+             * Block Logic: Condition check initialization for iterative traversal.
+             * Invariant: Condition remains true across iterations, ensuring execution state.
+             */
             while actions_by_tick.len() < source_actions.len() {
                 actions_by_tick.push(HashMap::new());
             }
 
             // Step 4.2.3.
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (tick_index, action_item) in source_actions.into_iter().enumerate() {
                 actions_by_tick[tick_index].insert(id.clone(), action_item);
             }

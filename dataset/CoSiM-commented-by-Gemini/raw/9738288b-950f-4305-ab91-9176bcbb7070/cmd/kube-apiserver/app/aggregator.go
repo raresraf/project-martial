@@ -1,3 +1,5 @@
+// Package component aggregator.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -52,6 +54,7 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane/controller/crdregistration"
 )
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func createAggregatorConfig(
 	kubeAPIServerConfig genericapiserver.Config,
 	commandOptions *options.ServerRunOptions,
@@ -69,6 +72,7 @@ func createAggregatorConfig(
 	// has its own customized OpenAPI handler.
 	genericConfig.SkipOpenAPIInstallation = true
 
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.StorageVersionAPI) &&
 		utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIServerIdentity) {
 		// Add StorageVersionPrecondition handler to aggregator-apiserver.
@@ -85,6 +89,7 @@ func createAggregatorConfig(
 		genericConfig.LoopbackClientConfig,
 		utilfeature.DefaultFeatureGate,
 		pluginInitializers...)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +102,13 @@ func createAggregatorConfig(
 	etcdOptions.StorageConfig.Codec = aggregatorscheme.Codecs.LegacyCodec(v1.SchemeGroupVersion, v1beta1.SchemeGroupVersion)
 	etcdOptions.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	etcdOptions.SkipHealthEndpoints = true // avoid double wiring of health checks
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err := etcdOptions.ApplyTo(&genericConfig); err != nil {
 		return nil, err
 	}
 
 	// override MergedResourceConfig with aggregator defaults and registry
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err := commandOptions.APIEnablement.ApplyTo(
 		&genericConfig,
 		aggregatorapiserver.DefaultAPIResourceConfigSource(),
@@ -129,14 +136,17 @@ func createAggregatorConfig(
 	return aggregatorConfig, nil
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget, apiExtensionInformers apiextensionsinformers.SharedInformerFactory) (*aggregatorapiserver.APIAggregator, error) {
 	aggregatorServer, err := aggregatorConfig.Complete().NewWithDelegate(delegateAPIServer)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
 
 	// create controllers for auto-registration
 	apiRegistrationClient, err := apiregistrationclient.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +162,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			// let the CRD controller process the initial set of CRDs before starting the autoregistration controller.
 			// this prevents the autoregistration controller's initial sync from deleting APIServices for CRDs that still exist.
 			// we only need to do this if CRDs are enabled on this server.  We can't use discovery because we are the source for discovery.
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 			if aggregatorConfig.GenericConfig.MergedResourceConfig.ResourceEnabled(apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")) {
 				crdRegistrationController.WaitForInitialSync()
 			}
@@ -159,6 +170,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		}()
 		return nil
 	})
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +182,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			aggregatorServer.APIRegistrationInformers.Apiregistration().V1().APIServices(),
 		),
 	)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +190,10 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	return aggregatorServer, nil
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func makeAPIService(gv schema.GroupVersion) *v1.APIService {
 	apiServicePriority, ok := apiVersionPriorities[gv]
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if !ok {
 		// if we aren't found, then we shouldn't register ourselves because it could result in a CRD group version
 		// being permanently stuck in the APIServices list.
@@ -198,10 +213,12 @@ func makeAPIService(gv schema.GroupVersion) *v1.APIService {
 
 // makeAPIServiceAvailableHealthCheck returns a healthz check that returns healthy
 // once all of the specified services have been observed to be available at least once.
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIService, apiServiceInformer informers.APIServiceInformer) healthz.HealthChecker {
 	// Track the auto-registered API services that have not been observed to be available yet
 	pendingServiceNamesLock := &sync.RWMutex{}
 	pendingServiceNames := sets.NewString()
+// Block Pre-Condition: Loop bounds established. Invariant: Iterates preserving internal consistency.
 	for _, service := range apiServices {
 		pendingServiceNames.Insert(service.Name)
 	}
@@ -210,9 +227,11 @@ func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIServic
 	handleAPIServiceChange := func(service *v1.APIService) {
 		pendingServiceNamesLock.Lock()
 		defer pendingServiceNamesLock.Unlock()
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if !pendingServiceNames.Has(service.Name) {
 			return
 		}
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if v1helper.IsAPIServiceConditionTrue(service, v1.Available) {
 			pendingServiceNames.Delete(service.Name)
 		}
@@ -228,6 +247,7 @@ func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIServic
 	return healthz.NamedCheck(name, func(r *http.Request) error {
 		pendingServiceNamesLock.RLock()
 		defer pendingServiceNamesLock.RUnlock()
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if pendingServiceNames.Len() > 0 {
 			return fmt.Errorf("missing APIService: %v", pendingServiceNames.List())
 		}
@@ -292,10 +312,13 @@ var apiVersionPriorities = map[schema.GroupVersion]priority{
 	// Version can be set to 9 (to have space around) for a new group.
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func apiServicesToRegister(delegateAPIServer genericapiserver.DelegationTarget, registration autoregister.AutoAPIServiceRegistration) []*v1.APIService {
 	apiServices := []*v1.APIService{}
 
+// Block Pre-Condition: Loop bounds established. Invariant: Iterates preserving internal consistency.
 	for _, curr := range delegateAPIServer.ListedPaths() {
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if curr == "/api/v1" {
 			apiService := makeAPIService(schema.GroupVersion{Group: "", Version: "v1"})
 			registration.AddAPIServiceToSyncOnStart(apiService)
@@ -303,16 +326,19 @@ func apiServicesToRegister(delegateAPIServer genericapiserver.DelegationTarget, 
 			continue
 		}
 
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if !strings.HasPrefix(curr, "/apis/") {
 			continue
 		}
 		// this comes back in a list that looks like /apis/rbac.authorization.k8s.io/v1alpha1
 		tokens := strings.Split(curr, "/")
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if len(tokens) != 4 {
 			continue
 		}
 
 		apiService := makeAPIService(schema.GroupVersion{Group: tokens[2], Version: tokens[3]})
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if apiService == nil {
 			continue
 		}

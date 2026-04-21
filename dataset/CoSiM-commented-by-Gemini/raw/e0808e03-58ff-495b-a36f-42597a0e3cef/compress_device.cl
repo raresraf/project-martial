@@ -1,32 +1,82 @@
+/**
+ * @file compress_device.cl
+ * @brief Ericsson Texture Compression (ETC1) implementation for OpenCL.
+ *
+ * This module provides a high-performance, GPGPU-accelerated implementation of 
+ * ETC1 texture compression. It consists of two main parts:
+ * 1. OpenCL Kernels: Low-level routines for block-based color quantization, 
+ *    luminance modulation, and bit-stream packing.
+ * 2. Host-Side API: C++ management code for device discovery, OpenCL context 
+ *    orchestration, and kernel lifecycle management.
+ *
+ * The algorithm evaluates both vertical and horizontal block partitions and 
+ * chooses the optimal bit-packing mode (Differential vs. Individual) to minimize 
+ * perceived color error.
+ */
 
+/**
+ * @union Color
+ * @brief Semantic representation of a 32-bit RGBA texel.
+ *
+ * Provides multiple views of the same memory: as a packed 32-bit integer,
+ * as an array of components, or as a structured BGRA color for convenient access.
+ */
 union Color {
 	struct BgraColorType {
-		uchar b;
-		uchar g;
-		uchar r;
-		uchar a;
+		uchar b; /**< Blue component */
+		uchar g; /**< Green component */
+		uchar r; /**< Red component */
+		uchar a; /**< Alpha component (often ignored in ETC1) */
 	} channels;
-	uchar components[4];
-	uint bits;
+	uchar components[4]; /**< Array access to color channels */
+	uint bits;           /**< Packed 32-bit representation for fast comparisons */
 };
 
+/**
+ * @brief Clamps an integer value to the uchar range.
+ * @param val The value to clamp.
+ * @param min Minimum bound.
+ * @param max Maximum bound.
+ * @return Clamped value as uchar.
+ */
 uchar wrapper_clamp(int val, uchar min, uchar max){
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * @brief Clamps a uchar value to a specified uchar range.
+ * @param val The value to clamp.
+ * @param min Minimum bound.
+ * @param max Maximum bound.
+ * @return Clamped value.
+ */
 uchar wrapper_clamp2(uchar val, uchar min, uchar max){
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
 
+/**
+ * @brief Quantizes a 8-bit color component to 5 bits.
+ * Used for ETC1 'Differential' and 'Individual' base color modes.
+ */
 inline uchar round_to_5_bits(float val) {
 	return wrapper_clamp2((uchar)(val * 31.0f / 255.0f + 0.5f), (uchar)0, (uchar)31);
 }
 
+/**
+ * @brief Quantizes a 8-bit color component to 4 bits.
+ * Used for ETC1 'Individual' mode when differential encoding is not applicable.
+ */
 inline uchar round_to_4_bits(float val) {
 	return wrapper_clamp2((uchar)(val * 15.0f / 255.0f + 0.5f),(uchar) 0,(uchar) 15);
 }
 
+/**
+ * @brief Generates a color by applying a luminance modifier to a base color.
+ * @param base The base reference color.
+ * @param lum The signed luminance offset from the codeword table.
+ * @return The resulting color clamped to [0, 255].
+ */
 inline union Color makeColor(union Color base, short lum) {
 	int b = (int)((int)(base.channels.b) + lum);
 	int g = (int)((int)(base.channels.g) + lum);
@@ -38,6 +88,10 @@ inline union Color makeColor(union Color base, short lum) {
 	return color;
 }
 
+/**
+ * @brief Serializes two 4-bit colors into the ETC block header.
+ * Used in 'Individual' mode (diff=0).
+ */
 inline void WriteColors444(__global uchar* block,
 						   union Color color0,
 						   union Color color1) {
@@ -48,19 +102,24 @@ inline void WriteColors444(__global uchar* block,
 }
 
 
+/**
+ * @brief Serializes a 5-bit base color and its 3-bit differential into the ETC block header.
+ * Used in 'Differential' mode (diff=1).
+ */
 inline void WriteColors555(__global uchar* block,
 						   union Color color0,
 						   union Color color1) {
 	
+	// Mapping for 3-bit signed integers in two's complement used by ETC1.
 	const uchar two_compl_trans_table[8] = {
-		4,  
-		5,  
-		6,  
-		7,  
-		0,  
-		1,  
-		2,  
-		3,  
+		4,  // -4
+		5,  // -3
+		6,  // -2
+		7,  // -1
+		0,  //  0
+		1,  //  1
+		2,  //  2
+		3,  //  3
 	};
 
 	short delta_r =	(short)((color1.channels.r >> 3) - (color0.channels.r >> 3));
@@ -73,6 +132,10 @@ inline void WriteColors555(__global uchar* block,
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Encodes the luminance table index for a specific sub-block.
+ * @param table The 3-bit index into the ETC1 codeword tables.
+ */
 inline void WriteCodewordTable(__global uchar* block,
 							   uchar sub_block_id,
 							   uchar table) {
@@ -83,6 +146,10 @@ inline void WriteCodewordTable(__global uchar* block,
 }
 
 
+/**
+ * @brief Packs the 2-bit pixel indices for the entire 4x4 block.
+ * The indices represent the chosen luminance modifier for each texel.
+ */
 inline void WritePixelData(__global uchar* block, uint pixel_data) {
 	block[4] |= pixel_data >> 24;
 	block[5] |= (pixel_data >> 16) & 0xff;
@@ -90,16 +157,28 @@ inline void WritePixelData(__global uchar* block, uint pixel_data) {
 	block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Sets the 'flip' bit to indicate sub-block partitioning direction.
+ * flip=0: Vertical split (2x4 sub-blocks), flip=1: Horizontal split (4x2 sub-blocks).
+ */
 inline void WriteFlip(__global uchar* block, bool flip) {
 	block[3] &= ~0x01;
 	block[3] |= (uchar)(flip);
 }
 
+/**
+ * @brief Sets the 'diff' bit to indicate color encoding mode.
+ * diff=1: Differential (5-bit + 3-bit), diff=0: Individual (4-bit + 4-bit).
+ */
 inline void WriteDiff(__global uchar* block, bool diff) {
 	block[3] &= ~0x02;
 	block[3] |= (uchar)(diff) << 1;
 }
 
+/**
+ * @brief Extracts a 4x4 block from the source image.
+ * Handles the mapping from linear image memory to block-local memory.
+ */
 inline void ExtractBlock(uchar* dst, const uchar* src, int width) {
 	for (int j = 0; j < 4; ++j) {
 		
@@ -111,6 +190,9 @@ inline void ExtractBlock(uchar* dst, const uchar* src, int width) {
 }
 
 
+/**
+ * @brief Constructs a 444-format color from floating point BGR values.
+ */
 inline union Color makeColor444(const float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
@@ -125,6 +207,9 @@ inline union Color makeColor444(const float* bgr) {
 }
 
 
+/**
+ * @brief Constructs a 555-format color from floating point BGR values.
+ */
 inline union Color makeColor555(const float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -138,8 +223,13 @@ inline union Color makeColor555(const float* bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Calculates the squared error between two colors.
+ * Supports both Euclidean distance and perceived error metrics based on human vision.
+ */
 inline uint getColorError(union Color u, union Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
+	// Weights for human perception (G is most sensitive, B is least)
 	float delta_b = (float)((u.channels.b) - v.channels.b);
 	float delta_g = (float)((u.channels.g) - v.channels.g);
 	float delta_r = (float)((u.channels.r) - v.channels.r);
@@ -154,6 +244,9 @@ inline uint getColorError(union Color u, union Color v) {
 #endif
 }
 
+/**
+ * @brief Computes the average color of 8 texels (one ETC1 sub-block).
+ */
 void getAverageColor(const union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -170,6 +263,20 @@ void getAverageColor(const union Color* src, float* avg_color)
 	avg_color[2] = (float)((sum_r) * kInv8);
 }
 
+/**
+ * @brief Brute-force search for the optimal luminance codeword table for a sub-block.
+ * 
+ * For each of the 8 possible codeword tables, it calculates the best index for each texel
+ * and accumulates the error. The table with the minimum total error is selected.
+ * 
+ * @param block Pointer to the destination ETC block.
+ * @param src Pointer to the 8 source texels of the sub-block.
+ * @param base The base color for this sub-block.
+ * @param sub_block_id Index of the sub-block (0 or 1).
+ * @param idx_to_num_tab Mapping from sub-block local index to global block texel index.
+ * @param threshold Early-exit error threshold.
+ * @return The minimum error found for this sub-block.
+ */
 unsigned long computeLuminance(__global uchar* block,
 						   const union Color* src,
 						   union Color base,
@@ -179,10 +286,11 @@ unsigned long computeLuminance(__global uchar* block,
 {
 	uint best_tbl_err = threshold;
 	uchar best_tbl_idx = 0;
-	uchar best_mod_idx[8][8];  
+	uchar best_mod_idx[8][8];  // Stores best modifier index for each (table, texel) pair
 
 
 
+	// ETC1 codeword tables providing luminance offsets.
 	const short g_codeword_tables[8][4] __attribute__((aligned(16))) = {
 		{-8, -2, 2, 8},
 		{-17, -5, 5, 17},
@@ -193,15 +301,18 @@ unsigned long computeLuminance(__global uchar* block,
 		{-106, -33, 33, 106},
 		{-183, -47, 47, 183}};
 
+	// Maps internal modifier indices to the specific 2-bit pixel indices in ETC1 format.
 	const uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
 
 	
 	
+	// Evaluate each of the 8 available codeword tables.
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		// Pre-calculate the 4 possible colors for this table.
 		union Color candidate_color[4];  
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
@@ -210,6 +321,7 @@ unsigned long computeLuminance(__global uchar* block,
 
 		uint tbl_err = 0;
 
+		// Find the best matching color among the 4 candidates for each of the 8 texels.
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
@@ -223,13 +335,13 @@ unsigned long computeLuminance(__global uchar* block,
 					best_mod_err = mod_err;
 
 					if (mod_err == 0)
-						break;  
+						break;  // Perfect match found
 				}
 			}
 
 			tbl_err += best_mod_err;
 			if (tbl_err > best_tbl_err)
-				break;  
+				break;  // Optimization: current table is already worse than the best one
 		}
 
 		if (tbl_err < best_tbl_err) {
@@ -241,10 +353,12 @@ unsigned long computeLuminance(__global uchar* block,
 		}
 	}
 
+	// Commit the best codeword table to the bitstream.
 	WriteCodewordTable(block, sub_block_id, best_tbl_idx);
 
 	uint pix_data = 0;
 
+	// Pack the chosen pixel indices into a 32-bit word for WritePixelData.
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
@@ -264,6 +378,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 }
 
+/**
+ * @brief Optimized path for blocks containing only one unique color.
+ * Directly encodes the block without expensive partition evaluations.
+ */
 bool tryCompressSolidBlock(__global uchar* dst,
 						   const union Color* src,
 						   unsigned long* error)
@@ -287,6 +405,7 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 };
 
+	// Check if all texels in the block are identical.
 	for (unsigned int i = 1; i < 16; ++i) {
 		if (src[i].bits != src[0].bits)
 			return false;
@@ -316,6 +435,7 @@ bool tryCompressSolidBlock(__global uchar* dst,
 
 	
 	
+	// Find the best luminance offset to represent this solid color after quantization.
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
@@ -359,6 +479,22 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	*error = 16 * best_mod_err;
 	return true;
 }
+
+/**
+ * @brief Core compression logic for a single 4x4 block.
+ * 
+ * This function orchestrates the decision process:
+ * 1. Checks for solid blocks (optimization).
+ * 2. Evaluates both horizontal and vertical partitions.
+ * 3. Decides between individual (444) and differential (555) color encoding based on 
+ *    distance between sub-block averages.
+ * 4. Executes luminance modulation search.
+ * 
+ * @param dst Pointer to the 8-byte destination block in global memory.
+ * @param ver_src Pointer to the source texels ordered for vertical partition.
+ * @param hor_src Pointer to the source texels ordered for horizontal partition.
+ * @return Total accumulated error for the block.
+ */
 unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, const union Color* hor_src,
 												   unsigned long threshold)
 {
@@ -381,6 +517,7 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 
 	
 	
+	// Determine base colors and whether differential mode is feasible for both orientations.
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -395,7 +532,8 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 			int v = avg_color_555_1.components[light_idx] >> 3;
 
 			int component_diff = v - u;
-			if (component_diff  3) {
+			// Differential encoding requires the 5-bit component difference to fit in a 3-bit signed int [-4, 3].
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -409,6 +547,7 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 	
 	
 	
+	// Heuristic: Evaluate error of sub-block averages to choose best partition (Flip bit).
 	uint sub_block_err[4] = {0};
 	for (unsigned int i = 0; i < 4; ++i) {
 		for (unsigned int j = 0; j < 8; ++j) {
@@ -443,6 +582,7 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 	unsigned long lumi_error1 = 0, lumi_error2 = 0;
 
 	
+	// Perform the final luminance modulation search for both sub-blocks.
 	lumi_error1 = computeLuminance(dst, sub_block_src[sub_block_off_0],
 								   sub_block_avg[sub_block_off_0], 0,
 								   g_idx_to_num[sub_block_off_0],
@@ -456,15 +596,19 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 		return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @brief OpenCL Kernel entry point for parallel texture compression.
+ * Each work item processes a 4x4 block of pixels.
+ */
 __kernel void compress_k(const int width, const int height, __global uchar *src,
 				__global uchar *dst)
 {
-	int y = get_global_id(0);
-	int x = get_global_id(1);
+	int y = get_global_id(0); // Vertical block index
+	int x = get_global_id(1); // Horizontal block index
 
 
-	union Color ver_blocks[16]; 
-	union Color hor_blocks[16];
+	union Color ver_blocks[16]; // Source texels reordered for vertical evaluation
+	union Color hor_blocks[16]; // Source texels reordered for horizontal evaluation
 
 	__local union Color row0[4]; 
 	__local union Color row1[4];
@@ -473,6 +617,7 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 	int depl_src = y * 16 * width + (x * 16);
 
+	// Fetch 4x4 block into local/private memory.
 	for (int i  = 0; i < 4; i++) {
 		int depl = depl_src; 
 		row0[i].channels.b = src[depl + (i * 4)];
@@ -506,6 +651,7 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 	}
 
 	
+	// Prepare vertical partition layouts.
 	for (int i = 0; i < 2; i++) {
 
 
@@ -545,6 +691,7 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 	}
 
 	
+	// Prepare horizontal partition layouts.
 	for (int i = 0; i < 4; i++) {
 
 
@@ -571,12 +718,19 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 
 }
+/* ============================================================================
+ * HOST SIDE CODE (C++)
+ * ============================================================================ */
 #include "compress.hpp"
 
 
 
 static int number_of_devices;
 
+/**
+ * @def DIE
+ * @brief Error handling macro for system and OpenCL calls.
+ */
 #define DIE(assertion, call_description)                    \
 do {                                                        \
     if (assertion) {                                        \
@@ -589,6 +743,9 @@ do {                                                        \
 
 using namespace std;
 
+/**
+ * @brief Converts an OpenCL error code to a human-readable string.
+ */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
@@ -642,6 +799,9 @@ switch (err) {
 }
 
 
+/**
+ * @brief Retrieves and prints the OpenCL program build log in case of compilation failure.
+ */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
 {
@@ -661,6 +821,9 @@ void cl_get_compiler_err_log(cl_program program,
 }
 
 
+/**
+ * @brief Checks for compilation errors and prints logs if found.
+ */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device, int line)
@@ -673,6 +836,9 @@ int CL_COMPILE_ERR(int cl_ret,
 	return 0;
 }
 
+/**
+ * @brief Checks for general OpenCL API errors.
+ */
 int CL_ERR(int cl_ret, int line)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -682,6 +848,9 @@ int CL_ERR(int cl_ret, int line)
 	return 0;
 }
 
+/**
+ * @brief Reads the OpenCL kernel source from a file.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -694,6 +863,10 @@ void read_kernel(string file_name, string &str_kernel)
 	str_kernel = str_stream.str();
 }
 
+/**
+ * @brief Discovers available GPU platforms and devices.
+ * Iterates through all platforms and selects all GPU devices.
+ */
 static pair, vector> gpu_find()
 {
 
@@ -808,6 +981,9 @@ static pair, vector> gpu_find()
 	return make_pair(platform_idsv, device_idsv);
 }
 
+/**
+ * @brief Constructor: Initializes OpenCL hardware state.
+ */
 TextureCompressor::TextureCompressor() {
 	pair, vector> res = gpu_find();
 
@@ -828,6 +1004,10 @@ TextureCompressor::TextureCompressor() {
     number_of_devices = res.second.size();
     cout << number_of_devices << " devices in list" <<endl;
 }
+
+/**
+ * @brief Destructor: Cleans up platform and device ID arrays.
+ */
 TextureCompressor::~TextureCompressor() {
 
 
@@ -836,6 +1016,16 @@ TextureCompressor::~TextureCompressor() {
 	delete[] platform_ids;
 }	
 
+/**
+ * @brief Orchestrates the compression of an entire image using OpenCL.
+ * 
+ * Workflow:
+ * 1. Creates OpenCL context and command queue.
+ * 2. Allocates source and destination buffers on the GPU.
+ * 3. Compiles the OpenCL kernel source.
+ * 4. Dispatches the kernel across the image (in 4x4 blocks).
+ * 5. Transfers the compressed bitstream back to host memory.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,
@@ -858,7 +1048,7 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	CL_ERR( ret ,__LINE__ );
 
 	int sz_src = width * height * 4;
-	int sz_dst = sz_src / 8;
+	int sz_dst = sz_src / 8; // ETC1 reduces 4x4 (16 texels * 4 bytes = 64 bytes) to 8 bytes.
 
 	
 	
@@ -895,10 +1085,12 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &dst_dev);
 
 	
+	// Upload raw image data to GPU.
 	ret = clEnqueueWriteBuffer(command_queue, src_dev, CL_TRUE, 0,
 							   sizeof(uint8_t) * sz_src, src, 0, NULL, NULL);
 	cl_event prof_event;
 
+	// Grid size: one work item per 4x4 block.
 	global[0] =(size_t) (height / 4);
     global[1] =(size_t) (width / 4);
 
@@ -909,9 +1101,11 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	clFinish(command_queue);
 
 	
+	// Retrieve compressed data from GPU.
 	ret = clEnqueueReadBuffer(command_queue, dst_dev, CL_TRUE, 0,
 							  sizeof(uint8_t) * sz_dst, dst, 0, NULL, NULL );
 
+    // Resources cleanup.
     clReleaseProgram(program);
 	clReleaseKernel(kernel);
 	clReleaseMemObject(src_dev);

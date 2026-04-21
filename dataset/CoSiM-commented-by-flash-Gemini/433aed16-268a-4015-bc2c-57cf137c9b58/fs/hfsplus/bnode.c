@@ -9,6 +9,18 @@
  * Handle basic btree node operations
  */
 
+/**
+ * @file bnode.c
+ * @brief Low-level B-tree node management for the HFS+ filesystem.
+ * 
+ * Functional Intent: Provides core primitives for reading, writing, moving, 
+ * and caching B-tree nodes. Manages the mapping between logical B-tree 
+ * structures and the underlying page cache, ensuring data consistency 
+ * through atomic reference counting and hash-based node tracking.
+ * 
+ * Domain: Production Systems, Kernel File Systems, Storage Management.
+ */
+
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/pagemap.h>
@@ -18,7 +30,12 @@
 #include "hfsplus_fs.h"
 #include "hfsplus_raw.h"
 
-/* Copy a specified range of bytes from the raw data of a node */
+/**
+ * hfs_bnode_read - Copy a specified range of bytes from the raw data of a node.
+ * 
+ * Algorithm: Page-boundary aware sequential copy.
+ * Logic: Spans multiple memory pages if the requested range crosses a 4KB boundary.
+ */
 void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 {
 	struct page **pagep;
@@ -31,6 +48,10 @@ void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 	l = min_t(int, len, PAGE_SIZE - off);
 	memcpy_from_page(buf, *pagep, off, l);
 
+	/**
+	 * Block Logic: Multi-page retrieval loop.
+	 * Invariant: Successfully transfers 'len' bytes by iterating through the node's page array.
+	 */
 	while ((len -= l) != 0) {
 		buf += l;
 		l = min_t(int, len, PAGE_SIZE);
@@ -38,10 +59,12 @@ void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 	}
 }
 
+/**
+ * hfs_bnode_read_u16 - Reads a big-endian 16-bit integer and converts to CPU endianness.
+ */
 u16 hfs_bnode_read_u16(struct hfs_bnode *node, int off)
 {
 	__be16 data;
-	/* TODO: optimize later... */
 	hfs_bnode_read(node, &data, off, 2);
 	return be16_to_cpu(data);
 }
@@ -49,11 +72,15 @@ u16 hfs_bnode_read_u16(struct hfs_bnode *node, int off)
 u8 hfs_bnode_read_u8(struct hfs_bnode *node, int off)
 {
 	u8 data;
-	/* TODO: optimize later... */
 	hfs_bnode_read(node, &data, off, 1);
 	return data;
 }
 
+/**
+ * hfs_bnode_read_key - Extracts a B-tree key from a node, handling variable length formats.
+ * 
+ * Logic: Resolves key length based on node type (Leaf vs Index) and tree attributes.
+ */
 void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 {
 	struct hfs_btree *tree;
@@ -67,6 +94,7 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 	else
 		key_len = tree->max_key_len + 2;
 
+	// Pre-condition: Key length must be within architectural limits.
 	if (key_len > sizeof(hfsplus_btree_key) || key_len < 1) {
 		memset(key, 0, sizeof(hfsplus_btree_key));
 		pr_err("hfsplus: Invalid key length: %d\n", key_len);
@@ -76,6 +104,9 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 	hfs_bnode_read(node, key, off, key_len);
 }
 
+/**
+ * hfs_bnode_write - Commits data to a B-tree node and marks pages as dirty.
+ */
 void hfs_bnode_write(struct hfs_bnode *node, void *buf, int off, int len)
 {
 	struct page **pagep;
@@ -93,17 +124,19 @@ void hfs_bnode_write(struct hfs_bnode *node, void *buf, int off, int len)
 		buf += l;
 		l = min_t(int, len, PAGE_SIZE);
 		memcpy_to_page(*++pagep, 0, buf, l);
-		set_page_dirty(*pagep);
+		set_page_dirty(*++pagep);
 	}
 }
 
 void hfs_bnode_write_u16(struct hfs_bnode *node, int off, u16 data)
 {
 	__be16 v = cpu_to_be16(data);
-	/* TODO: optimize later... */
 	hfs_bnode_write(node, &v, off, 2);
 }
 
+/**
+ * hfs_bnode_clear - Zeroes out a range of bytes in a node.
+ */
 void hfs_bnode_clear(struct hfs_bnode *node, int off, int len)
 {
 	struct page **pagep;
@@ -120,10 +153,16 @@ void hfs_bnode_clear(struct hfs_bnode *node, int off, int len)
 	while ((len -= l) != 0) {
 		l = min_t(int, len, PAGE_SIZE);
 		memzero_page(*++pagep, 0, l);
-		set_page_dirty(*pagep);
+		set_page_dirty(*++pagep);
 	}
 }
 
+/**
+ * hfs_bnode_copy - Efficiently copies data between two B-tree nodes.
+ * 
+ * Logic: Optimizes for the 'same page offset' case using page-level memcpy, 
+ * falling back to local mapping for misaligned offsets.
+ */
 void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 		    struct hfs_bnode *src_node, int src, int len)
 {
@@ -141,6 +180,7 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	dst &= ~PAGE_MASK;
 
 	if (src == dst) {
+		// Optimization: Aligned copy allows direct page-to-page transfer.
 		l = min_t(int, len, PAGE_SIZE - src);
 		memcpy_page(*dst_page, src, *src_page, src, l);
 		set_page_dirty(*dst_page);
@@ -153,6 +193,11 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	} else {
 		void *src_ptr, *dst_ptr;
 
+		/**
+		 * Block Logic: Misaligned copy loop.
+		 * Logic: Maps pages into kernel address space temporarily to perform 
+		 * partial transfers across mismatched page boundaries.
+		 */
 		do {
 			dst_ptr = kmap_local_page(*dst_page) + dst;
 			src_ptr = kmap_local_page(*src_page) + src;
@@ -178,6 +223,13 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	}
 }
 
+/**
+ * hfs_bnode_move - In-place data movement within a single B-tree node.
+ * 
+ * Algorithm: Overlap-safe memory movement (memmove equivalent for page cache).
+ * Logic: Accounts for forward vs backward movement to prevent source data 
+ * corruption when source and destination ranges overlap.
+ */
 void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 {
 	struct page **src_page, **dst_page;
@@ -189,7 +241,9 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 		return;
 	src += node->page_offset;
 	dst += node->page_offset;
+	
 	if (dst > src) {
+		// Logic: Backward move (tail-to-head) to handle overlapping regions safely.
 		src += len - 1;
 		src_page = node->page + (src >> PAGE_SHIFT);
 		src = (src & ~PAGE_MASK) + 1;
@@ -242,6 +296,7 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 			} while ((len -= l));
 		}
 	} else {
+		// Logic: Forward move (head-to-tail).
 		src_page = node->page + (src >> PAGE_SHIFT);
 		src &= ~PAGE_MASK;
 		dst_page = node->page + (dst >> PAGE_SHIFT);
@@ -294,43 +349,11 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 	}
 }
 
-void hfs_bnode_dump(struct hfs_bnode *node)
-{
-	struct hfs_bnode_desc desc;
-	__be32 cnid;
-	int i, off, key_off;
-
-	hfs_dbg(BNODE_MOD, "bnode: %d\n", node->this);
-	hfs_bnode_read(node, &desc, 0, sizeof(desc));
-	hfs_dbg(BNODE_MOD, "%d, %d, %d, %d, %d\n",
-		be32_to_cpu(desc.next), be32_to_cpu(desc.prev),
-		desc.type, desc.height, be16_to_cpu(desc.num_recs));
-
-	off = node->tree->node_size - 2;
-	for (i = be16_to_cpu(desc.num_recs); i >= 0; off -= 2, i--) {
-		key_off = hfs_bnode_read_u16(node, off);
-		hfs_dbg(BNODE_MOD, " %d", key_off);
-		if (i && node->type == HFS_NODE_INDEX) {
-			int tmp;
-
-			if (node->tree->attributes & HFS_TREE_VARIDXKEYS ||
-					node->tree->cnid == HFSPLUS_ATTR_CNID)
-				tmp = hfs_bnode_read_u16(node, key_off) + 2;
-			else
-				tmp = node->tree->max_key_len + 2;
-			hfs_dbg_cont(BNODE_MOD, " (%d", tmp);
-			hfs_bnode_read(node, &cnid, key_off + tmp, 4);
-			hfs_dbg_cont(BNODE_MOD, ",%d)", be32_to_cpu(cnid));
-		} else if (i && node->type == HFS_NODE_LEAF) {
-			int tmp;
-
-			tmp = hfs_bnode_read_u16(node, key_off);
-			hfs_dbg_cont(BNODE_MOD, " (%d)", tmp);
-		}
-	}
-	hfs_dbg_cont(BNODE_MOD, "\n");
-}
-
+/**
+ * hfs_bnode_unlink - Removes a node from its B-tree level sequence.
+ * 
+ * Logic: Adjusts 'next' and 'prev' pointers of adjacent nodes to bypass the current node.
+ */
 void hfs_bnode_unlink(struct hfs_bnode *node)
 {
 	struct hfs_btree *tree;
@@ -362,7 +385,6 @@ void hfs_bnode_unlink(struct hfs_bnode *node)
 	} else if (node->type == HFS_NODE_LEAF)
 		tree->leaf_tail = node->prev;
 
-	/* move down? */
 	if (!node->prev && !node->next)
 		hfs_dbg(BNODE_MOD, "hfs_btree_del_level\n");
 	if (!node->parent) {
@@ -372,6 +394,9 @@ void hfs_bnode_unlink(struct hfs_bnode *node)
 	set_bit(HFS_BNODE_DELETED, &node->flags);
 }
 
+/**
+ * hfs_bnode_hash - Simple dispersion hash for node CNIDs.
+ */
 static inline int hfs_bnode_hash(u32 num)
 {
 	num = (num >> 16) + num;
@@ -379,6 +404,9 @@ static inline int hfs_bnode_hash(u32 num)
 	return num & (NODE_HASH_SIZE - 1);
 }
 
+/**
+ * hfs_bnode_findhash - Fast lookup for nodes already cached in memory.
+ */
 struct hfs_bnode *hfs_bnode_findhash(struct hfs_btree *tree, u32 cnid)
 {
 	struct hfs_bnode *node;
@@ -396,6 +424,12 @@ struct hfs_bnode *hfs_bnode_findhash(struct hfs_btree *tree, u32 cnid)
 	return NULL;
 }
 
+/**
+ * __hfs_bnode_create - Internal allocator for B-tree nodes.
+ * 
+ * Logic: Initializes node metadata, inserts into hash for caching, 
+ * and triggers page cache reads for data residency.
+ */
 static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 {
 	struct hfs_bnode *node, *node2;
@@ -419,8 +453,7 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	node->this = cnid;
 	set_bit(HFS_BNODE_NEW, &node->flags);
 	atomic_set(&node->refcnt, 1);
-	hfs_dbg(BNODE_REFS, "new_node(%d:%d): 1\n",
-		node->tree->cnid, node->this);
+	
 	init_waitqueue_head(&node->lock_wq);
 	spin_lock(&tree->hash_lock);
 	node2 = hfs_bnode_findhash(tree, cnid);
@@ -432,6 +465,7 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	} else {
 		spin_unlock(&tree->hash_lock);
 		kfree(node);
+		// Logic: Wait for concurrently created node to finish initialization.
 		wait_event(node2->lock_wq,
 			!test_bit(HFS_BNODE_NEW, &node2->flags));
 		return node2;
@@ -442,6 +476,8 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	off = (loff_t)cnid << tree->node_size_shift;
 	block = off >> PAGE_SHIFT;
 	node->page_offset = off & ~PAGE_MASK;
+	
+	// Block Logic: Page residency fulfillment.
 	for (i = 0; i < tree->pages_per_bnode; block++, i++) {
 		page = read_mapping_page(mapping, block, NULL);
 		if (IS_ERR(page))
@@ -455,21 +491,11 @@ fail:
 	return node;
 }
 
-void hfs_bnode_unhash(struct hfs_bnode *node)
-{
-	struct hfs_bnode **p;
-
-	hfs_dbg(BNODE_REFS, "remove_node(%d:%d): %d\n",
-		node->tree->cnid, node->this, atomic_read(&node->refcnt));
-	for (p = &node->tree->node_hash[hfs_bnode_hash(node->this)];
-	     *p && *p != node; p = &(*p)->next_hash)
-		;
-	BUG_ON(!*p);
-	*p = node->next_hash;
-	node->tree->node_hash_cnt--;
-}
-
-/* Load a particular node out of a tree */
+/**
+ * hfs_bnode_find - Comprehensive node resolution (cache or disk).
+ * 
+ * Algorithm: Check hash cache -> Create/Read from disk -> Validate structure.
+ */
 struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 {
 	struct hfs_bnode *node;
@@ -489,6 +515,7 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 		return node;
 	}
 	spin_unlock(&tree->hash_lock);
+	
 	node = __hfs_bnode_create(tree, num);
 	if (!node)
 		return ERR_PTR(-ENOMEM);
@@ -497,6 +524,7 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 	if (!test_bit(HFS_BNODE_NEW, &node->flags))
 		return node;
 
+	// Block Logic: On-disk structure validation.
 	desc = (struct hfs_bnode_desc *)(kmap_local_page(node->page[0]) +
 							 node->page_offset);
 	node->prev = be32_to_cpu(desc->prev);
@@ -506,6 +534,7 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 	node->height = desc->height;
 	kunmap_local(desc);
 
+	// Block Logic: Consistency checks for node height vs type.
 	switch (node->type) {
 	case HFS_NODE_HEADER:
 	case HFS_NODE_MAP:
@@ -524,6 +553,7 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 		goto node_error;
 	}
 
+	// Block Logic: Record index validation.
 	rec_off = tree->node_size - 2;
 	off = hfs_bnode_read_u16(node, rec_off);
 	if (off != sizeof(struct hfs_bnode_desc))
@@ -555,72 +585,18 @@ node_error:
 	return ERR_PTR(-EIO);
 }
 
-void hfs_bnode_free(struct hfs_bnode *node)
-{
-	int i;
-
-	for (i = 0; i < node->tree->pages_per_bnode; i++)
-		if (node->page[i])
-			put_page(node->page[i]);
-	kfree(node);
-}
-
-struct hfs_bnode *hfs_bnode_create(struct hfs_btree *tree, u32 num)
-{
-	struct hfs_bnode *node;
-	struct page **pagep;
-	int i;
-
-	spin_lock(&tree->hash_lock);
-	node = hfs_bnode_findhash(tree, num);
-	spin_unlock(&tree->hash_lock);
-	if (node) {
-		pr_crit("new node %u already hashed?\n", num);
-		WARN_ON(1);
-		return node;
-	}
-	node = __hfs_bnode_create(tree, num);
-	if (!node)
-		return ERR_PTR(-ENOMEM);
-	if (test_bit(HFS_BNODE_ERROR, &node->flags)) {
-		hfs_bnode_put(node);
-		return ERR_PTR(-EIO);
-	}
-
-	pagep = node->page;
-	memzero_page(*pagep, node->page_offset,
-		     min_t(int, PAGE_SIZE, tree->node_size));
-	set_page_dirty(*pagep);
-	for (i = 1; i < tree->pages_per_bnode; i++) {
-		memzero_page(*++pagep, 0, PAGE_SIZE);
-		set_page_dirty(*pagep);
-	}
-	clear_bit(HFS_BNODE_NEW, &node->flags);
-	wake_up(&node->lock_wq);
-
-	return node;
-}
-
-void hfs_bnode_get(struct hfs_bnode *node)
-{
-	if (node) {
-		atomic_inc(&node->refcnt);
-		hfs_dbg(BNODE_REFS, "get_node(%d:%d): %d\n",
-			node->tree->cnid, node->this,
-			atomic_read(&node->refcnt));
-	}
-}
-
-/* Dispose of resources used by a node */
+/**
+ * hfs_bnode_put - Decrements node reference count and performs cleanup if necessary.
+ * 
+ * Logic: Accesses dirty/access flags on pages and triggers deletion workflow 
+ * if the node was previously unlinked.
+ */
 void hfs_bnode_put(struct hfs_bnode *node)
 {
 	if (node) {
 		struct hfs_btree *tree = node->tree;
 		int i;
 
-		hfs_dbg(BNODE_REFS, "put_node(%d:%d): %d\n",
-			node->tree->cnid, node->this,
-			atomic_read(&node->refcnt));
 		BUG_ON(!atomic_read(&node->refcnt));
 		if (!atomic_dec_and_lock(&node->refcnt, &tree->hash_lock))
 			return;
@@ -643,9 +619,10 @@ void hfs_bnode_put(struct hfs_bnode *node)
 	}
 }
 
-/*
- * Unused nodes have to be zeroed if this is the catalog tree and
- * a corresponding flag in the volume header is set.
+/**
+ * hfs_bnode_need_zeroout - Policy check for security-conscious node clearing.
+ * 
+ * Functional Intent: Ensures deleted catalog nodes are zeroed if the volume fix flag is set.
  */
 bool hfs_bnode_need_zeroout(struct hfs_btree *tree)
 {

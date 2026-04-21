@@ -1,3 +1,10 @@
+/**
+ * @raw/19f768d9-9026-42e5-9d2b-233e8134c8a2/server/src/main/java/org/elasticsearch/search/fetch/subphase/highlight/HighlightBuilder.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -122,6 +129,10 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
      */
     public HighlightBuilder(StreamInput in) throws IOException {
         super(in);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             encoder(in.readOptionalString());
         }
@@ -132,6 +143,10 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (out.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             out.writeOptionalString(encoder);
         }
@@ -238,9 +253,17 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
         // create field options
         Collection<SearchHighlightContext.Field> fieldOptions = new ArrayList<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Field field : this.fields) {
             final SearchHighlightContext.FieldOptions.Builder fieldOptionsBuilder = new SearchHighlightContext.FieldOptions.Builder();
             fieldOptionsBuilder.fragmentOffset(field.fragmentOffset);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (field.matchedFields != null) {
                 Set<String> matchedFields = Sets.newHashSetWithExpectedSize(field.matchedFields.length);
                 Collections.addAll(matchedFields, field.matchedFields);
@@ -268,60 +291,136 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         SearchHighlightContext.FieldOptions.Builder targetOptionsBuilder,
         SearchExecutionContext context
     ) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.preTags != null) {
             targetOptionsBuilder.preTags(highlighterBuilder.preTags);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.postTags != null) {
             targetOptionsBuilder.postTags(highlighterBuilder.postTags);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.order != null) {
             targetOptionsBuilder.scoreOrdered(highlighterBuilder.order == Order.SCORE);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.highlightFilter != null) {
             targetOptionsBuilder.highlightFilter(highlighterBuilder.highlightFilter);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.fragmentSize != null) {
             targetOptionsBuilder.fragmentCharSize(highlighterBuilder.fragmentSize);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.numOfFragments != null) {
             targetOptionsBuilder.numberOfFragments(highlighterBuilder.numOfFragments);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.encoder != null) {
             targetOptionsBuilder.encoder(highlighterBuilder.encoder);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.requireFieldMatch != null) {
             targetOptionsBuilder.requireFieldMatch(highlighterBuilder.requireFieldMatch);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.maxAnalyzedOffset != null) {
             targetOptionsBuilder.maxAnalyzedOffset(highlighterBuilder.maxAnalyzedOffset);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.boundaryScannerType != null) {
             targetOptionsBuilder.boundaryScannerType(highlighterBuilder.boundaryScannerType);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.boundaryMaxScan != null) {
             targetOptionsBuilder.boundaryMaxScan(highlighterBuilder.boundaryMaxScan);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.boundaryChars != null) {
             targetOptionsBuilder.boundaryChars(highlighterBuilder.boundaryChars);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.boundaryScannerLocale != null) {
             targetOptionsBuilder.boundaryScannerLocale(highlighterBuilder.boundaryScannerLocale);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.highlighterType != null) {
             targetOptionsBuilder.highlighterType(highlighterBuilder.highlighterType);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.fragmenter != null) {
             targetOptionsBuilder.fragmenter(highlighterBuilder.fragmenter);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.noMatchSize != null) {
             targetOptionsBuilder.noMatchSize(highlighterBuilder.noMatchSize);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.phraseLimit != null) {
             targetOptionsBuilder.phraseLimit(highlighterBuilder.phraseLimit);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.options != null) {
             targetOptionsBuilder.options(highlighterBuilder.options);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlighterBuilder.highlightQuery != null) {
             targetOptionsBuilder.highlightQuery(highlighterBuilder.highlightQuery.toQuery(context));
         }
@@ -332,21 +431,45 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         // first write common options
         commonOptionsToXContent(builder);
         // special options for top-level highlighter
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (fields.size() > 0) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (useExplicitFieldOrder) {
                 builder.startArray(FIELDS_FIELD.getPreferredName());
             } else {
                 builder.startObject(FIELDS_FIELD.getPreferredName());
             }
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (Field field : fields) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (useExplicitFieldOrder) {
                     builder.startObject();
                 }
                 field.innerXContent(builder);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (useExplicitFieldOrder) {
                     builder.endObject();
                 }
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (useExplicitFieldOrder) {
                 builder.endArray();
             } else {
@@ -368,10 +491,18 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
     @Override
     public HighlightBuilder rewrite(QueryRewriteContext ctx) throws IOException {
         QueryBuilder highlightQuery = this.highlightQuery;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlightQuery != null) {
             highlightQuery = this.highlightQuery.rewrite(ctx);
         }
         List<Field> fields = Rewriteable.rewrite(this.fields, ctx);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (highlightQuery == this.highlightQuery && fields == this.fields) {
             return this;
         }
@@ -449,9 +580,17 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
             // write common options
             commonOptionsToXContent(builder);
             // write special field-highlighter options
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (fragmentOffset != -1) {
                 builder.field(FRAGMENT_OFFSET_FIELD.getPreferredName(), fragmentOffset);
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (matchedFields != null) {
                 builder.array(MATCHED_FIELDS_FIELD.getPreferredName(), matchedFields);
             }
@@ -472,8 +611,16 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
         @Override
         public Field rewrite(QueryRewriteContext ctx) throws IOException {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (highlightQuery != null) {
                 QueryBuilder rewrite = highlightQuery.rewrite(ctx);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (rewrite != highlightQuery) {
                     return new Field(this, rewrite);
                 }
@@ -496,6 +643,10 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         }
 
         public static Order fromString(String order) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (order.toUpperCase(Locale.ROOT).equals(SCORE.name())) {
                 return Order.SCORE;
             }

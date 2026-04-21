@@ -1,3 +1,10 @@
+/**
+ * @raw/0c1926d7-f2cc-41e3-8ae8-1bef4b4d57cb/src/vs/editor/common/model/tokens/treeSitter/treeSitterTokensModel.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -77,15 +84,27 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 		this._register(this._treeSitterModel.onDidUpdate((e) => {
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this._hasTokens()) {
 				// Mark the range for refresh immediately
 
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (const range of e.ranges) {
 					this._markForRefresh(range.newRange);
 				}
 			}
 
 			// First time we see a tree we need to build a token store.
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!this._hasTokens()) {
 				// This will likely not happen as we first handle all models, which are ready before trees.
 				this._firstTreeUpdate(e.versionId);
@@ -97,13 +116,25 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	public handleContentChanged(e: IModelContentChangedEvent): void {
 		this._guessVersion = e.versionId;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const change of e.changes) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (change.text.length > change.rangeLength) {
 				// If possible, use the token before the change as the starting point for the new token.
 				// This is more likely to let the new text be the correct color as typeing is usually at the end of the token.
 				const offset = change.rangeOffset > 0 ? change.rangeOffset - 1 : change.rangeOffset;
 				const oldToken = this._tokenStore.getTokenAt(offset);
 				let newToken: TokenUpdate;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (oldToken) {
 					// Insert. Just grow the token at this position to include the insert.
 					newToken = { startOffsetInclusive: oldToken.startOffsetInclusive, length: oldToken.length + change.text.length - change.rangeLength, token: oldToken.token };
@@ -127,6 +158,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const content = this._textModel.getLineContent(lineNumber);
 
 		const rawTokens = this.getTokens(lineNumber);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (rawTokens && rawTokens.length > 0) {
 			return new LineTokens(rawTokens, content, this._languageIdCodec);
 		}
@@ -161,9 +196,17 @@ export class TreeSitterTokenizationModel extends Disposable {
 	public tokenizeLinesAt(lineNumber: number, lines: string[]): LineTokens[] | null {
 		const rawLineTokens = this._tokSupport_guessTokensForLinesContent(lineNumber, lines);
 		const lineTokens: LineTokens[] = [];
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!rawLineTokens) {
 			return null;
 		}
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < rawLineTokens.length; i++) {
 			lineTokens.push(new LineTokens(rawLineTokens[i], lines[i], this._languageIdCodec));
 		}
@@ -175,6 +218,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 	}
 
 	private _hasTokens(accurateForRange?: Range): boolean {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!accurateForRange || (this._guessVersion === this._accurateVersion)) {
 			return true;
 		}
@@ -186,6 +233,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const lineStartOffset = this._textModel.getOffsetAt({ lineNumber: line, column: 1 });
 		const lineTokens = this._tokenStore.getTokensInRange(lineStartOffset, this._textModel.getOffsetAt({ lineNumber: line, column: this._textModel.getLineLength(line) }) + 1);
 		const result = new Uint32Array(lineTokens.length * 2);
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < lineTokens.length; i++) {
 			result[i * 2] = lineTokens[i].startOffsetInclusive - lineStartOffset + lineTokens[i].length;
 			result[i * 2 + 1] = lineTokens[i].token;
@@ -195,9 +246,17 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _updateTokensInStore(version: number, updates: { oldRangeLength?: number; newTokens: TokenUpdate[] }[], tokenQuality: TokenQuality): void {
 		this._accurateVersion = version;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const update of updates) {
 			const lastToken = update.newTokens.length > 0 ? update.newTokens[update.newTokens.length - 1] : undefined;
 			let oldRangeLength: number;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (lastToken && (this._guessVersion >= version)) {
 				oldRangeLength = lastToken.startOffsetInclusive + lastToken.length - update.newTokens[0].startOffsetInclusive;
 			} else if (update.oldRangeLength) {
@@ -215,6 +274,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _getNeedsRefresh(): { range: Range; startOffset: number; endOffset: number }[] {
 		const needsRefreshOffsetRanges = this._tokenStore.getNeedsRefresh();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!needsRefreshOffsetRanges) {
 			return [];
 		}
@@ -235,6 +298,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 
 	private get _encodedLanguageId(): LanguageId {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this._tokSupport_encodedLanguage) {
 			this._tokSupport_encodedLanguage = this._languageIdCodec.encodeLanguageId(this._treeSitterModel.languageId);
 		}
@@ -243,18 +310,34 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _tokSupport_parseAndTokenizeViewPort(lineRanges: readonly LineRange[]) {
 		const viewportRanges = lineRanges.map(r => r.toInclusiveRange()).filter(isDefined);
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const range of viewportRanges) {
 			const startOffsetOfRangeInDocument = this._textModel.getOffsetAt(range.getStartPosition());
 			const endOffsetOfRangeInDocument = this._textModel.getOffsetAt(range.getEndPosition());
 			const version = this._textModel.getVersionId();
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this._rangeHasTokens(range, TokenQuality.ViewportGuess)) {
 				continue;
 			}
 			const content = this._textModel.getValueInRange(range);
 			const tokenUpdates = this._tokSupport_forceParseAndTokenizeContent(range, startOffsetOfRangeInDocument, endOffsetOfRangeInDocument, content, true);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!tokenUpdates || this._rangeHasTokens(range, TokenQuality.ViewportGuess)) {
 				continue;
 			}
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tokenUpdates.length === 0) {
 				continue;
 			}
@@ -266,6 +349,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 	}
 
 	private _tokSupport_guessTokensForLinesContent(lineNumber: number, lines: string[]): Uint32Array[] | undefined {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (lines.length === 0) {
 			return undefined;
 		}
@@ -273,6 +360,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const range = new Range(1, 1, lineNumber + lines.length, lines[lines.length - 1].length + 1);
 		const startOffset = this._textModel.getOffsetAt({ lineNumber, column: 1 });
 		const tokens = this._tokSupport_forceParseAndTokenizeContent(range, startOffset, startOffset + lineContent.length, lineContent, false);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tokens) {
 			return undefined;
 		}
@@ -280,13 +371,25 @@ export class TreeSitterTokenizationModel extends Disposable {
 		let tokensIndex: number = 0;
 		let tokenStartOffset = 0;
 		let lineStartOffset = 0;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < lines.length; i++) {
 			const tokensForLine: EndOffsetToken[] = [];
 			let moveToNextLine = false;
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (let j = tokensIndex; (!moveToNextLine && (j < tokens.length)); j++) {
 				const token = tokens[j];
 				const lineAdjustedEndOffset = token.endOffset - lineStartOffset;
 				const lineAdjustedStartOffset = tokenStartOffset - lineStartOffset;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (lineAdjustedEndOffset <= lines[i].length) {
 					tokensForLine.push({ endOffset: lineAdjustedEndOffset, metadata: token.metadata });
 					tokensIndex++;
@@ -314,6 +417,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const likelyRelevantPrefix = likelyRelevantLines.join(this._textModel.getEOL());
 
 		const tree = this._treeSitterModel.createParsedTreeSync(`${likelyRelevantPrefix}${content}`);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tree) {
 			return;
 		}
@@ -323,10 +430,18 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const tokens = this._tokSupport_tokenizeCapturesWithMetadata(captures, likelyRelevantPrefix.length, endOffsetOfRangeInDocument - startOffsetOfRangeInDocument + likelyRelevantPrefix.length);
 		tree.delete();
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tokens) {
 			return;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (asUpdate) {
 			return this._tokSupport_rangeTokensAsUpdates(startOffsetOfRangeInDocument, tokens.endOffsetsAndMetadata, likelyRelevantPrefix.length);
 		} else {
@@ -343,11 +458,19 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const maxLine = this._textModel.getLineCount();
 		let rangeChanges: RangeChange[];
 		const editor = this._tokSupport_codeEditors.getEditorForModel(this._textModel);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (editor) {
 			const viewPort = editor.getVisibleRangesPlusViewportAboveBelow();
 			const ranges: { readonly fromLineNumber: number; readonly toLineNumber: number }[] = new Array(viewPort.length);
 			rangeChanges = new Array(viewPort.length);
 
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (let i = 0; i < viewPort.length; i++) {
 				const range = viewPort[i];
 				ranges[i] = { fromLineNumber: range.startLineNumber, toLineNumber: range.endLineNumber < maxLine ? range.endLineNumber : maxLine };
@@ -371,6 +494,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 	 */
 	private _tokSupport_handleTreeUpdate(ranges: RangeChange[], versionId: number) {
 		const tree = this._treeSitterModel.tree.get();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tree) {
 			return;
 		}
@@ -378,8 +505,16 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const rangeChanges: RangeWithOffsets[] = [];
 		const chunkSize = 1000;
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < ranges.length; i++) {
 			const rangeLinesLength = ranges[i].newRange.endLineNumber - ranges[i].newRange.startLineNumber;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (rangeLinesLength > chunkSize) {
 				// Split the range into chunks to avoid long operations
 				const fullRangeEndLineNumber = ranges[i].newRange.endLineNumber;
@@ -400,6 +535,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 					chunkLineStart = chunkLineEnd + 1;
 					chunkColumnStart = 1;
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (chunkLineEnd < fullRangeEndLineNumber && chunkLineEnd + chunkSize > fullRangeEndLineNumber) {
 						chunkLineEnd = fullRangeEndLineNumber;
 					} else {
@@ -408,6 +547,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 				} while (chunkLineEnd <= fullRangeEndLineNumber);
 			} else {
 				// Check that the previous range doesn't overlap
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if ((i === 0) || (rangeChanges[i - 1].endOffset < ranges[i].newRangeStartOffset)) {
 					rangeChanges.push({
 						range: ranges[i].newRange,
@@ -432,6 +575,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const captures = rangeChanges.map(range => this._tokSupport_getCaptures(range.range));
 		// Don't block
 		return this._tokSupport_updateTreeForRanges(rangeChanges, versionId, captures).then(() => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!this._textModel.isDisposed() && (this._treeSitterModel.versionId === this._textModel.getVersionId())) {
 				this._tokSupport_refreshNeedsRefresh(versionId);
 			}
@@ -442,7 +589,15 @@ export class TreeSitterTokenizationModel extends Disposable {
 	private async _tokSupport_updateTreeForRanges(rangeChanges: RangeWithOffsets[], versionId: number, captures: QueryCapture[][]) {
 		let tokenUpdate: { newTokens: TokenUpdate[] } | undefined;
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < rangeChanges.length; i++) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!this._textModel.isDisposed() && versionId !== this._textModel.getVersionId()) {
 				// Our captures have become invalid and we need to re-capture
 				break;
@@ -451,6 +606,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 			const range = rangeChanges[i];
 
 			const updates = this._tokSupport_getTokensInRange(range.range, range.startOffset, range.endOffset, capture);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (updates) {
 				tokenUpdate = { newTokens: updates };
 			} else {
@@ -470,11 +629,19 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _tokSupport_refreshNeedsRefresh(versionId: number) {
 		const rangesToRefresh = this._getNeedsRefresh();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (rangesToRefresh.length === 0) {
 			return;
 		}
 		const rangeChanges: RangeChange[] = new Array(rangesToRefresh.length);
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < rangesToRefresh.length; i++) {
 			const range = rangesToRefresh[i];
 			rangeChanges[i] = {
@@ -490,11 +657,23 @@ export class TreeSitterTokenizationModel extends Disposable {
 	private _tokSupport_rangeTokensAsUpdates(rangeOffset: number, endOffsetToken: EndOffsetToken[], startingOffsetInArray?: number) {
 		const updates: TokenUpdate[] = [];
 		let lastEnd = 0;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const token of endOffsetToken) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (token.endOffset <= lastEnd || (startingOffsetInArray && (token.endOffset < startingOffsetInArray))) {
 				continue;
 			}
 			let tokenUpdate: TokenUpdate;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (startingOffsetInArray && (lastEnd < startingOffsetInArray)) {
 				tokenUpdate = { startOffsetInclusive: rangeOffset + startingOffsetInArray, length: token.endOffset - startingOffsetInArray, token: token.metadata };
 			} else {
@@ -508,6 +687,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _tokSupport_getTokensInRange(range: Range, rangeStartOffset: number, rangeEndOffset: number, captures?: QueryCapture[]): TokenUpdate[] | undefined {
 		const tokens = captures ? this._tokSupport_tokenizeCapturesWithMetadata(captures, rangeStartOffset, rangeEndOffset) : this._tokSupport_tokenize(range, rangeStartOffset, rangeEndOffset);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tokens?.endOffsetsAndMetadata) {
 			return this._tokSupport_rangeTokensAsUpdates(rangeStartOffset, tokens.endOffsetsAndMetadata);
 		}
@@ -515,9 +698,21 @@ export class TreeSitterTokenizationModel extends Disposable {
 	}
 
 	private _tokSupport_ensureQuery() {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this._tokSupport_query) {
 			const language = this._treeSitterService.getOrInitLanguage(this._languageId);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!language) {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!this._tokSupport_languageAddedListener) {
 					this._tokSupport_languageAddedListener = this._register(Event.onceIf(this._treeSitterService.onDidAddLanguage, e => e.id === this._languageId)((e) => {
 						this._tokSupport_query = new this.Query(e.language, this._highlightingQueries);
@@ -556,6 +751,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _tokSupport_captureAtRange(range: Range): QueryCapture[] {
 		const tree = this._treeSitterModel.tree.get();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tree) {
 			return [];
 		}
@@ -582,10 +781,18 @@ export class TreeSitterTokenizationModel extends Disposable {
 	}
 
 	private _tokSupport_captureAtRangeWithInjections(range: Range): QueryCapture[] {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!textModelTreeSitter?.parseResult) {
 			return [];
 		}
 		const captures: QueryCapture[] = this._tokSupport_captureAtRange(range);
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < captures.length; i++) {
 			const capture = captures[i];
 
@@ -601,6 +808,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 			const injectionRange = new Range(startLine, startColumn, endLine, endColumn);
 
 			const injection = this._tokSupport_getInjectionCaptures(capture, injectionRange);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (injection && injection.length > 0) {
 				captures.splice(i + 1, 0, ...injection);
 				i += injection.length;
@@ -618,10 +829,18 @@ export class TreeSitterTokenizationModel extends Disposable {
 	 */
 	public tokSupport_tokenizeEncoded(lineNumber: number) {
 		const tokens = this._tokSupport_tokenizeEncoded(lineNumber);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tokens) {
 			return undefined;
 		}
 		const updates = this._tokSupport_rangeTokensAsUpdates(this._textModel.getOffsetAt({ lineNumber, column: 1 }), tokens.result);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tokens.versionId === this._textModel.getVersionId()) {
 			this._updateTokensInStore(tokens.versionId, [{ newTokens: updates, oldRangeLength: this._textModel.getLineLength(lineNumber) }], TokenQuality.Accurate);
 		}
@@ -629,6 +848,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	public tokSupport_tokenizeEncodedInstrumented(lineNumber: number): { result: Uint32Array; captureTime: number; metadataTime: number } | undefined {
 		const tokens = this._tokSupport_tokenizeEncoded(lineNumber);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!tokens) {
 			return undefined;
 		}
@@ -643,6 +866,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 	private _tokSupport_tokenize(range: Range, rangeStartOffset: number, rangeEndOffset: number): { endOffsetsAndMetadata: { endOffset: number; metadata: number }[]; versionId: number; captureTime: number; metadataTime: number } | undefined {
 		const captures = this._tokSupport_getCaptures(range);
 		const result = this._tokSupport_tokenizeCapturesWithMetadata(captures, rangeStartOffset, rangeEndOffset);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!result) {
 			return undefined;
 		}
@@ -656,7 +883,15 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const encodedLanguageId = this._languageIdCodec.encodeLanguageId(this._treeSitterModel.languageId);
 		const baseScope: string = TREESITTER_BASE_SCOPES[this._treeSitterModel.languageId] || 'source';
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (captures.length === 0) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tree) {
 				stopwatch.stop();
 				const endOffsetsAndMetadata = [{ endOffset: rangeLength, scopes: [], encodedLanguageId }];
@@ -678,27 +913,55 @@ export class TreeSitterTokenizationModel extends Disposable {
 		};
 
 		const addCurrentTokenToArray = (capture: QueryCapture, startOffset: number, endOffset: number, position?: number) => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (position !== undefined) {
 				const oldScopes = endOffsetsAndScopes[position].scopes;
 				let oldBracket = endOffsetsAndScopes[position].bracket;
 				// Check that the previous token ends at the same point that the current token starts
 				const prevEndOffset = position > 0 ? endOffsetsAndScopes[position - 1].endOffset : 0;
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (prevEndOffset !== startOffset) {
 					let preInsertBracket: number[] | undefined = undefined;
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (oldBracket && oldBracket.length > 0) {
 						preInsertBracket = [];
 						const postInsertBracket: number[] = [];
+						/**
+						 * Block Logic: Orchestrates the temporal progression of the iteration.
+						 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+						 */
 						for (let i = 0; i < oldBracket.length; i++) {
 							const bracket = oldBracket[i];
+							/**
+							 * Block Logic: Conditional evaluation for divergent control flow.
+							 * Invariant: Taken branch maintains control flow invariants.
+							 */
 							if (bracket < startOffset) {
 								preInsertBracket.push(bracket);
 							} else if (bracket > endOffset) {
 								postInsertBracket.push(bracket);
 							}
 						}
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (preInsertBracket.length === 0) {
 							preInsertBracket = undefined;
 						}
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (postInsertBracket.length === 0) {
 							oldBracket = undefined;
 						} else {
@@ -720,6 +983,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 			tokenIndex++;
 		};
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let captureIndex = 0; captureIndex < captures.length; captureIndex++) {
 			const capture = captures[captureIndex];
 			const tokenEndIndex = capture.node.endIndex < rangeEndOffset ? ((capture.node.endIndex < rangeStartOffset) ? rangeStartOffset : capture.node.endIndex) : rangeEndOffset;
@@ -731,12 +998,20 @@ export class TreeSitterTokenizationModel extends Disposable {
 			// We do this by creating a new token in the array if the previous token ends before the current token starts.
 			let previousEndOffset: number;
 			const currentTokenLength = tokenEndIndex - tokenStartIndex;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (captureIndex > 0) {
 				previousEndOffset = endOffsetsAndScopes[(tokenIndex - 1)].endOffset;
 			} else {
 				previousEndOffset = tokenStartIndex - rangeStartOffset - 1;
 			}
 			const startOffset = endOffset - currentTokenLength;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if ((previousEndOffset >= 0) && (previousEndOffset < startOffset)) {
 				// Add en empty token to cover the space where there were no captures
 				endOffsetsAndScopes[tokenIndex] = { endOffset: startOffset, scopes: [baseScope], encodedLanguageId: this._encodedLanguageId };
@@ -745,11 +1020,19 @@ export class TreeSitterTokenizationModel extends Disposable {
 				increaseSizeOfTokensByOneToken();
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (currentTokenLength < 0) {
 				// This happens when we have a token "gap" right at the end of the capture range. The last capture isn't used because it's start index isn't included in the range.
 				continue;
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (previousEndOffset >= endOffset) {
 				// walk back through the tokens until we find the one that contains the current token
 				let withinTokenIndex = tokenIndex - 1;
@@ -759,7 +1042,15 @@ export class TreeSitterTokenizationModel extends Disposable {
 				do {
 
 					// Check that the current token doesn't just replace the last token
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if ((previousTokenStartOffset + currentTokenLength) === previousTokenEndOffset) {
+						/**
+						 * Block Logic: Conditional evaluation for divergent control flow.
+						 * Invariant: Taken branch maintains control flow invariants.
+						 */
 						if (previousTokenStartOffset === startOffset) {
 							// Current token and previous token span the exact same characters, add the scopes to the previous token
 							endOffsetsAndScopes[withinTokenIndex].scopes.push(capture.name);
@@ -781,15 +1072,31 @@ export class TreeSitterTokenizationModel extends Disposable {
 		}
 
 		// Account for uncaptured characters at the end of the line
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if ((endOffsetsAndScopes[tokenIndex - 1].endOffset < rangeLength)) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (rangeLength - endOffsetsAndScopes[tokenIndex - 1].endOffset > 0) {
 				increaseSizeOfTokensByOneToken();
 				endOffsetsAndScopes[tokenIndex] = { endOffset: rangeLength, scopes: endOffsetsAndScopes[tokenIndex].scopes, encodedLanguageId: this._encodedLanguageId };
 				tokenIndex++;
 			}
 		}
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < endOffsetsAndScopes.length; i++) {
 			const token = endOffsetsAndScopes[i];
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (token.endOffset === 0 && i !== 0) {
 				endOffsetsAndScopes.splice(i, endOffsetsAndScopes.length - i);
 				break;
@@ -801,11 +1108,19 @@ export class TreeSitterTokenizationModel extends Disposable {
 
 	private _tokSupport_getInjectionCaptures(parentCapture: QueryCapture, range: Range) {
 		const injection = textModelTreeSitter.getInjection(parentCapture.node.startIndex, this._treeSitterModel.languageId);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!injection?.tree || injection.versionId !== textModelTreeSitter.parseResult?.versionId) {
 			return undefined;
 		}
 
 		const feature = TreeSitterTokenizationRegistry.get(injection.languageId);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!feature) {
 			return undefined;
 		}
@@ -815,10 +1130,18 @@ export class TreeSitterTokenizationModel extends Disposable {
 	private _tokSupport_tokenizeCapturesWithMetadata(captures: QueryCapture[], rangeStartOffset: number, rangeEndOffset: number): { endOffsetsAndMetadata: EndOffsetToken[]; captureTime: number; metadataTime: number } | undefined {
 		const stopwatch = StopWatch.create();
 		const emptyTokens = this._tokSupport_createTokensFromCaptures(captures, rangeStartOffset, rangeEndOffset);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!emptyTokens) {
 			return undefined;
 		}
 		const endOffsetsAndScopes: EndOffsetWithMeta[] = emptyTokens.endOffsets;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < endOffsetsAndScopes.length; i++) {
 			const token = endOffsetsAndScopes[i];
 			token.metadata = findMetadata(this._tokSupport_colorThemeData, token.scopes, token.encodedLanguageId, !!token.bracket && (token.bracket.length > 0));
@@ -835,6 +1158,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 		const lineLength = lineEndOffset - lineOffset;
 
 		const result = this._tokSupport_tokenize(new Range(lineNumber, 1, lineNumber, lineLength + 1), lineOffset, lineEndOffset);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!result) {
 			return undefined;
 		}
@@ -844,6 +1171,10 @@ export class TreeSitterTokenizationModel extends Disposable {
 	private _tokSupport_endOffsetTokensToUint32Array(endOffsetsAndMetadata: EndOffsetToken[]): Uint32Array {
 
 		const uint32Array = new Uint32Array(endOffsetsAndMetadata.length * 2);
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (let i = 0; i < endOffsetsAndMetadata.length; i++) {
 			uint32Array[i * 2] = endOffsetsAndMetadata[i].endOffset;
 			uint32Array[i * 2 + 1] = endOffsetsAndMetadata[i].metadata;

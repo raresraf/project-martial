@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file converter.go
+ * @brief Generic reflection-based type conversion engine for Kubernetes.
+ * 
+ * Functional Intent: Provides a flexible framework for translating data structures 
+ * between different API versions or internal representations. It handles deep 
+ * copying of nested objects, supports custom conversion functions for specific 
+ * type pairs, and allows for explicit field-to-field mapping between structs 
+ * with different schemas.
+ * 
+ * Domain: Production Systems, Data Serialization, Version Migration.
+ */
+
 package conversion
 
 import (
@@ -31,36 +44,40 @@ type typeNamePair struct {
 	fieldName string
 }
 
-// DebugLogger allows you to get debugging messages if necessary.
+/**
+ * @interface DebugLogger
+ * @brief Hook for high-verbosity diagnostic logging during complex conversion paths.
+ */
 type DebugLogger interface {
 	Logf(format string, args ...interface{})
 }
 
-// Converter knows how to convert one type to another.
+/**
+ * @struct Converter
+ * @brief State container for registered conversion functions and field mapping rules.
+ * 
+ * Logic: Orchestrates the transformation process by dispatching to specialized 
+ * functions or falling back to a reflection-driven recursive copy algorithm.
+ */
 type Converter struct {
-	// Map from the conversion pair to a function which can
-	// do the conversion.
+	// funcs - Registry of expert conversion logic for specific (SrcType, DestType) pairs.
 	funcs map[typePair]reflect.Value
 
-	// This is a map from a source field type and name, to a list of destination
-	// field type and name.
+	// structFieldDests - Forward mapping rules (SourceField -> DestinationField).
 	structFieldDests map[typeNamePair][]typeNamePair
 
-	// Allows for the opposite lookup of structFieldDests. So that SourceFromDest
-	// copy flag also works. So this is a map of destination field name, to potential
-	// source field name and type to look for.
+	// structFieldSources - Reverse mapping rules (DestinationField -> SourceField).
 	structFieldSources map[typeNamePair][]typeNamePair
 
-	// If non-nil, will be called to print helpful debugging info. Quite verbose.
 	Debug DebugLogger
 
-	// NameFunc is called to retrieve the name of a type; this name is used for the
-	// purpose of deciding whether two types match or not (i.e., will we attempt to
-	// do a conversion). The default returns the go type name.
+	// NameFunc - Customizable discriminator for type identity during matching checks.
 	NameFunc func(t reflect.Type) string
 }
 
-// NewConverter creates a new Converter object.
+/**
+ * NewConverter - Factory for initializing a fresh conversion context.
+ */
 func NewConverter() *Converter {
 	return &Converter{
 		funcs:              map[typePair]reflect.Value{},
@@ -70,42 +87,42 @@ func NewConverter() *Converter {
 	}
 }
 
-// Scope is passed to conversion funcs to allow them to continue an ongoing conversion.
-// If multiple converters exist in the system, Scope will allow you to use the correct one
-// from a conversion function--that is, the one your conversion function was called by.
+/**
+ * @interface Scope
+ * @brief Control handle passed to conversion functions to allow recursive sub-object processing.
+ * 
+ * Functional Utility: Decouples the expert conversion logic from the global 
+ * converter state, enabling modularity and stack-safe recursion.
+ */
 type Scope interface {
-	// Call Convert to convert sub-objects. Note that if you call it with your own exact
-	// parameters, you'll run out of stack space before anything useful happens.
 	Convert(src, dest interface{}, flags FieldMatchingFlags) error
 
-	// SrcTags and DestTags contain the struct tags that src and dest had, respectively.
-	// If the enclosing object was not a struct, then these will contain no tags, of course.
 	SrcTag() reflect.StructTag
 	DestTag() reflect.StructTag
 
-	// Flags returns the flags with which the conversion was started.
 	Flags() FieldMatchingFlags
 
-	// Meta returns any information originally passed to Convert.
 	Meta() *Meta
 }
 
-// Meta is supplied by Scheme, when it calls Convert.
+/**
+ * @struct Meta
+ * @brief Contextual metadata (e.g. version identifiers) passed through the conversion pipeline.
+ */
 type Meta struct {
 	SrcVersion  string
 	DestVersion string
-
-	// TODO: If needed, add a user data field here.
 }
 
-// scope contains information about an ongoing conversion.
+/**
+ * @struct scope
+ * @brief Internal implementation of the Scope interface, tracking stack depth for debugging.
+ */
 type scope struct {
 	converter *Converter
 	meta      *Meta
 	flags     FieldMatchingFlags
 
-	// srcStack & destStack are separate because they may not have a 1:1
-	// relationship.
 	srcStack  scopeStack
 	destStack scopeStack
 }
@@ -131,6 +148,9 @@ func (s *scopeStack) top() *scopeStackElem {
 	return &(*s)[len(*s)-1]
 }
 
+/**
+ * describe - Computes a human-readable path string for the current recursive depth.
+ */
 func (s scopeStack) describe() string {
 	desc := ""
 	if len(s) > 1 {
@@ -138,7 +158,6 @@ func (s scopeStack) describe() string {
 	}
 	for i, v := range s {
 		if i < 2 {
-			// First layer on stack is not real; second is handled specially above.
 			continue
 		}
 		if v.key == "" {
@@ -150,66 +169,57 @@ func (s scopeStack) describe() string {
 	return desc
 }
 
-// Formats src & dest as indices for printing.
 func (s *scope) setIndices(src, dest int) {
 	s.srcStack.top().key = fmt.Sprintf("[%v]", src)
 	s.destStack.top().key = fmt.Sprintf("[%v]", dest)
 }
 
-// Formats src & dest as map keys for printing.
 func (s *scope) setKeys(src, dest interface{}) {
 	s.srcStack.top().key = fmt.Sprintf(`["%v"]`, src)
 	s.destStack.top().key = fmt.Sprintf(`["%v"]`, dest)
 }
 
-// Convert continues a conversion.
 func (s *scope) Convert(src, dest interface{}, flags FieldMatchingFlags) error {
 	return s.converter.Convert(src, dest, flags, s.meta)
 }
 
-// SrcTag returns the tag of the struct containing the current source item, if any.
 func (s *scope) SrcTag() reflect.StructTag {
 	return s.srcStack.top().tag
 }
 
-// DestTag returns the tag of the struct containing the current dest item, if any.
 func (s *scope) DestTag() reflect.StructTag {
 	return s.destStack.top().tag
 }
 
-// Flags returns the flags with which the current conversion was started.
 func (s *scope) Flags() FieldMatchingFlags {
 	return s.flags
 }
 
-// Meta returns the meta object that was originally passed to Convert.
 func (s *scope) Meta() *Meta {
 	return s.meta
 }
 
-// describe prints the path to get to the current (source, dest) values.
 func (s *scope) describe() (src, dest string) {
 	return s.srcStack.describe(), s.destStack.describe()
 }
 
-// error makes an error that includes information about where we were in the objects
-// we were asked to convert.
 func (s *scope) error(message string, args ...interface{}) error {
 	srcPath, destPath := s.describe()
 	where := fmt.Sprintf("converting %v to %v: ", srcPath, destPath)
 	return fmt.Errorf(where+message, args...)
 }
 
-// Register registers a conversion func with the Converter. conversionFunc must take
-// three parameters: a pointer to the input type, a pointer to the output type, and
-// a conversion.Scope (which should be used if recursive conversion calls are desired).
-// It must return an error.
-//
-// Example:
-// c.Register(func(in *Pod, out *v1beta1.Pod, s Scope) error { ... return nil })
+/**
+ * Register - Adds a specialized conversion handler to the engine.
+ * 
+ * Logic: Validates the function signature to ensure it matches the 
+ * (InPtr, OutPtr, Scope) -> Error pattern required for dynamic dispatch.
+ */
 func (c *Converter) Register(conversionFunc interface{}) error {
 	fv := reflect.ValueOf(conversionFunc)
 	ft := fv.Type()
+	
+	// Pre-condition: Input must be a function with specific arity.
 	if ft.Kind() != reflect.Func {
 		return fmt.Errorf("expected func, got: %v", ft)
 	}
@@ -225,27 +235,25 @@ func (c *Converter) Register(conversionFunc interface{}) error {
 	if ft.In(1).Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer arg for 'in' param 1, got: %v", ft)
 	}
+	
 	scopeType := Scope(nil)
 	if e, a := reflect.TypeOf(&scopeType).Elem(), ft.In(2); e != a {
 		return fmt.Errorf("expected '%v' arg for 'in' param 2, got '%v' (%v)", e, a, ft)
 	}
 	var forErrorType error
-	// This convolution is necessary, otherwise TypeOf picks up on the fact
-	// that forErrorType is nil.
 	errorType := reflect.TypeOf(&forErrorType).Elem()
 	if ft.Out(0) != errorType {
 		return fmt.Errorf("expected error return, got: %v", ft)
 	}
+	
+	// Invariant: Stores the handler for O(1) lookup during conversion dispatch.
 	c.funcs[typePair{ft.In(0).Elem(), ft.In(1).Elem()}] = fv
 	return nil
 }
 
-// SetStructFieldCopy registers a correspondence. Whenever a struct field is encountered
-// which has a type and name matching srcFieldType and srcFieldName, it wil be copied
-// into the field in the destination struct matching destFieldType & Name, if such a
-// field exists.
-// May be called multiple times, even for the same source field & type--all applicable
-// copies will be performed.
+/**
+ * SetStructFieldCopy - Registers an explicit field-name mapping between structs.
+ */
 func (c *Converter) SetStructFieldCopy(srcFieldType interface{}, srcFieldName string, destFieldType interface{}, destFieldName string) error {
 	st := reflect.TypeOf(srcFieldType)
 	dt := reflect.TypeOf(destFieldType)
@@ -256,45 +264,30 @@ func (c *Converter) SetStructFieldCopy(srcFieldType interface{}, srcFieldName st
 	return nil
 }
 
-// FieldMatchingFlags contains a list of ways in which struct fields could be
-// copied. These constants may be | combined.
 type FieldMatchingFlags int
 
 const (
-	// Loop through destination fields, search for matching source
-	// field to copy it from. Source fields with no corresponding
-	// destination field will be ignored. If SourceToDest is
-	// specified, this flag is ignored. If niether is specified,
-	// or no flags are passed, this flag is the default.
+	// DestFromSource - Default logic: Iterate destination and find matching sources.
 	DestFromSource FieldMatchingFlags = 0
-	// Loop through source fields, search for matching dest field
-	// to copy it into. Destination fields with no corresponding
-	// source field will be ignored.
+	// SourceToDest - Mapping logic: Iterate source and push into matching destinations.
 	SourceToDest FieldMatchingFlags = 1 << iota
-	// Don't treat it as an error if the corresponding source or
-	// dest field can't be found.
 	IgnoreMissingFields
-	// Don't require type names to match.
 	AllowDifferentFieldTypeNames
 )
 
-// IsSet returns true if the given flag or combination of flags is set.
 func (f FieldMatchingFlags) IsSet(flag FieldMatchingFlags) bool {
 	if flag == DestFromSource {
-		// The bit logic doesn't work on the default value.
 		return f&SourceToDest != SourceToDest
 	}
 	return f&flag == flag
 }
 
-// Convert will translate src to dest if it knows how. Both must be pointers.
-// If no conversion func is registered and the default copying mechanism
-// doesn't work on this type pair, an error will be returned.
-// Read the comments on the various FieldMatchingFlags constants to understand
-// what the 'flags' parameter does.
-// 'meta' is given to allow you to pass information to conversion functions,
-// it is not used by Convert() other than storing it in the scope.
-// Not safe for objects with cyclic references!
+/**
+ * Convert - Entry point for object translation.
+ * 
+ * Logic: Validates input pointers and initializes the recursive stack. 
+ * Not thread-safe for objects with circular references.
+ */
 func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, meta *Meta) error {
 	dv, err := EnforcePtr(dest)
 	if err != nil {
@@ -312,35 +305,42 @@ func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, met
 		flags:     flags,
 		meta:      meta,
 	}
-	// Leave something on the stack, so that calls to struct tag getters never fail.
 	s.srcStack.push(scopeStackElem{})
 	s.destStack.push(scopeStackElem{})
 	return c.convert(sv, dv, s)
 }
 
-// convert recursively copies sv into dv, calling an appropriate conversion function if
-// one is registered.
+/**
+ * convert - Internal recursive engine for deep object copying.
+ * 
+ * Algorithm: Type-driven dispatch.
+ * 1. Checks for expert conversion functions.
+ * 2. Validates type compatibility.
+ * 3. Handles primitives (assign/convert).
+ * 4. Recursively processes containers (Structs, Slices, Maps, Pointers).
+ */
 func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
+	
+	// Block Logic: Expert function dispatch.
 	if fv, ok := c.funcs[typePair{st, dt}]; ok {
 		if c.Debug != nil {
 			c.Debug.Logf("Calling custom conversion of '%v' to '%v'", st, dt)
 		}
 		args := []reflect.Value{sv.Addr(), dv.Addr(), reflect.ValueOf(scope)}
 		ret := fv.Call(args)[0].Interface()
-		// This convolution is necessary because nil interfaces won't convert
-		// to errors.
 		if ret == nil {
 			return nil
 		}
 		return ret.(error)
 	}
 
+	// Logic: Strict type identity check unless overridden by flags.
 	if !scope.flags.IsSet(AllowDifferentFieldTypeNames) && c.NameFunc(dt) != c.NameFunc(st) {
 		return scope.error("type names don't match (%v, %v)", c.NameFunc(st), c.NameFunc(dt))
 	}
 
-	// This should handle all simple types.
+	// Block Logic: Primitive assignment fast-path.
 	if st.AssignableTo(dt) {
 		dv.Set(sv)
 		return nil
@@ -359,12 +359,16 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	defer scope.srcStack.pop()
 	defer scope.destStack.pop()
 
+	/**
+	 * Block Logic: Container-type recursion.
+	 * Invariant: Successfully populates 'dv' by performing element-wise 
+	 * conversion from 'sv'.
+	 */
 	switch dv.Kind() {
 	case reflect.Struct:
 		return c.convertStruct(sv, dv, scope)
 	case reflect.Slice:
 		if sv.IsNil() {
-			// Don't make a zero-length slice.
 			dv.Set(reflect.Zero(dt))
 			return nil
 		}
@@ -377,7 +381,6 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		}
 	case reflect.Ptr:
 		if sv.IsNil() {
-			// Don't copy a nil ptr!
 			dv.Set(reflect.Zero(dt))
 			return nil
 		}
@@ -385,7 +388,6 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		return c.convert(sv.Elem(), dv.Elem(), scope)
 	case reflect.Map:
 		if sv.IsNil() {
-			// Don't copy a nil ptr!
 			dv.Set(reflect.Zero(dt))
 			return nil
 		}
@@ -408,6 +410,9 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	return nil
 }
 
+/**
+ * convertStruct - Iterates and converts individual fields of a struct.
+ */
 func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
 
@@ -415,18 +420,28 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 	if scope.flags.IsSet(SourceToDest) {
 		listType = st
 	}
+	
+	/**
+	 * Block Logic: Field iteration loop.
+	 * Invariant: Every field in the target struct is populated either from 
+	 * a matching field in the source or via an explicit mapping rule.
+	 */
 	for i := 0; i < listType.NumField(); i++ {
 		f := listType.Field(i)
+		
+		// Logic: Check for explicit field-level overrides before falling back to name-matching.
 		if found, err := c.checkStructField(f.Name, sv, dv, scope); found {
 			if err != nil {
 				return err
 			}
 			continue
 		}
+		
 		df := dv.FieldByName(f.Name)
 		sf := sv.FieldByName(f.Name)
+		
+		// Synchronization: Metadata (StructTags) propagation.
 		if sf.IsValid() {
-			// No need to check error, since we know it's valid.
 			field, _ := st.FieldByName(f.Name)
 			scope.srcStack.top().tag = field.Tag
 		}
@@ -434,7 +449,7 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 			field, _ := dt.FieldByName(f.Name)
 			scope.destStack.top().tag = field.Tag
 		}
-		// TODO: set top level of scope.src/destTagStack with these field tags here.
+		
 		if !df.IsValid() || !sf.IsValid() {
 			switch {
 			case scope.flags.IsSet(IgnoreMissingFields):
@@ -447,7 +462,6 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 			continue
 		}
 		scope.srcStack.top().key = f.Name
-		scope.srcStack.top().key = f.Name
 		if err := c.convert(sf, df, scope); err != nil {
 			return err
 		}
@@ -455,25 +469,25 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 	return nil
 }
 
-// checkStructField returns true if the field name matches any of the struct
-// field copying rules. The error should be ignored if it returns false.
+/**
+ * checkStructField - Resolves explicit mapping rules for a named field.
+ */
 func (c *Converter) checkStructField(fieldName string, sv, dv reflect.Value, scope *scope) (bool, error) {
 	replacementMade := false
+	
+	// Block Logic: Destination-driven rule evaluation.
 	if scope.flags.IsSet(DestFromSource) {
 		df := dv.FieldByName(fieldName)
 		if !df.IsValid() {
 			return false, nil
 		}
 		destKey := typeNamePair{df.Type(), fieldName}
-		// Check each of the potential source (type, name) pairs to see if they're
-		// present in sv.
 		for _, potentialSourceKey := range c.structFieldSources[destKey] {
 			sf := sv.FieldByName(potentialSourceKey.fieldName)
 			if !sf.IsValid() {
 				continue
 			}
 			if sf.Type() == potentialSourceKey.fieldType {
-				// Both the source's name and type matched, so copy.
 				scope.srcStack.top().key = potentialSourceKey.fieldName
 				scope.destStack.top().key = fieldName
 				if err := c.convert(sf, df, scope); err != nil {
@@ -485,20 +499,18 @@ func (c *Converter) checkStructField(fieldName string, sv, dv reflect.Value, sco
 		return replacementMade, nil
 	}
 
+	// Block Logic: Source-driven rule evaluation.
 	sf := sv.FieldByName(fieldName)
 	if !sf.IsValid() {
 		return false, nil
 	}
 	srcKey := typeNamePair{sf.Type(), fieldName}
-	// Check each of the potential dest (type, name) pairs to see if they're
-	// present in dv.
 	for _, potentialDestKey := range c.structFieldDests[srcKey] {
 		df := dv.FieldByName(potentialDestKey.fieldName)
 		if !df.IsValid() {
 			continue
 		}
 		if df.Type() == potentialDestKey.fieldType {
-			// Both the dest's name and type matched, so copy.
 			scope.srcStack.top().key = fieldName
 			scope.destStack.top().key = potentialDestKey.fieldName
 			if err := c.convert(sf, df, scope); err != nil {

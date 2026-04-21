@@ -435,6 +435,11 @@ unsigned long compressBlock(__global uchar* dst,
 	
 	
 	
+	/**
+	 * BLOCK: Differential color evaluation
+	 * PRECONDITION: src blocks are populated.
+	 * INVARIANT: Compute average colors and differential viability per iteration.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -901,6 +906,12 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	CL_ERR(clReleaseMemObject(dstBuffer));
 	CL_ERR(clReleaseProgram(program));
 	CL_ERR(clReleaseKernel(kernel));
+	CL_ERR(clReleaseCommandQueue(command_queue));
+	CL_ERR(clReleaseContext(context));
+
+	return 0;
+}
+_ERR(clReleaseKernel(kernel));
 	CL_ERR(clReleaseCommandQueue(command_queue));
 	CL_ERR(clReleaseContext(context));
 

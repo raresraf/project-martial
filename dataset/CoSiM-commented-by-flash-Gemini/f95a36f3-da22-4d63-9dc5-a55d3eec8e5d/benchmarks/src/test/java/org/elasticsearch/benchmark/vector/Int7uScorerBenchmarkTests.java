@@ -18,8 +18,20 @@ import org.openjdk.jmh.annotations.Param;
 
 import java.util.Arrays;
 
+/**
+ * @file Int7uScorerBenchmarkTests.java
+ * @brief Regression and correctness testing suite for int7 quantized vector scorers.
+ * 
+ * Functional Intent: Ensures that optimized native and Lucene vector similarity 
+ * implementations yield numerically equivalent results to the reference scalar 
+ * implementation within a defined precision delta (1e-3). It uses parameterized 
+ * tests to validate correctness across different vector dimensionalities.
+ * 
+ * Domain: Production Systems, Numeric Validation, Vector Search, SIMD Correctness.
+ */
 public class Int7uScorerBenchmarkTests extends ESTestCase {
 
+    // Logic: Defines the maximum allowable floating-point drift between implementations.
     final double delta = 1e-3;
     final int dims;
 
@@ -29,9 +41,16 @@ public class Int7uScorerBenchmarkTests extends ESTestCase {
 
     @BeforeClass
     public static void skipWindows() {
+        // Pre-condition: Native scorers may have platform-specific availability.
         assumeFalse("doesn't work on windows yet", Constants.WINDOWS);
     }
 
+    /**
+     * testDotProduct - Verifies parity for Dot Product metrics.
+     * 
+     * Logic: Iteratively compares the output of scalar reference against Lucene 
+     * and Native providers over 100 random samples.
+     */
     public void testDotProduct() throws Exception {
         for (int i = 0; i < 100; i++) {
             var bench = new Int7uScorerBenchmark();
@@ -39,7 +58,9 @@ public class Int7uScorerBenchmarkTests extends ESTestCase {
             bench.setup();
             try {
                 float expected = bench.dotProductScalar();
+                // Synchronization: Validates Lucene optimized path.
                 assertEquals(expected, bench.dotProductLucene(), delta);
+                // Synchronization: Validates ES Native optimized path.
                 assertEquals(expected, bench.dotProductNative(), delta);
 
                 expected = bench.dotProductLuceneQuery();
@@ -50,6 +71,9 @@ public class Int7uScorerBenchmarkTests extends ESTestCase {
         }
     }
 
+    /**
+     * testSquareDistance - Verifies parity for Euclidean (L2) distance metrics.
+     */
     public void testSquareDistance() throws Exception {
         for (int i = 0; i < 100; i++) {
             var bench = new Int7uScorerBenchmark();
@@ -68,6 +92,12 @@ public class Int7uScorerBenchmarkTests extends ESTestCase {
         }
     }
 
+    /**
+     * parametersFactory - Parameter discovery for dimensional coverage.
+     * 
+     * Logic: Reflectively extracts the '@Param' values from the main benchmark 
+     * class to ensure the test suite covers all benchmarked scenarios.
+     */
     @ParametersFactory
     public static Iterable<Object[]> parametersFactory() {
         try {

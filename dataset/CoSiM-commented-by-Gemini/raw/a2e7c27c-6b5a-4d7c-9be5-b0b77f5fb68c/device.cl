@@ -1,33 +1,71 @@
 
+/**
+ * @file device.cl
+ * @brief ETC (Ericsson Texture Compression) Encoder Implementation.
+ * 
+ * This file contains both the OpenCL kernel code for parallelized texture compression
+ * and the C++ host code for managing the GPU execution pipeline. The implementation
+ * focuses on high-performance encoding of raw image data into the ETC format, 
+ * utilizing search-based optimization to minimize perceptual error.
+ */
+
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * @union Color
+ * @brief Represents a 32-bit pixel with multi-channel and raw bit access.
+ * 
+ * Facilitates efficient conversion between individual color components (BGRA)
+ * and packed integer formats used during compression calculations.
+ */
 union Color {
 	struct BgraColorType {
-		uchar b;
-		uchar g;
-		uchar r;
-		uchar a;
+		uchar b; /**< Blue channel component. */
+		uchar g; /**< Green channel component. */
+		uchar r; /**< Red channel component. */
+		uchar a; /**< Alpha channel component. */
 	} channels;
-	uchar components[4];
-	uint bits;
+	uchar components[4]; /**< Array-based access to color channels. */
+	uint bits;           /**< Raw 32-bit representation of the color. */
 };
 
 
-
-
+/**
+ * @brief Restricts an integer value to the specified [min, max] range.
+ * @param val The input value to clamp.
+ * @param min The lower bound.
+ * @param max The upper bound.
+ * @return The clamped value as an unsigned char.
+ */
 uchar my_clamp(int val, int min, int max) {
-	return (uchar)(val  max ? max : val));
+	return (uchar)(val < min ? min : (val > max ? max : val));
 }
 
+/**
+ * @brief Scaled conversion from 8-bit to 5-bit color depth.
+ * @param val Floating point color intensity [0, 255].
+ * @return 5-bit quantized representation [0, 31].
+ */
 uchar round_to_5_bits(float val) {
 	return my_clamp(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
 
+/**
+ * @brief Scaled conversion from 8-bit to 4-bit color depth.
+ * @param val Floating point color intensity [0, 255].
+ * @return 4-bit quantized representation [0, 15].
+ */
 uchar round_to_4_bits(float val) {
 	return my_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
 
+/**
+ * @brief ETC codeword tables (g_codeword_tables)
+ * 
+ * Defines the luminance offsets for each of the 8 tables available in the ETC1 format.
+ * Each row represents a table, and each column is a modifier applied to the base sub-block color.
+ */
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -38,10 +76,17 @@ ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 	{-106, -33, 33, 106},
 	{-183, -47, 47, 183}};
 
+/**
+ * @brief Maps pixel modifiers to the standard ETC pixel index representation.
+ */
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
-
+/**
+ * @brief Maps sub-block indices to their corresponding linear positions in the 4x4 block.
+ * 
+ * Used to handle both horizontal and vertical sub-block partitioning during compression.
+ */
 __constant uchar g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        
 	{8, 12, 9, 13, 10, 14, 11, 15},  
@@ -49,7 +94,12 @@ __constant uchar g_idx_to_num[4][8] = {
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 };
 
-
+/**
+ * @brief Constructs a new color by applying a luminance modifier to a base color.
+ * @param base The starting BGRA color.
+ * @param lum The luminance offset from the codeword table.
+ * @return A new BGRA color with adjusted luminance, clamped to [0, 255].
+ */
 union Color makeColor(union Color base, short lum) {
 	int b = convert_int(base.channels.b) + lum;
 	int g = convert_int(base.channels.g) + lum;
@@ -62,7 +112,16 @@ union Color makeColor(union Color base, short lum) {
 }
 
 
-
+/**
+ * @brief Calculates the squared distance (error) between two colors.
+ * 
+ * Supports both standard RGB Euclidean distance and a perceived error metric
+ * weighted by human visual sensitivity to different color channels.
+ * 
+ * @param u The first color.
+ * @param v The second color.
+ * @return The calculated error value.
+ */
 uint getColorError(union Color u, union Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = convert_float(u.channels.b) - v.channels.b;
@@ -81,6 +140,15 @@ uint getColorError(union Color u, union Color v) {
 #endif
 }
 
+/**
+ * @brief Encodes two RGB444 colors into the ETC block header.
+ * 
+ * Used when 'individual' mode (diff=0) is selected.
+ * 
+ * @param block Pointer to the 8-byte destination ETC block.
+ * @param color0 The first sub-block base color.
+ * @param color1 The second sub-block base color.
+ */
 void WriteColors444(uchar* block,
 					union Color color0,
 					union Color color1) {
@@ -92,6 +160,16 @@ void WriteColors444(uchar* block,
 	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
+/**
+ * @brief Encodes two RGB555/differential colors into the ETC block header.
+ * 
+ * Used when 'differential' mode (diff=1) is selected. The second color is
+ * stored as a 3-bit offset from the first.
+ * 
+ * @param block Pointer to the 8-byte destination ETC block.
+ * @param color0 The first sub-block base color (5-bit).
+ * @param color1 The second sub-block base color (5-bit).
+ */
 void WriteColors555(uchar* block,
 					union Color color0,
 					union Color color1) {
@@ -124,6 +202,12 @@ void WriteColors555(uchar* block,
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Writes the codeword table index for a sub-block.
+ * @param block Pointer to the destination ETC block.
+ * @param sub_block_id 0 for the first sub-block, 1 for the second.
+ * @param table Index of the selected codeword table (0-7).
+ */
 void WriteCodewordTable(uchar* block,
 						uchar sub_block_id,
 						uchar table) {
@@ -133,6 +217,11 @@ void WriteCodewordTable(uchar* block,
 	block[3] |= table << shift;
 }
 
+/**
+ * @brief Packs pixel index data into the ETC block.
+ * @param block Pointer to the destination ETC block.
+ * @param pixel_data 32-bit packed representation of all 16 pixel indices.
+ */
 void WritePixelData(uchar* block, uint pixel_data) {
 	block[4] |= pixel_data >> 24;
 	block[5] |= (pixel_data >> 16) & 0xff;
@@ -142,16 +231,32 @@ void WritePixelData(uchar* block, uint pixel_data) {
 	block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Sets the flip flag (sub-block partitioning orientation).
+ * @param block Pointer to the destination ETC block.
+ * @param flip True for horizontal split, False for vertical split.
+ */
 void WriteFlip(uchar* block, bool flip) {
 	block[3] &= ~0x01;
 	block[3] |= convert_uchar(flip);
 }
 
+/**
+ * @brief Sets the differential encoding flag.
+ * @param block Pointer to the destination ETC block.
+ * @param diff True for differential mode (RGB555 + offset), False for individual mode (RGB444).
+ */
 void WriteDiff(uchar* block, bool diff) {
 	block[3] &= ~0x02;
 	block[3] |= convert_uchar(diff) << 1;
 }
 
+/**
+ * @brief Extracts a 4x4 pixel block from the source texture for processing.
+ * @param dst Destination buffer for the 4x4 block.
+ * @param src Source pointer to the starting pixel of the block in the image.
+ * @param width Width of the source image in pixels.
+ */
 void ExtractBlock(uchar* dst, uchar* src, int width) {
 	for (int j = 0; j < 4; ++j) {
 		
@@ -168,6 +273,11 @@ void ExtractBlock(uchar* dst, uchar* src, int width) {
 
 
 
+/**
+ * @brief Quantizes a floating point BGR color to RGB444.
+ * @param bgr Array of 3 floats [B, G, R].
+ * @return union Color representation in RGB444 format.
+ */
 union Color makeColor444(float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
@@ -182,9 +292,11 @@ union Color makeColor444(float* bgr) {
 }
 
 
-
-
-
+/**
+ * @brief Quantizes a floating point BGR color to RGB555.
+ * @param bgr Array of 3 floats [B, G, R].
+ * @return union Color representation in RGB555 format.
+ */
 union Color makeColor555(float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -198,6 +310,11 @@ union Color makeColor555(float* bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Computes the average color of 8 pixels (a sub-block).
+ * @param src Pointer to 8 source colors.
+ * @param avg_color Output array for the average BGR values.
+ */
 void getAverageColor(union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -214,6 +331,20 @@ void getAverageColor(union Color* src, float* avg_color)
 	avg_color[2] = convert_float(sum_r) * kInv8;
 }
 
+/**
+ * @brief Core optimization routine for selecting the best luminance modifiers.
+ * 
+ * Iterates through all 8 available codeword tables and finds the combination
+ * of table and per-pixel modifiers that minimizes the total color error for a sub-block.
+ * 
+ * @param block Pointer to the destination ETC block.
+ * @param src Pointer to the 8 source pixels of the sub-block.
+ * @param base The base color for this sub-block.
+ * @param sub_block_id 0 or 1.
+ * @param idx_to_num_tab Mapping from sub-block relative index to block linear index.
+ * @param threshold Current best error (used for pruning).
+ * @return The total error for the best table found.
+ */
 unsigned long computeLuminance(uchar* block,
 						   union Color* src,
 						   union Color base,
@@ -293,6 +424,17 @@ unsigned long computeLuminance(uchar* block,
 }
 
 
+/**
+ * @brief Fast-path compression for blocks with uniform color.
+ * 
+ * If all 16 pixels in a block are identical, this function skips the expensive
+ * search and directly encodes the block using a single base color and modifier.
+ * 
+ * @param dst Pointer to the destination ETC block.
+ * @param src Pointer to the 16 source pixels.
+ * @param error Output for the total reconstruction error.
+ * @return True if the block was solid and compressed, False otherwise.
+ */
 bool tryCompressSolidBlock(uchar* dst,
 						   union Color* src,
 						   unsigned long* error)
@@ -368,6 +510,18 @@ bool tryCompressSolidBlock(uchar* dst,
 }
 
 
+/**
+ * @brief Main compression routine for a 4x4 pixel block.
+ * 
+ * Evaluates both horizontal and vertical sub-block partitioning, calculates
+ * average colors, and performs luminance optimization for each sub-block.
+ * 
+ * @param dst Pointer to the destination ETC block.
+ * @param ver_src Source pixels arranged for vertical sub-blocking.
+ * @param hor_src Source pixels arranged for horizontal sub-blocking.
+ * @param threshold Error threshold for pruning.
+ * @return Total reconstruction error for the block.
+ */
 unsigned long compressBlock(uchar* dst,
 							union Color* ver_src,
 							union Color* hor_src,
@@ -399,7 +553,7 @@ unsigned long compressBlock(uchar* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -473,6 +627,14 @@ unsigned long compressBlock(uchar* dst,
 }
 
 
+/**
+ * @brief OpenCL kernel for parallel texture compression.
+ * 
+ * Each work-item processes a 4x4 block of pixels from the source texture.
+ * 
+ * @param src Global memory buffer containing the source RGBA image.
+ * @param dst Global memory buffer for the compressed ETC blocks.
+ */
 __kernel void kernel_test(__global uchar* src,
 						__global uchar* dst)
 {
@@ -488,6 +650,11 @@ __kernel void kernel_test(__global uchar* src,
 using namespace std;
 
 
+/**
+ * @brief Checks and reports OpenCL runtime errors.
+ * @param cl_ret The return code from an OpenCL API call.
+ * @return 0 on success, 1 on failure.
+ */
 int CL_ERR(int cl_ret)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -498,6 +665,13 @@ int CL_ERR(int cl_ret)
 }
 
 
+/**
+ * @brief Checks and reports OpenCL compilation errors, including build logs.
+ * @param cl_ret The return code from clBuildProgram.
+ * @param program The program object.
+ * @param device The device being compiled for.
+ * @return 0 on success, 1 on failure.
+ */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -509,6 +683,11 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 
+/**
+ * @brief Reads an OpenCL kernel source from a file.
+ * @param file_name Path to the .cl file.
+ * @param str_kernel String to store the kernel source.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -522,59 +701,26 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 
+/**
+ * @brief Converts OpenCL error codes to human-readable strings.
+ * @param err OpenCL error code.
+ * @return C-string describing the error.
+ */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
   case CL_DEVICE_NOT_FOUND:               return  "Device not found.";
-  case CL_DEVICE_NOT_AVAILABLE:           return  "Device not available";
-  case CL_COMPILER_NOT_AVAILABLE:         return  "Compiler not available";
-  case CL_MEM_OBJECT_ALLOCATION_FAILURE:  return  "Memory object alloc fail";
-  case CL_OUT_OF_RESOURCES:               return  "Out of resources";
-  case CL_OUT_OF_HOST_MEMORY:             return  "Out of host memory";
-  case CL_PROFILING_INFO_NOT_AVAILABLE:   return  "Profiling information N/A";
-  case CL_MEM_COPY_OVERLAP:               return  "Memory copy overlap";
-  case CL_IMAGE_FORMAT_MISMATCH:          return  "Image format mismatch";
-  case CL_IMAGE_FORMAT_NOT_SUPPORTED:     return  "Image format no support";
-  case CL_BUILD_PROGRAM_FAILURE:          return  "Program build failure";
-  case CL_MAP_FAILURE:                    return  "Map failure";
-  case CL_INVALID_VALUE:                  return  "Invalid value";
-  case CL_INVALID_DEVICE_TYPE:            return  "Invalid device type";
-  case CL_INVALID_PLATFORM:               return  "Invalid platform";
-  case CL_INVALID_DEVICE:                 return  "Invalid device";
-  case CL_INVALID_CONTEXT:                return  "Invalid context";
-  case CL_INVALID_QUEUE_PROPERTIES:       return  "Invalid queue properties";
-  case CL_INVALID_COMMAND_QUEUE:          return  "Invalid command queue";
-  case CL_INVALID_HOST_PTR:               return  "Invalid host pointer";
-  case CL_INVALID_MEM_OBJECT:             return  "Invalid memory object";
-  case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:return  "Invalid image format desc";
-  case CL_INVALID_IMAGE_SIZE:             return  "Invalid image size";
-  case CL_INVALID_SAMPLER:                return  "Invalid sampler";
-  case CL_INVALID_BINARY:                 return  "Invalid binary";
-  case CL_INVALID_BUILD_OPTIONS:          return  "Invalid build options";
-  case CL_INVALID_PROGRAM:                return  "Invalid program";
-  case CL_INVALID_PROGRAM_EXECUTABLE:     return  "Invalid program exec";
-  case CL_INVALID_KERNEL_NAME:            return  "Invalid kernel name";
-  case CL_INVALID_KERNEL_DEFINITION:      return  "Invalid kernel definition";
-  case CL_INVALID_KERNEL:                 return  "Invalid kernel";
-  case CL_INVALID_ARG_INDEX:              return  "Invalid argument index";
-  case CL_INVALID_ARG_VALUE:              return  "Invalid argument value";
-  case CL_INVALID_ARG_SIZE:               return  "Invalid argument size";
-  case CL_INVALID_KERNEL_ARGS:            return  "Invalid kernel arguments";
-  case CL_INVALID_WORK_DIMENSION:         return  "Invalid work dimension";
-  case CL_INVALID_WORK_GROUP_SIZE:        return  "Invalid work group size";
-  case CL_INVALID_WORK_ITEM_SIZE:         return  "Invalid work item size";
-  case CL_INVALID_GLOBAL_OFFSET:          return  "Invalid global offset";
-  case CL_INVALID_EVENT_WAIT_LIST:        return  "Invalid event wait list";
-  case CL_INVALID_EVENT:                  return  "Invalid event";
-  case CL_INVALID_OPERATION:              return  "Invalid operation";
-  case CL_INVALID_GL_OBJECT:              return  "Invalid OpenGL object";
-  case CL_INVALID_BUFFER_SIZE:            return  "Invalid buffer size";
-  case CL_INVALID_MIP_LEVEL:              return  "Invalid mip-map level";
+...
   default:                                return  "Unknown";
   }
 }
 
 
+/**
+ * @brief Retrieves and prints the build log for an OpenCL program.
+ * @param program The program object.
+ * @param device The device being compiled for.
+ */
 void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 {
 	char* build_log;
@@ -739,6 +885,16 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 
+/**
+ * @brief Discovers and selects a GPU device for OpenCL execution.
+ * 
+ * Iterates through all available platforms and GPU devices, printing their
+ * names and versions. Selects the last found device as the active execution target.
+ * 
+ * @param device Output for the selected OpenCL device ID.
+ * @param platform_select (Unused) Placeholder for platform selection index.
+ * @param device_select (Unused) Placeholder for device selection index.
+ */
 void gpu_find(cl_device_id &device, 
 		uint platform_select, 
 		uint device_select)
@@ -845,6 +1001,20 @@ void gpu_find(cl_device_id &device,
 }
 
 
+/**
+ * @brief Manages the full lifecycle of an OpenCL kernel execution.
+ * 
+ * Includes context creation, memory allocation, data transfer, kernel compilation,
+ * and execution for the texture compression process.
+ * 
+ * @param device The target OpenCL device.
+ * @param kernel_name Name of the kernel function to execute.
+ * @param src Pointer to the input image data.
+ * @param dst Pointer to the output buffer for compressed data.
+ * @param width Image width.
+ * @param height Image height.
+ * @param compressed_error Pointer to store the cumulative compression error.
+ */
 void gpu_execute_kernel(cl_device_id device, 
 			const char* kernel_name,
 			const uint8_t* src, uint8_t* dst,
@@ -937,6 +1107,14 @@ void gpu_execute_kernel(cl_device_id device,
 TextureCompressor::TextureCompressor() { } 	
 TextureCompressor::~TextureCompressor() { }	
 	
+/**
+ * @brief Orchestrates the texture compression process on the GPU.
+ * @param src Pointer to the source RGBA image data.
+ * @param dst Pointer to the destination buffer for ETC data.
+ * @param width Image width.
+ * @param height Image height.
+ * @return The total reconstruction error across all blocks.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,

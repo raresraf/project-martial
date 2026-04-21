@@ -1,3 +1,10 @@
+/**
+ * @raw/f46548bd-e77c-402c-8c4a-a62042eeb506/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/mistral/request/completion/MistralChatCompletionRequestEntity.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -39,6 +46,10 @@ public class MistralChatCompletionRequestEntity implements ToXContentObject {
         builder.startObject();
         unifiedRequestEntity.toXContent(builder, params);
         builder.field(MODEL_FIELD, model.getServiceSettings().modelId());
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (unifiedChatInput.getRequest().maxCompletionTokens() != null) {
             builder.field(MAX_TOKENS_FIELD, unifiedChatInput.getRequest().maxCompletionTokens());
         }

@@ -1,4 +1,16 @@
+/**
+ * @66c22769-cc7c-43c2-b3c3-e47b91b49b1e/compress.cl
+ * @brief Parallel block-based image compression implementation for GPU.
+ * Functional Utility: Orchestrates a compression pipeline (similar to ETC/BC) using 
+ * OpenCL kernels for massively parallel computation and a C++ host wrapper for 
+ * resource management and synchronization.
+ * Domain: HPC Graphics, Texture Encoding.
+ */
 
+/**
+ * @union Tag (Color)
+ * @brief Memory-aligned color representation supporting both channel and component access.
+ */
 typedef union Tag {
 	struct BgraColorType {
 		unsigned char b;
@@ -10,14 +22,20 @@ typedef union Tag {
 	unsigned int bits;
 } Color;
 
+/**
+ * Functional Utility: Parameterized clamping for color channel boundary enforcement.
+ */
 int clamp1(int val, int min, int max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
 unsigned int clamp2(unsigned int val, unsigned int min, unsigned int max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * Functional Utility: Precision reduction for lossy color encoding.
+ */
 unsigned char round_to_5_bits(float val) {
 	return (unsigned char) clamp2(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
@@ -26,6 +44,10 @@ unsigned char round_to_4_bits(float val) {
 	return (unsigned char) clamp2(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
+/**
+ * @constant g_codeword_tables
+ * @brief Quantization tables for luminance modulation in compressed blocks.
+ */
 __constant short g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -45,20 +67,26 @@ __constant unsigned char g_idx_to_num[4][8] = {
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 };
 
+
 Color makeColor(const Color base, short lum) {
 	int b = (int) base.channels.b + lum;
 	int g = (int) base.channels.g + lum;
 	int r = (int) base.channels.r + lum;
 	Color color;
-	color.channels.b = (unsigned char) clamp(b, 0, 255);
-	color.channels.g = (unsigned char) clamp(g, 0, 255);
-	color.channels.r = (unsigned char) clamp(r, 0, 255);
+	color.channels.b = (unsigned char) clamp1(b, 0, 255);
+	color.channels.g = (unsigned char) clamp1(g, 0, 255);
+	color.channels.r = (unsigned char) clamp1(r, 0, 255);
 	return color;
 }
 
 #define USE_PERCEIVED_ERROR_METRIC
 
 
+/**
+ * @brief Computes numerical error between two colors.
+ * Optimization: Uses a weighted perceived error metric (Human Visual System model) 
+ * if enabled, otherwise defaults to standard L2 distance.
+ */
 unsigned int getColorError(const Color u, const Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float) u.channels.b - v.channels.b;
@@ -68,13 +96,16 @@ unsigned int getColorError(const Color u, const Color v) {
 								 0.587f * delta_g * delta_g +
 								 0.114f * delta_r * delta_r);
 #else
-	int delta_b = static_cast(u.channels.b) - v.channels.b;
-	int delta_g = static_cast(u.channels.g) - v.channels.g;
-	int delta_r = static_cast(u.channels.r) - v.channels.r;
+	int delta_b = (int)(u.channels.b) - v.channels.b;
+	int delta_g = (int)(u.channels.g) - v.channels.g;
+	int delta_r = (int)(u.channels.r) - v.channels.r;
 	return delta_b * delta_b + delta_g * delta_g + delta_r * delta_r;
 #endif
 }
 
+/**
+ * @brief Serializes uncompressed 4-bit colors into block header.
+ */
 void WriteColors444(global unsigned char* block,
 									 const Color color0,
 									 const Color color1) {
@@ -84,6 +115,9 @@ void WriteColors444(global unsigned char* block,
 	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
+/**
+ * @brief Serializes compressed 5-bit colors with delta encoding.
+ */
 void WriteColors555(global unsigned char* block,
 						   const Color color0,
 						   const Color color1) {
@@ -112,7 +146,8 @@ void WriteColors555(global unsigned char* block,
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
-void WriteCodewordTable(global unsigned char* block,
+
+inline void WriteCodewordTable(global unsigned char* block,
 							   unsigned char sub_block_id,
 							   unsigned char table) {
 	
@@ -121,23 +156,26 @@ void WriteCodewordTable(global unsigned char* block,
 	block[3] |= table << shift;
 }
 
-void WritePixelData(global unsigned char* block, unsigned int pixel_data) {
+inline void WritePixelData(global unsigned char* block, unsigned int pixel_data) {
 	block[4] |= pixel_data >> 24;
 	block[5] |= (pixel_data >> 16) & 0xff;
 	block[6] |= (pixel_data >> 8) & 0xff;
 	block[7] |= pixel_data & 0xff;
 }
 
-void WriteFlip(global unsigned char* block, char flip) {
+inline void WriteFlip(global unsigned char* block, char flip) {
 	block[3] &= ~0x01;
 	block[3] |= (unsigned char) flip;
 }
 
-void WriteDiff(global unsigned char* block, char diff) {
+inline void WriteDiff(global unsigned char* block, char diff) {
 	block[3] &= ~0x02;
 	block[3] |= (unsigned char) (diff) << 1;
 }
 
+/**
+ * @brief Transfers 4x4 texels from source image to local buffer.
+ */
 inline void ExtractBlock(global unsigned char* dst, const unsigned char* src, int width) {
 	int i,j;
 
@@ -149,9 +187,6 @@ inline void ExtractBlock(global unsigned char* dst, const unsigned char* src, in
 		src += width * 4;
 	}
 }
-
-
-
 
 
 inline Color makeColor444(const float* bgr) {
@@ -166,9 +201,6 @@ inline Color makeColor444(const float* bgr) {
 	bgr444.channels.a = 0x44;
 	return bgr444;
 }
-
-
-
 
 
 inline Color makeColor555(const float* bgr) {
@@ -202,6 +234,10 @@ void getAverageColor(const Color* src, float* avg_color)
 	avg_color[2] = (float) sum_r * kInv8;
 }
 
+/**
+ * @brief Optimizes luminance modulation for the sub-block.
+ * Algorithm: Searches the modulator space to find the minimal MSE fit.
+ */
 unsigned long computeLuminance(global unsigned char* block,
 						   const Color* src,
 						   const Color base,
@@ -213,10 +249,6 @@ unsigned long computeLuminance(global unsigned char* block,
 	unsigned char best_tbl_idx = 0;
 	unsigned char best_mod_idx[8][8];  
 	unsigned int tbl_idx, i, mod_idx;
-
-	
-	
-
 
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
@@ -283,6 +315,9 @@ unsigned long computeLuminance(global unsigned char* block,
 }
 
 
+/**
+ * @brief Fast-path for compressing blocks with identical pixel values.
+ */
 bool tryCompressSolidBlock(global unsigned char* dst,
 						   const Color* src,
 						   unsigned long* error)
@@ -320,10 +355,6 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 	unsigned char best_tbl_idx = 0;
 	unsigned char best_mod_idx = 0;
 	unsigned int best_mod_err = 4294967295; 
-	
-	
-	
-
 
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
@@ -371,6 +402,9 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 	return true;
 }
 
+/**
+ * @brief Decision logic for 4x4 block partitioning and color mode selection.
+ */
 unsigned long compressBlock(global unsigned char* dst,
 												   const Color* ver_src,
 												   const Color* hor_src,
@@ -407,7 +441,7 @@ unsigned long compressBlock(global unsigned char* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -417,9 +451,6 @@ unsigned long compressBlock(global unsigned char* dst,
 			}
 		}
 	}
-	
-	
-	
 	
 
 
@@ -473,6 +504,11 @@ unsigned long compressBlock(global unsigned char* dst,
 	return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @kernel compress_kernel
+ * @brief OpenCL kernel for image-wide tile compression.
+ * Logic: Maps global work items to 4x4 image tiles and accumulates total error using atomic ops.
+ */
 __kernel void compress_kernel(int width, int height,
                               global unsigned int *compress_error,
 															global unsigned char *src,
@@ -523,6 +559,10 @@ __kernel void compress_kernel(int width, int height,
 
 using namespace std;
 
+/**
+ * @class TextureCompressor
+ * @brief Host wrapper for managing OpenCL lifecycle.
+ */
 TextureCompressor::TextureCompressor() {
   cl_uint platforms;
   cl_int rc;
@@ -559,6 +599,10 @@ TextureCompressor::~TextureCompressor() {
   clReleaseContext(context);
 }
 
+/**
+ * @brief Executes the parallel compression task.
+ * Functional Utility: Loads kernel source, builds the program, and enqueues the ND-range task.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,

@@ -4,6 +4,16 @@
  * 2.0; you may not use this file except in compliance with the Elastic License
  * 2.0.
  */
+
+/**
+ * Module: Index Lifecycle Management (ILM)
+ * Purpose: This test suite validates the {@link PolicyStepsRegistry}, which is responsible for
+ * maintaining the lifecycle of ILM policies and resolving the execution steps for specific indices.
+ *
+ * The registry acts as a central lookup for transforming high-level policy definitions (phases, actions)
+ * into a sequence of executable {@link Step} objects. It handles caching, policy updates, and
+ * step resolution based on index metadata and execution state.
+ */
 package org.elasticsearch.xpack.ilm;
 
 import org.elasticsearch.client.internal.Client;
@@ -49,6 +59,10 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.Mockito.mock;
 
+/**
+ * Tests for {@link PolicyStepsRegistry} focusing on step resolution, policy updates,
+ * and thread-safe cache management.
+ */
 public class PolicyStepsRegistryTests extends ESTestCase {
     private static final Step.StepKey MOCK_STEP_KEY = new Step.StepKey("mock", "mock", "mock");
     private static final NamedXContentRegistry REGISTRY = new NamedXContentRegistry(new IndexLifecycle(Settings.EMPTY).getNamedXContent());
@@ -61,6 +75,9 @@ public class PolicyStepsRegistryTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * Verifies that the registry correctly retrieves the very first step of a named policy.
+     */
     public void testGetFirstStep() {
         String policyName = randomAlphaOfLengthBetween(2, 10);
         Step expectedFirstStep = new MockStep(MOCK_STEP_KEY, null);
@@ -70,6 +87,9 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(actualFirstStep, sameInstance(expectedFirstStep));
     }
 
+    /**
+     * Ensures that requesting the first step for a non-existent policy returns null.
+     */
     public void testGetFirstStepUnknownPolicy() {
         String policyName = randomAlphaOfLengthBetween(2, 10);
         Step expectedFirstStep = new MockStep(MOCK_STEP_KEY, null);
@@ -79,6 +99,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertNull(actualFirstStep);
     }
 
+    /**
+     * Validates that a specific step can be resolved given index metadata and a step key,
+     * simulating a typical ILM execution lookup.
+     */
     public void testGetStep() {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -103,6 +127,9 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(actualStep.getKey(), equalTo(step.getKey()));
     }
 
+    /**
+     * Validates that the registry can retrieve the specialized ErrorStep.
+     */
     public void testGetStepErrorStep() {
         Step.StepKey errorStepKey = new Step.StepKey(randomAlphaOfLengthBetween(1, 10), randomAlphaOfLengthBetween(1, 10), ErrorStep.NAME);
         Step expectedStep = new ErrorStep(errorStepKey);
@@ -113,6 +140,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(actualStep, equalTo(expectedStep));
     }
 
+    /**
+     * Ensures that an IllegalArgumentException is thrown when attempting to resolve a step
+     * for an index that has no policy associated with it.
+     */
     public void testGetStepUnknownPolicy() {
         PolicyStepsRegistry registry = new PolicyStepsRegistry(null, null, null, NamedXContentRegistry.EMPTY, null, null);
         IllegalArgumentException e = expectThrows(
@@ -127,6 +158,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         );
     }
 
+    /**
+     * Validates that an index with a policy but no current phase execution state defaults
+     * to the initialization step.
+     */
     public void testGetStepForIndexWithNoPhaseGetsInitializationStep() {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -142,6 +177,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertNotNull(step);
     }
 
+    /**
+     * Validates that the registry returns null (and doesn't poison its cache) when
+     * requested for a step key that does not exist in the policy.
+     */
     public void testGetStepUnknownStepKey() {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -168,6 +207,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertNull(registry.getStep(indexMetadata, badStepKey));
     }
 
+    /**
+     * Comprehensive test for the registry lifecycle: adding a policy, verifying its steps,
+     * and finally removing it. This ensures internal state consistency across transitions.
+     */
     public void testUpdateFromNothingToSomethingToNothing() throws Exception {
         Index index = new Index("test", "uuid");
         Client client = mock(Client.class);
@@ -248,6 +291,10 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertTrue(registry.getStepMap().isEmpty());
     }
 
+    /**
+     * Verifies that the registry correctly handles policy updates.
+     * Note: Current implementation may have limitations on live updates.
+     */
     public void testUpdateChangedPolicy() {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);
@@ -281,6 +328,12 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         // TODO(talevy): assert changes... right now we do not support updates to policies. will require internal cleanup
     }
 
+    /**
+     * Tests the registry's caching logic when a policy is updated but an index's
+     * execution state still points to an older version of the phase definition.
+     * This ensures that indices already in a phase continue with the version they started with
+     * until they move to the next phase, preventing inconsistent execution.
+     */
     public void testUpdatePolicyButNoPhaseChangeIndexStepsDontChange() throws Exception {
         Index index = new Index("test", "uuid");
         Client client = mock(Client.class);
@@ -369,6 +422,11 @@ public class PolicyStepsRegistryTests extends ESTestCase {
         assertThat(((ShrinkStep) gotStep).getNumberOfShards(), equalTo(1));
     }
 
+    /**
+     * Stress tests the registry for thread safety. It concurrently updates the policy
+     * registry (which clears caches) while performing multiple step lookups, ensuring
+     * no race conditions or inconsistent states occur.
+     */
     public void testGetStepMultithreaded() throws Exception {
         Client client = mock(Client.class);
         Mockito.when(client.settings()).thenReturn(Settings.EMPTY);

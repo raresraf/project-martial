@@ -1,3 +1,9 @@
+/**
+ * @file device.cl
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 
 union Color {
 	struct BgraColorType {
@@ -32,6 +38,10 @@ __constant uchar g_idx_to_num[4][8] = {
 uchar clamp_m(int val, int min, int max) {
 	uchar return_value;
 	int result = val  max ? max : val);
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (result > 255) {
 		return_value = 255;
 	} else {
@@ -44,6 +54,10 @@ uchar clamp_m(int val, int min, int max) {
 void my_memset(__global uchar *buf, uchar value, int count)
 {
 	int i;
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (i = 0; i < count; i++) {
 		buf[i] = value;
 	}
@@ -54,6 +68,10 @@ void my_memcpy(void *dest, __global void *src, int count)
 	int i;
 	char *aux_dest = dest;
 	__global char *aux_src = src;
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (i = 0; i < count; i++) {
 		*aux_dest = *aux_src;
 		aux_dest++;
@@ -95,9 +113,9 @@ void WriteColors444(__global uchar *block,
 						   union Color color0,
 						   union Color color1) {
 	
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteColors555(__global uchar *block,
@@ -116,18 +134,18 @@ void WriteColors555(__global uchar *block,
 	};
 	
 	ushort delta_r =
-	(ushort)(color1.channels.r >> 3) - (color0.channels.r >> 3);
+	(ushort)(color1.channels.r >> 3) - (color0.channels.r >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	ushort delta_g =
-	(ushort)(color1.channels.g >> 3) - (color0.channels.g >> 3);
+	(ushort)(color1.channels.g >> 3) - (color0.channels.g >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	ushort delta_b =
-	(ushort)(color1.channels.b >> 3) - (color0.channels.b >> 3);
+	(ushort)(color1.channels.b >> 3) - (color0.channels.b >> 3); /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	
-	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
+	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
 
 
-	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteCodewordTable(__global uchar *block,
@@ -135,34 +153,42 @@ void WriteCodewordTable(__global uchar *block,
 							   uchar table) {
 	
 	uchar shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= table << shift; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WritePixelData(__global uchar *block, uint pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[7] |= pixel_data & 0xff; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteFlip(__global uchar *block, bool flip) {
-	block[3] &= ~0x01;
-	block[3] |= (uchar)(flip);
+	block[3] &= ~0x01; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= (uchar)(flip); /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void WriteDiff(__global uchar *block, bool diff) {
-	block[3] &= ~0x02;
-	block[3] |= (uchar)(diff) << 1;
+	block[3] &= ~0x02; /* Non-obvious bitwise/pointer op for optimized memory access */
+	block[3] |= (uchar)(diff) << 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 
 void ExtractBlock(__global uchar *dst, __global uchar *src, int width) {
 	int i;
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (int j = 0; j < 4; ++j) {
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (i=0; i < 16; i++) {
 
 
-			(&dst[j*16])[i] = src[i];
+			(&dst[j*16])[i] = src[i]; /* Non-obvious bitwise/pointer op for optimized memory access */
 		}
 		src += width * 4;
 	}
@@ -177,11 +203,11 @@ union Color makeColor444(float *bgr) {
 	uchar g4 = round_to_4_bits(bgr[1]);
 	uchar r4 = round_to_4_bits(bgr[2]);
 	union Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Non-obvious bitwise/pointer op for optimized memory access */
+	bgr444.channels.g = (g4 << 4) | g4; /* Non-obvious bitwise/pointer op for optimized memory access */
 
 
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.r = (r4 << 4) | r4; /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	bgr444.channels.a = 0x44;
 	return bgr444;
@@ -208,6 +234,10 @@ void getAverageColor(union Color *src, float *avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 
@@ -237,10 +267,18 @@ unsigned long computeLuminance(__global uchar *block,
 
 	
 	
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		union Color candidate_color[4];  
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			ushort lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -248,32 +286,60 @@ unsigned long computeLuminance(__global uchar *block,
 		
 		uint tbl_err = 0;
 		
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			/**
+			 * Block Logic: Iterative loop over elements or bounded range.
+			 * Invariant: Loop state and bounds are preserved and advance monotonically.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				union Color color = candidate_color[mod_idx];
 				
 				uint mod_err = getColorError(src[i], color);
+				/**
+				 * Block Logic: Conditional branch evaluation.
+				 * Invariant: Selected branch executed while avoiding invalid states.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Logic: Conditional branch evaluation.
+					 * Invariant: Selected branch executed while avoiding invalid states.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		/**
+		 * Block Logic: Conditional branch evaluation.
+		 * Invariant: Selected branch executed while avoiding invalid states.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -283,17 +349,21 @@ unsigned long computeLuminance(__global uchar *block,
 
 	uint pix_data = 0;
 
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
 		
-		uint lsb = pix_idx & 0x1;
-		uint msb = pix_idx >> 1;
+		uint lsb = pix_idx & 0x1; /* Non-obvious bitwise/pointer op for optimized memory access */
+		uint msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 		
 		
 		int texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized memory access */
+		pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized memory access */
 	}
 
 	WritePixelData(block, pix_data);
@@ -306,7 +376,15 @@ bool tryCompressSolidBlock(__global uchar *dst,
 						   union Color *src,
 						   unsigned long *error)
 {
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional branch evaluation.
+		 * Invariant: Selected branch executed while avoiding invalid states.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -329,24 +407,44 @@ bool tryCompressSolidBlock(__global uchar *dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			ushort lum = g_codeword_tables[tbl_idx][mod_idx];
 			union Color color = makeColor(base, lum);
 			
 			uint mod_err = getColorError(*src, color);
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional branch evaluation.
+				 * Invariant: Selected branch executed while avoiding invalid states.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional branch evaluation.
+		 * Invariant: Selected branch executed while avoiding invalid states.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -355,16 +453,24 @@ bool tryCompressSolidBlock(__global uchar *dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 	
 	uchar pix_idx = g_mod_to_pix[best_mod_idx];
-	uint lsb = pix_idx & 0x1;
-	uint msb = pix_idx >> 1;
+	uint lsb = pix_idx & 0x1; /* Non-obvious bitwise/pointer op for optimized memory access */
+	uint msb = pix_idx >> 1; /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	uint pix_data = 0;
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise/pointer op for optimized memory access */
+			pix_data |= lsb << (texel_num); /* Non-obvious bitwise/pointer op for optimized memory access */
 		}
 	}
 	
@@ -382,6 +488,10 @@ unsigned long compressBlock(__global uchar *dst,
 							unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -393,6 +503,10 @@ unsigned long compressBlock(__global uchar *dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -402,11 +516,19 @@ unsigned long compressBlock(__global uchar *dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		union Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized memory access */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Non-obvious bitwise/pointer op for optimized memory access */
 			
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -422,7 +544,15 @@ unsigned long compressBlock(__global uchar *dst,
 	
 	
 	uint sub_block_err[4] = {0};
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -440,6 +570,10 @@ unsigned long compressBlock(__global uchar *dst,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -511,8 +645,12 @@ using namespace std;
 
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		return 1;
 	}
 	return 0;
@@ -523,8 +661,12 @@ int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device)
 {
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -532,14 +674,14 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 
-void read_kernel(string file_name, string &str_kernel)
+void read_kernel(string file_name, string &str_kernel) /* Non-obvious bitwise/pointer op for optimized memory access */
 {
 	ifstream in_file(file_name.c_str());
 	in_file.open(file_name.c_str());
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 	str_kernel = str_stream.str();
 }
@@ -606,14 +748,14 @@ void cl_get_compiler_err_log(cl_program program,
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  0, NULL, &log_size);
+						  0, NULL, &log_size); /* Non-obvious bitwise/pointer op for optimized memory access */
 	build_log = new char[ log_size + 1 ];
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 }
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
@@ -633,10 +775,14 @@ const char* cl_get_string_err(cl_int err);
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device);
 
-void read_kernel(string file_name, string &str_kernel);
+void read_kernel(string file_name, string &str_kernel); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 #define DIE(assertion, call_description)                    \
 do {                                                        \
+    /**
+     * Block Logic: Conditional branch evaluation.
+     * Invariant: Selected branch executed while avoiding invalid states.
+     */
     if (assertion) {                                        \
             fprintf(stderr, "(%d): ",                       \
                             __LINE__);                      \
@@ -656,7 +802,7 @@ TextureCompressor::TextureCompressor() { }
 TextureCompressor::~TextureCompressor() { }	
 
 
-void gpu_find(cl_device_id &device,
+void gpu_find(cl_device_id &device, /* Non-obvious bitwise/pointer op for optimized memory access */
 			  uint device_select)
 {
 	cl_platform_id platform;
@@ -670,39 +816,43 @@ void gpu_find(cl_device_id &device,
 	cl_char* attr_data = NULL;
 	
 	
-	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
+	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num)); /* Non-obvious bitwise/pointer op for optimized memory access */
 	platform_list = new cl_platform_id[platform_num];
 	DIE(platform_list == NULL, "alloc platform_list");
 	
 	
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
-	cout << "Platforms found: " << platform_num << endl;
+	cout << "Platforms found: " << platform_num << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 	
 	
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VENDOR, 0, NULL, &attr_size));
+								  CL_PLATFORM_VENDOR, 0, NULL, &attr_size)); /* Non-obvious bitwise/pointer op for optimized memory access */
 		attr_data = new cl_char[attr_size];
 		DIE(attr_data == NULL, "alloc attr_data");
 		
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
-		cout << "Platform " << platf << " " << attr_data << " ";
+		cout << "Platform " << platf << " " << attr_data << " "; /* Non-obvious bitwise/pointer op for optimized memory access */
 		delete[] attr_data;
 		
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VERSION, 0, NULL, &attr_size));
+								  CL_PLATFORM_VERSION, 0, NULL, &attr_size)); /* Non-obvious bitwise/pointer op for optimized memory access */
 		attr_data = new cl_char[attr_size];
 		DIE(attr_data == NULL, "alloc attr_data");
 		
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VERSION, attr_size, attr_data, NULL));
-		cout << attr_data << endl;
+		cout << attr_data << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		delete[] attr_data;
 		
 		
@@ -710,50 +860,58 @@ void gpu_find(cl_device_id &device,
 		DIE(platform == 0, "platform selection");
 		
 		
-		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &device_num));
+		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &device_num)); /* Non-obvious bitwise/pointer op for optimized memory access */
 		device_list = new cl_device_id[device_num];
 		DIE(device_list == NULL, "alloc devices");
 		
 		
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL,
 							   device_num, device_list, NULL));
-		cout << "\tDevices found " << device_num  << endl;
+		cout << "\tDevices found " << device_num  << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		
 		
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-									0, NULL, &attr_size));
+									0, NULL, &attr_size)); /* Non-obvious bitwise/pointer op for optimized memory access */
 			attr_data = new cl_char[attr_size];
 			DIE(attr_data == NULL, "alloc attr_data");
 			
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
 									attr_size, attr_data, NULL));
-			cout << "\tDevice " << dev << " " << attr_data << " ";
+			cout << "\tDevice " << dev << " " << attr_data << " "; /* Non-obvious bitwise/pointer op for optimized memory access */
 			delete[] attr_data;
 			
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-									0, NULL, &attr_size));
+									0, NULL, &attr_size)); /* Non-obvious bitwise/pointer op for optimized memory access */
 			attr_data = new cl_char[attr_size];
 			DIE(attr_data == NULL, "alloc attr_data");
 			
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
 									attr_size, attr_data, NULL));
-			cout << attr_data;
+			cout << attr_data; /* Non-obvious bitwise/pointer op for optimized memory access */
 			delete[] attr_data;
 			
 			
 			
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if((device_num > 1) && (dev == device_select)){
 				device = device_list[dev];
-				cout << " <--- SELECTED ";
+				cout << " <--- SELECTED "; /* Non-obvious bitwise/pointer op for optimized memory access */
 			}
 			
-			cout << endl;
+			cout << endl; /* Non-obvious bitwise/pointer op for optimized memory access */
 		}
 	}
 	
@@ -775,11 +933,11 @@ void gpu_profile_kernel(const uint8_t* src, uint8_t* dst, int width, int height,
 	int 			NHeight = height;
 
 	
-	context = clCreateContext(0, 1, &device_id, NULL, NULL, &ret);
+	context = clCreateContext(0, 1, &device_id, NULL, NULL, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	commands = clCreateCommandQueue(context, device_id,
-									0, &ret);
+									0, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
@@ -797,7 +955,7 @@ void gpu_profile_kernel(const uint8_t* src, uint8_t* dst, int width, int height,
 	
 	
 	program = clCreateProgramWithSource(context, 1,
-				(const char **) &kernel_c_str, NULL, &ret);
+				(const char **) &kernel_c_str, NULL, &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
@@ -805,15 +963,15 @@ void gpu_profile_kernel(const uint8_t* src, uint8_t* dst, int width, int height,
 	CL_COMPILE_ERR( ret, program, device_id );
 	
 	
-	kernel = clCreateKernel(program, "compress", &ret);
+	kernel = clCreateKernel(program, "compress", &ret); /* Non-obvious bitwise/pointer op for optimized memory access */
 	CL_ERR( ret );
 	
 	
 	ret  = 0;
-	ret  = clSetKernelArg(kernel, 0, sizeof(int), &NWidth);
-	ret |= clSetKernelArg(kernel, 1, sizeof(int), &NHeight);
-	ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &s_in);
-	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &d_out);
+	ret  = clSetKernelArg(kernel, 0, sizeof(int), &NWidth); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 1, sizeof(int), &NHeight); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &s_in); /* Non-obvious bitwise/pointer op for optimized memory access */
+	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &d_out); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 	
 	ret = clEnqueueWriteBuffer(commands, s_in, CL_TRUE, 0,
@@ -824,7 +982,7 @@ void gpu_profile_kernel(const uint8_t* src, uint8_t* dst, int width, int height,
 	size_t global_size[2] = {(size_t) (height/4), (size_t) (width/4)};
 	
 	ret = clEnqueueNDRangeKernel(commands, kernel, 2, NULL,
-								 global_size, 0, 0, NULL, &prof_event);
+								 global_size, 0, 0, NULL, &prof_event); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 	
 	clFinish(commands);

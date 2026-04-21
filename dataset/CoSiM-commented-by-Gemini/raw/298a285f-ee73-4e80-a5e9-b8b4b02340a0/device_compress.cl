@@ -1,6 +1,17 @@
 
 
 
+/**
+ * @file device_compress.cl
+ * @brief GPU-Accelerated ETC1 Texture Compression Kernel and Host Utilities.
+ *
+ * This module contains the OpenCL kernel logic and supporting host-side 
+ * infrastructure for ETC1 texture compression. It utilizes massively parallel 
+ * processing to accelerate the compression of high-resolution textures, 
+ * implementing optimized color space transformations and error metric 
+ * calculations suitable for HPC and mobile graphics production.
+ */
+
 #define INT32_MAX 0x0FFFFFFF
 #define UINT32_MAX 0xFFFFFFFF
 

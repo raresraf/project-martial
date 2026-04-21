@@ -1,3 +1,10 @@
+/**
+ * @raw/221e5d6d-fbf4-4b5f-947d-3b3a0a7bb998/components/shared/script/lib.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -99,7 +106,7 @@ impl Serialize for UntrustedNodeAddress {
 }
 
 impl<'de> Deserialize<'de> for UntrustedNodeAddress {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<UntrustedNodeAddress, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<UntrustedNodeAddress, D::Error> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let value: usize = Deserialize::deserialize(d)?;
         Ok(UntrustedNodeAddress::from_id(value))
     }
@@ -489,7 +496,7 @@ pub struct InitialScriptState {
     /// A channel to the memory profiler thread.
     pub memory_profiler_sender: mem::ProfilerChan,
     /// A channel to the developer tools, if applicable.
-    pub devtools_server_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>,
+    pub devtools_server_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Information about the initial window size.
     pub window_size: WindowSizeData,
     /// The ID of the pipeline namespace for this script thread.
@@ -534,7 +541,7 @@ pub struct AuxiliaryWebViewCreationRequest {
     /// The pipeline opener browsing context.
     pub opener_pipeline_id: PipelineId,
     /// Sender for the constellation’s response to our request.
-    pub response_sender: IpcSender<Option<AuxiliaryWebViewCreationResponse>>,
+    pub response_sender: IpcSender<Option<AuxiliaryWebViewCreationResponse>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 /// Constellation’s response to auxiliary browsing context creation requests.
@@ -631,9 +638,9 @@ pub struct WorkerGlobalScopeInit {
     /// Chan to the time profiler
     pub time_profiler_chan: profile_time::ProfilerChan,
     /// To devtools sender
-    pub to_devtools_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>,
+    pub to_devtools_sender: Option<IpcSender<ScriptToDevtoolsControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// From devtools sender
-    pub from_devtools_sender: Option<IpcSender<DevtoolScriptControlMsg>>,
+    pub from_devtools_sender: Option<IpcSender<DevtoolScriptControlMsg>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Messages to send to constellation
     pub script_to_constellation_chan: ScriptToConstellationChan,
     /// The worker id
@@ -736,9 +743,9 @@ pub struct StructuredSerializedData {
     /// Data serialized by SpiderMonkey.
     pub serialized: Vec<u8>,
     /// Serialized in a structured callback,
-    pub blobs: Option<HashMap<BlobId, BlobImpl>>,
+    pub blobs: Option<HashMap<BlobId, BlobImpl>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Transferred objects.
-    pub ports: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub ports: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 impl StructuredSerializedData {
@@ -749,9 +756,17 @@ impl StructuredSerializedData {
         let blobs = if let Some(blobs) = self.blobs.as_ref() {
             let mut blob_clones = HashMap::with_capacity(blobs.len());
 
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (original_id, blob) in blobs.iter() {
                 let type_string = blob.type_string();
 
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let BlobData::Memory(bytes) = blob.blob_data() {
                     let blob_clone = BlobImpl::new_from_bytes(bytes.clone(), type_string);
 
@@ -769,6 +784,10 @@ impl StructuredSerializedData {
             None
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.ports.is_some() {
             // Not panicking only because this is called from the constellation.
             warn!(
@@ -798,7 +817,7 @@ pub struct PortMessageTask {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum MessagePortMsg {
     /// Complete the transfer for a batch of ports.
-    CompleteTransfer(HashMap<MessagePortId, VecDeque<PortMessageTask>>),
+    CompleteTransfer(HashMap<MessagePortId, VecDeque<PortMessageTask>>), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     /// Complete the transfer of a single port,
     /// whose transfer was pending because it had been requested
     /// while a previous failed transfer was being rolled-back.

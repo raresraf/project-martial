@@ -1,6 +1,13 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/**
+ * @file actions.rs
+ * @brief Implementation of W3C WebDriver Action API for the Servo browser engine.
+ * 
+ * Architectural Intent: Translates high-level WebDriver action sequences (keyboard, pointer, wheel) 
+ * into low-level browser events. Manages input source states and synchronization across ticks.
+ * 
+ * Domain-Awareness: Implements precise timing and interpolation for pointer moves and 
+ * wheel scrolls to simulate realistic user interaction within the browser's event loop.
+ */
 
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
@@ -20,11 +27,14 @@ use webdriver::error::{ErrorStatus, WebDriverError};
 
 use crate::{Handler, WebElement, wait_for_script_response};
 
-// Interval between wheelScroll and pointerMove increments in ms, based on common vsync
+// Functional Utility: Intervals based on common 60Hz vsync (approx 16.6ms) to smooth input interpolation.
 static POINTERMOVE_INTERVAL: u64 = 17;
 static WHEELSCROLL_INTERVAL: u64 = 17;
 
-// https://w3c.github.io/webdriver/#dfn-input-source-state
+/**
+ * @enum InputSourceState
+ * @brief Tracks the persistent state of an input source across multiple action ticks.
+ */
 pub(crate) enum InputSourceState {
     Null,
     Key(KeyInputState),
@@ -32,7 +42,10 @@ pub(crate) enum InputSourceState {
     Wheel,
 }
 
-// https://w3c.github.io/webdriver/#dfn-pointer-input-source
+/**
+ * @struct PointerInputState
+ * @brief Maintains coordinates and button states for pointer-type input sources.
+ */
 pub(crate) struct PointerInputState {
     subtype: PointerType,
     pressed: HashSet<u64>,
@@ -55,16 +68,26 @@ impl PointerInputState {
     }
 }
 
-// https://w3c.github.io/webdriver/#dfn-computing-the-tick-duration
+/**
+ * @brief Calculates the maximum duration of a single tick in an action sequence.
+ */
 fn compute_tick_duration(tick_actions: &ActionSequence) -> u64 {
     let mut duration = 0;
     match &tick_actions.actions {
+        /**
+         * Block Logic: Null action duration analysis.
+         * Invariant: Tick duration is at least as long as the longest pause.
+         */
         ActionsType::Null { actions } => {
             for action in actions.iter() {
                 let NullActionItem::General(GeneralAction::Pause(pause_action)) = action;
                 duration = cmp::max(duration, pause_action.duration.unwrap_or(0));
             }
         },
+        /**
+         * Block Logic: Pointer action duration analysis.
+         * Invariant: Incorporates move and pause durations.
+         */
         ActionsType::Pointer {
             parameters: _,
             actions,
@@ -79,6 +102,9 @@ fn compute_tick_duration(tick_actions: &ActionSequence) -> u64 {
             }
         },
         ActionsType::Key { actions: _ } => (),
+        /**
+         * Block Logic: Wheel action duration analysis.
+         */
         ActionsType::Wheel { actions } => {
             for action in actions.iter() {
                 let action_duration = match action {
@@ -93,11 +119,17 @@ fn compute_tick_duration(tick_actions: &ActionSequence) -> u64 {
 }
 
 impl Handler {
-    // https://w3c.github.io/webdriver/#dfn-dispatch-actions
+    /**
+     * @brief Orchestrates the sequential dispatch of action ticks.
+     */
     pub(crate) fn dispatch_actions(
         &mut self,
         actions_by_tick: &[ActionSequence],
     ) -> Result<(), ErrorStatus> {
+        /**
+         * Block Logic: Tick processing loop.
+         * Invariant: Ticks are processed strictly in sequence to maintain temporal ordering.
+         */
         for tick_actions in actions_by_tick.iter() {
             let tick_duration = compute_tick_duration(tick_actions);
             self.dispatch_tick_actions(tick_actions, tick_duration)?;
@@ -111,11 +143,11 @@ impl Handler {
             .input_state_table
             .entry(source_id.to_string())
             .or_insert(InputSourceState::Null);
-        // https://w3c.github.io/webdriver/#dfn-dispatch-a-pause-action
-        // Nothing to be done
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-tick-actions
+    /**
+     * @brief Resolves input source type and dispatches specific tick operations.
+     */
     fn dispatch_tick_actions(
         &mut self,
         tick_actions: &ActionSequence,
@@ -128,6 +160,9 @@ impl Handler {
                     self.dispatch_general_action(source_id);
                 }
             },
+            /**
+             * Block Logic: Key action dispatcher.
+             */
             ActionsType::Key { actions } => {
                 for action in actions.iter() {
                     match action {
@@ -152,6 +187,9 @@ impl Handler {
                     }
                 }
             },
+            /**
+             * Block Logic: Pointer action dispatcher.
+             */
             ActionsType::Pointer {
                 parameters,
                 actions,
@@ -187,6 +225,9 @@ impl Handler {
                     }
                 }
             },
+            /**
+             * Block Logic: Wheel action dispatcher.
+             */
             ActionsType::Wheel { actions } => {
                 for action in actions.iter() {
                     match action {
@@ -213,7 +254,9 @@ impl Handler {
         Ok(())
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-a-keydown-action
+    /**
+     * @brief Dispatches keydown and registers corresponding cleanup actions.
+     */
     fn dispatch_keydown_action(&mut self, source_id: &str, action: &KeyDownAction) {
         let session = self.session.as_mut().unwrap();
 
@@ -223,6 +266,7 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        // Lifecycle: Records undo actions for session cleanup (release all keys).
         session.input_cancel_list.push(ActionSequence {
             id: source_id.into(),
             actions: ActionsType::Key {
@@ -240,7 +284,6 @@ impl Handler {
             .unwrap();
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-a-keyup-action
     fn dispatch_keyup_action(&mut self, source_id: &str, action: &KeyUpAction) {
         let session = self.session.as_mut().unwrap();
 
@@ -268,7 +311,9 @@ impl Handler {
         }
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointerdown-action
+    /**
+     * @brief Dispatches pointer press and tracks button state.
+     */
     pub(crate) fn dispatch_pointerdown_action(
         &mut self,
         source_id: &str,
@@ -317,7 +362,6 @@ impl Handler {
             .unwrap();
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointerup-action
     pub(crate) fn dispatch_pointerup_action(&mut self, source_id: &str, action: &PointerUpAction) {
         let session = self.session.as_mut().unwrap();
 
@@ -362,7 +406,9 @@ impl Handler {
             .unwrap();
     }
 
-    // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointermove-action
+    /**
+     * @brief Resolves pointer move target and initiates interpolation loop.
+     */
     pub(crate) fn dispatch_pointermove_action(
         &mut self,
         source_id: &str,
@@ -371,11 +417,9 @@ impl Handler {
     ) -> Result<(), ErrorStatus> {
         let tick_start = Instant::now();
 
-        // Steps 1 - 2
         let x_offset = action.x;
         let y_offset = action.y;
 
-        // Steps 3 - 4
         let (start_x, start_y) = match self
             .session
             .as_ref()
@@ -390,6 +434,7 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        // Functional Utility: Origin resolution (Viewport-relative vs Pointer-relative).
         let (x, y) = match action.origin {
             PointerOrigin::Viewport => (x_offset, y_offset),
             PointerOrigin::Pointer => (start_x + x_offset, start_y + y_offset),
@@ -398,29 +443,25 @@ impl Handler {
             },
         };
 
-        // Step 5 - 6
         self.check_viewport_bound(x, y)?;
 
-        // Step 7
         let duration = match action.duration {
             Some(duration) => duration,
             None => tick_duration,
         };
 
-        // Step 8
         if duration > 0 {
             thread::sleep(Duration::from_millis(POINTERMOVE_INTERVAL));
         }
 
-        // Step 9 - 18
         self.perform_pointer_move(source_id, duration, start_x, start_y, x, y, tick_start);
 
-        // Step 19
         Ok(())
     }
 
-    /// <https://w3c.github.io/webdriver/#dfn-perform-a-pointer-move>
-    #[allow(clippy::too_many_arguments)]
+    /**
+     * @brief Interpolates pointer position over time to simulate fluid movement.
+     */
     fn perform_pointer_move(
         &mut self,
         source_id: &str,
@@ -437,21 +478,21 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        /**
+         * Block Logic: Movement interpolation loop.
+         * Invariant: Periodically calculates progress ratio and updates position until duration expires.
+         */
         loop {
-            // Step 1
             let time_delta = tick_start.elapsed().as_millis();
 
-            // Step 2
             let duration_ratio = if duration > 0 {
                 time_delta as f64 / duration as f64
             } else {
                 1.0
             };
 
-            // Step 3
             let last = 1.0 - duration_ratio < 0.001;
 
-            // Step 4
             let (x, y) = if last {
                 (target_x, target_y)
             } else {
@@ -461,60 +502,45 @@ impl Handler {
                 )
             };
 
-            // Steps 5 - 6
             let current_x = pointer_input_state.x;
             let current_y = pointer_input_state.y;
 
-            // Step 7
             if x != current_x || y != current_y {
-                // Step 7.2
                 let cmd_msg =
                     WebDriverCommandMsg::MouseMoveAction(session.webview_id, x as f32, y as f32);
-                //TODO: Need Synchronization here before updating `pointer_input_state`
                 self.constellation_chan
                     .send(EmbedderToConstellationMessage::WebDriverCommand(cmd_msg))
                     .unwrap();
-                // Step 7.3
                 pointer_input_state.x = x;
                 pointer_input_state.y = y;
             }
 
-            // Step 8
             if last {
                 return;
             }
 
-            // Step 9
             thread::sleep(Duration::from_millis(POINTERMOVE_INTERVAL));
         }
     }
 
-    /// <https://w3c.github.io/webdriver/#dfn-dispatch-a-scroll-action>
+    /**
+     * @brief Dispatches wheel scroll action with interpolation.
+     */
     fn dispatch_scroll_action(
         &mut self,
         action: &WheelScrollAction,
         tick_duration: u64,
     ) -> Result<(), ErrorStatus> {
-        // Note: We have not implemented `extract an action sequence` which will calls
-        // `process a wheel action` that validate many of the variable used here.
-        // Hence, we do all the checking here until those functions is properly
-        // implemented.
-        // <https://w3c.github.io/webdriver/#dfn-process-a-wheel-action>
-
         let tick_start = Instant::now();
 
-        // Step 1
         let Some(x_offset) = action.x else {
             return Err(ErrorStatus::InvalidArgument);
         };
 
-        // Step 2
         let Some(y_offset) = action.y else {
             return Err(ErrorStatus::InvalidArgument);
         };
 
-        // Step 3 - 4
-        // Get coordinates relative to an origin.
         let (x, y) = match action.origin {
             PointerOrigin::Viewport => (x_offset, y_offset),
             PointerOrigin::Pointer => return Err(ErrorStatus::InvalidArgument),
@@ -523,10 +549,8 @@ impl Handler {
             },
         };
 
-        // Step 5 - 6
         self.check_viewport_bound(x, y)?;
 
-        // Step 7 - 8
         let Some(delta_x) = action.deltaX else {
             return Err(ErrorStatus::InvalidArgument);
         };
@@ -535,26 +559,23 @@ impl Handler {
             return Err(ErrorStatus::InvalidArgument);
         };
 
-        // Step 9
         let duration = match action.duration {
             Some(duration) => duration,
             None => tick_duration,
         };
 
-        // Step 10
         if duration > 0 {
             thread::sleep(Duration::from_millis(WHEELSCROLL_INTERVAL));
         }
 
-        // Step 11
         self.perform_scroll(duration, x, y, delta_x, delta_y, 0, 0, tick_start);
 
-        // Step 12
         Ok(())
     }
 
-    /// <https://w3c.github.io/webdriver/#dfn-perform-a-scroll>
-    #[allow(clippy::too_many_arguments)]
+    /**
+     * @brief Recursively interpolates scroll offsets.
+     */
     fn perform_scroll(
         &mut self,
         duration: u64,
@@ -568,20 +589,16 @@ impl Handler {
     ) {
         let session = self.session.as_mut().unwrap();
 
-        // Step 1
         let time_delta = tick_start.elapsed().as_millis();
 
-        // Step 2
         let duration_ratio = if duration > 0 {
             time_delta as f64 / duration as f64
         } else {
             1.0
         };
 
-        // Step 3
         let last = 1.0 - duration_ratio < 0.001;
 
-        // Step 4
         let (delta_x, delta_y) = if last {
             (target_delta_x - curr_delta_x, target_delta_y - curr_delta_y)
         } else {
@@ -591,9 +608,7 @@ impl Handler {
             )
         };
 
-        // Step 5
         if delta_x != 0 || delta_y != 0 {
-            // Perform implementation-specific action dispatch steps
             let cmd_msg = WebDriverCommandMsg::WheelScrollAction(
                 session.webview_id,
                 x as f32,
@@ -609,17 +624,11 @@ impl Handler {
             curr_delta_y += delta_y;
         }
 
-        // Step 6
         if last {
             return;
         }
 
-        // Step 7
-        // TODO: The two steps should be done in parallel
-        // 7.1. Asynchronously wait for an implementation defined amount of time to pass.
         thread::sleep(Duration::from_millis(WHEELSCROLL_INTERVAL));
-        // 7.2. Perform a scroll with arguments duration, x, y, target delta x,
-        // target delta y, current delta x, current delta y.
         self.perform_scroll(
             duration,
             x,

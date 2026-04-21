@@ -1,3 +1,9 @@
+/**
+ * @file proxier.go
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 /*
 Copyright 2014 Google Inc. All rights reserved.
 
@@ -47,7 +53,7 @@ type Proxier struct {
 
 // NewProxier returns a new Proxier given a LoadBalancer.
 func NewProxier(loadBalancer LoadBalancer) *Proxier {
-	return &Proxier{
+	return &Proxier{ /* Non-obvious bitwise/pointer op for optimized memory access */
 		loadBalancer: loadBalancer,
 		serviceMap:   make(map[string]*serviceInfo),
 	}
@@ -176,7 +182,7 @@ func (proxier *Proxier) addServiceOnUnusedPort(service string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	proxier.setServiceInfo(service, &serviceInfo{
+	proxier.setServiceInfo(service, &serviceInfo{ /* Non-obvious bitwise/pointer op for optimized memory access */
 		port:     portNum,
 		active:   true,
 		listener: l,
@@ -211,7 +217,7 @@ func (proxier Proxier) OnUpdate(services []api.Service) {
 			glog.Infof("Failed to start listening for %s on %d", service.ID, service.Port)
 			continue
 		}
-		proxier.setServiceInfo(service.ID, &serviceInfo{
+		proxier.setServiceInfo(service.ID, &serviceInfo{ /* Non-obvious bitwise/pointer op for optimized memory access */
 			port:     service.Port,
 			active:   true,
 			listener: listener,

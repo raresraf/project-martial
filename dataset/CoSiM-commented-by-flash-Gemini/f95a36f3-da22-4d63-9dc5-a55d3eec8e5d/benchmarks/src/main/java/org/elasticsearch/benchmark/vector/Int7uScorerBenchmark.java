@@ -46,26 +46,34 @@ import java.util.concurrent.TimeUnit;
 import static org.elasticsearch.simdvec.VectorSimilarityType.DOT_PRODUCT;
 import static org.elasticsearch.simdvec.VectorSimilarityType.EUCLIDEAN;
 
+/**
+ * @file Int7uScorerBenchmark.java
+ * @brief JMH-based performance comparison of vector similarity scorers for int7 quantized data.
+ * 
+ * Functional Intent: Evaluates the throughput of dot-product and euclidean distance 
+ * calculations across three distinct implementations:
+ * 1. Native Scalar: Standard Java loop for baseline comparison.
+ * 2. Lucene Panama: Apache Lucene's implementation utilizing JDK Vector API (Panama).
+ * 3. Elasticsearch Native: Custom optimized native scorers likely using platform-specific SIMD instructions.
+ * 
+ * Domain: Production Systems, Performance Engineering, Vector Search, SIMD.
+ */
 @Fork(value = 1, jvmArgsPrepend = { "--add-modules=jdk.incubator.vector" })
 @Warmup(iterations = 3, time = 3)
 @Measurement(iterations = 5, time = 3)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Thread)
-/**
- * Benchmark that compares various scalar quantized vector similarity function
- * implementations;: scalar, lucene's panama-ized, and Elasticsearch's native.
- * Run with ./gradlew -p benchmarks run --args 'Int7uScorerBenchmark'
- */
 public class Int7uScorerBenchmark {
 
     static {
-        LogConfigurator.configureESLogging(); // native access requires logging to be initialized
+        // Log Configuration: Required for native component initialization.
+        LogConfigurator.configureESLogging();
     }
 
     @Param({ "96", "768", "1024" })
     public int dims;
-    final int size = 2; // there are only two vectors to compare
+    final int size = 2; // Fixed set of two vectors for direct comparison.
 
     Directory dir;
     IndexInput in;
@@ -86,9 +94,18 @@ public class Int7uScorerBenchmark {
     RandomVectorScorer luceneSqrScorerQuery;
     RandomVectorScorer nativeSqrScorerQuery;
 
+    /**
+     * setup - Prepares temporary data and initializes competitive scorers.
+     * 
+     * Logic: 
+     * 1. Generates random 7-bit quantized bytes.
+     * 2. Persists vectors to a temporary MMapDirectory to simulate off-heap production behavior.
+     * 3. Instantiates Lucene and Native scorers for both Dot Product and Euclidean metrics.
+     */
     @Setup
     public void setup() throws IOException {
         var optionalVectorScorerFactory = VectorScorerFactory.instance();
+        // Guard: Verify native provider availability for the current platform/arch.
         if (optionalVectorScorerFactory.isEmpty()) {
             String msg = "JDK=["
                 + Runtime.version()
@@ -110,6 +127,7 @@ public class Int7uScorerBenchmark {
 
         dir = new MMapDirectory(Files.createTempDirectory("nativeScalarQuantBench"));
         try (IndexOutput out = dir.createOutput("vector.data", IOContext.DEFAULT)) {
+            // Serialization: Layout matches quantized byte vector format with trailing floating-point offsets.
             out.writeBytes(vec1, 0, vec1.length);
             out.writeInt(Float.floatToIntBits(vec1Offset));
             out.writeBytes(vec2, 0, vec2.length);
@@ -118,6 +136,8 @@ public class Int7uScorerBenchmark {
         in = dir.openInput("vector.data", IOContext.DEFAULT);
         var values = vectorValues(dims, 2, in, VectorSimilarityFunction.DOT_PRODUCT);
         scoreCorrectionConstant = values.getScalarQuantizer().getConstantMultiplier();
+        
+        // Scorer Initialization: Binding scorers to specific ordinals (0 and 1) for the pairwise comparison.
         luceneDotScorer = luceneScoreSupplier(values, VectorSimilarityFunction.DOT_PRODUCT).scorer();
         luceneDotScorer.setScoringOrdinal(0);
         values = vectorValues(dims, 2, in, VectorSimilarityFunction.EUCLIDEAN);
@@ -129,7 +149,7 @@ public class Int7uScorerBenchmark {
         nativeSqrScorer = factory.getInt7SQVectorScorerSupplier(EUCLIDEAN, in, values, scoreCorrectionConstant).get().scorer();
         nativeSqrScorer.setScoringOrdinal(0);
 
-        // setup for getInt7SQVectorScorer / query vector scoring
+        // Setup for query-vector scenarios (float query vs quantized index).
         float[] queryVec = new float[dims];
         for (int i = 0; i < dims; i++) {
             queryVec[i] = ThreadLocalRandom.current().nextFloat();
@@ -145,16 +165,31 @@ public class Int7uScorerBenchmark {
         IOUtils.close(dir, in);
     }
 
+    /**
+     * @benchmark dotProductLucene
+     * @brief Measures Lucene's optimized dot product throughput.
+     */
     @Benchmark
     public float dotProductLucene() throws IOException {
         return luceneDotScorer.score(1);
     }
 
+    /**
+     * @benchmark dotProductNative
+     * @brief Measures Elasticsearch's native-accelerated dot product throughput.
+     */
     @Benchmark
     public float dotProductNative() throws IOException {
         return nativeDotScorer.score(1);
     }
 
+    /**
+     * @benchmark dotProductScalar
+     * @brief Measures unoptimized scalar loop dot product.
+     * 
+     * Logic: Implements the baseline similarity calculation including quantization 
+     * correction and offset application.
+     */
     @Benchmark
     public float dotProductScalar() {
         int dotProduct = 0;
@@ -175,7 +210,7 @@ public class Int7uScorerBenchmark {
         return nativeDotScorerQuery.score(1);
     }
 
-    // -- square distance
+    // -- square distance benchmarks
 
     @Benchmark
     public float squareDistanceLucene() throws IOException {
@@ -187,6 +222,10 @@ public class Int7uScorerBenchmark {
         return nativeSqrScorer.score(1);
     }
 
+    /**
+     * @benchmark squareDistanceScalar
+     * @brief Baseline Euclidean distance implementation.
+     */
     @Benchmark
     public float squareDistanceScalar() {
         int squareDistance = 0;
@@ -208,6 +247,9 @@ public class Int7uScorerBenchmark {
         return nativeSqrScorerQuery.score(1);
     }
 
+    /**
+     * vectorValues - Utility to create an off-heap representation of quantized data.
+     */
     QuantizedByteVectorValues vectorValues(int dims, int size, IndexInput in, VectorSimilarityFunction sim) throws IOException {
         var sq = new ScalarQuantizer(0.1f, 0.9f, (byte) 7);
         var slice = in.slice("values", 0, in.length());
@@ -226,6 +268,9 @@ public class Int7uScorerBenchmark {
     static final byte MIN_INT7_VALUE = 0;
     static final byte MAX_INT7_VALUE = 127;
 
+    /**
+     * randomInt7BytesBetween - populates an array with random 7-bit values.
+     */
     static void randomInt7BytesBetween(byte[] bytes) {
         var random = ThreadLocalRandom.current();
         for (int i = 0, len = bytes.length; i < len;) {

@@ -1,9 +1,21 @@
-
+/**
+ * @7a3711ad-109d-4f3f-b982-5f2784e1bed3/skl_device.cl
+ * @brief GPU-accelerated block-based texture compression implementation.
+ *
+ * Domain: HPC Graphics, Texture Encoding.
+ * Architectural Intent: Implements a parallel compression pipeline (ETC/BC style) 
+ * for 4x4 image tiles using OpenCL. Features massively parallel execution on the 
+ * GPU where each work-item optimizes a single tile's representation.
+ */
 
 typedef uchar uint8_t;
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * @union Color
+ * @brief Multi-view representation of a 32-bit pixel for efficient hardware access.
+ */
 union Color {
 	struct BgraColorType {
 		uint8_t b;
@@ -15,10 +27,16 @@ union Color {
 	uint bits;
 };
 
+/**
+ * Functional Utility: Clamping primitive to ensure pixel values stay in [0, 255].
+ */
 inline uint8_t myclamp(uint8_t val, uint8_t min, uint8_t max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * Functional Utility: Precision reduction primitives for lossy color encoding.
+ */
 inline uint8_t round_to_5_bits(float val) {
 	return myclamp(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
@@ -28,9 +46,10 @@ inline uint8_t round_to_4_bits(float val) {
 }
 
 
-
-
-
+/**
+ * @constant g_codeword_tables
+ * @brief Precomputed modulation constants for sub-block luminance correction.
+ */
 ALIGNAS(16) __constant static const int g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -48,25 +67,10 @@ ALIGNAS(16) __constant static const int g_codeword_tables[8][4] = {
 __constant static const uint8_t g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * @constant g_idx_to_num
+ * @brief Coordinate mapping for block-to-global texture indices.
+ */
 __constant static const uint8_t g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        
 	{8, 12, 9, 13, 10, 14, 11, 15},  
@@ -77,6 +81,9 @@ __constant static const uint8_t g_idx_to_num[4][8] = {
 
 
 
+/**
+ * @brief Adjusts a base color with a luminance modulator.
+ */
 inline union Color makeColor(const union Color base, int lum) {
 	int b = (int)(base.channels.b) + lum;
 	int g = (int)(base.channels.g) + lum;
@@ -92,6 +99,9 @@ inline union Color makeColor(const union Color base, int lum) {
 
 
 
+/**
+ * @brief Computes numerical difference (error) between two color states.
+ */
 inline uint getColorError(const union Color u, const union Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)(u.channels.b) - v.channels.b;
@@ -108,6 +118,9 @@ inline uint getColorError(const union Color u, const union Color v) {
 #endif
 }
 
+/**
+ * @brief Serializes 4-bit truncated colors into compressed header.
+ */
 inline void WriteColors444(__global uint8_t* block,
 						   const union Color color0,
 						   const union Color color1) {
@@ -119,6 +132,9 @@ inline void WriteColors444(__global uint8_t* block,
 
 
 
+/**
+ * @brief Serializes 5-bit colors using differential encoding.
+ */
 inline void WriteColors555(__global uint8_t* block,
 						   const union Color color0,
 						   const union Color color1) {
@@ -173,6 +189,9 @@ inline void WriteDiff(__global uint8_t* block, bool diff) {
 	block[3] |= (uint8_t)(diff) << 1;
 }
 
+/**
+ * Functional Utility: Transfers 4x4 texels from global source memory to local work-item buffer.
+ */
 inline void ExtractBlock(uint8_t* dst, const uint8_t* src, int width) {
 	for (int j = 0; j < 4; ++j) {
 		
@@ -216,7 +235,10 @@ inline union Color makeColor555(const float* bgr) {
 	bgr555.channels.a = 0x55;
 	return bgr555;
 }
-	
+
+/**
+ * @brief Computes average color for a tile to initialize quantization search.
+ */
 void getAverageColor(const union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -233,6 +255,10 @@ void getAverageColor(const union Color* src, float* avg_color)
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
 
+/**
+ * @brief Optimal modulator selection to minimize reconstruction MSE.
+ * Algorithm: Discrete search over precomputed codeword codeword space.
+ */
 unsigned long computeLuminance(__global uint8_t* block,
 						   const union Color* src,
 						   const union Color base,
@@ -311,6 +337,9 @@ unsigned long computeLuminance(__global uint8_t* block,
 }
 
 
+/**
+ * @brief Fast-path for uniform color blocks (solid tiles).
+ */
 bool tryCompressSolidBlock(__global uint8_t* dst,
 						   const union Color* src,
 						   unsigned long* error)
@@ -388,6 +417,10 @@ bool tryCompressSolidBlock(__global uint8_t* dst,
 	return true;
 }
 
+/**
+ * @brief High-level block compression orchestrator.
+ * Logic: Decision engine for sub-block partitioning and differential mode selection.
+ */
 unsigned long compressBlock(__global uint8_t* dst,
 						   const union Color* ver_src,
 						   const union Color* hor_src,
@@ -419,7 +452,7 @@ unsigned long compressBlock(__global uint8_t* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -466,7 +499,7 @@ unsigned long compressBlock(__global uint8_t* dst,
 								   threshold);
 	
 	lumi_error2 = computeLuminance(dst, sub_block_src[sub_block_off_1],
-								   sub_block_avg[sub_block_off_1], 1,
+								   &sub_block_avg[sub_block_off_1], 1,
 								   g_idx_to_num[sub_block_off_1],
 								   threshold);
 	
@@ -482,6 +515,12 @@ void color_memcpy(union Color * dst, __global const union Color * src, int numBy
 }
 
 
+/**
+ * @kernel kernel_computation
+ * @brief OpenCL entry point for parallel texture encoding.
+ * Memory Strategy: Maps work-items to image tiles (4x4 tiles). 
+ * Performs exhaustive sub-block search and error evaluation in parallel.
+ */
 __kernel void kernel_computation(int width, int height,
 				__global uint8_t *src, __global uint8_t *dst)
 {
@@ -530,7 +569,8 @@ __kernel void kernel_computation(int width, int height,
 	
 	
 	compressBlock(dst, ver_blocks, hor_blocks, UINT_MAX);
-}>>>> file: texture_compress_skl.cpp
+}
+
 #include "compress.hpp"
 
 
@@ -546,6 +586,9 @@ void printError(const char* errMsg) {
 }
 
 
+/**
+ * @brief Discovers OpenCL platforms and GPU devices.
+ */
 void gpu_find(cl_device_id &device) {
 
 	
@@ -638,6 +681,10 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 
+/**
+ * @brief Host manager for the OpenCL compression task.
+ * Functional Utility: Orchestrates hardware selection, kernel compilation, and data marshalling.
+ */
 void gpu_execute_kernel(cl_device_id device, size_t dim1, size_t dim2,
 						size_t width, size_t height,
 						const uint8_t *src, uint8_t *dst)
@@ -776,6 +823,10 @@ void gpu_execute_kernel(cl_device_id device, size_t dim1, size_t dim2,
 	}
 }
 
+/**
+ * @class TextureCompressor
+ * @brief C++ Host implementation for the texture compression task.
+ */
 TextureCompressor::TextureCompressor() {
 	
 	gpu_find(device);
@@ -783,6 +834,9 @@ TextureCompressor::TextureCompressor() {
 
 TextureCompressor::~TextureCompressor() { }
 	
+/**
+ * @brief Executes the parallel compression pipeline.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst,
 									  int width, int height)
 {

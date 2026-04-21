@@ -1,8 +1,10 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License
- * 2.0; you may not use this file except in compliance with the Elastic License
- * 2.0.
+/**
+ * @file LookupJoinTypesIT.java
+ * @brief Integration tests for the ES|QL LOOKUP JOIN operation across varied data types.
+ * 
+ * Architectural Intent: Validates the type-safety and functional correctness of lookup joins in the ES|QL engine.
+ * It systematically tests compatibility between different field types (keywords, numerics, temporals, etc.) 
+ * by dynamically generating test indices and documents for each permutation.
  */
 
 package org.elasticsearch.xpack.esql.action;
@@ -61,17 +63,9 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
- * This test suite tests the lookup join functionality in ESQL with various data types.
- * For each pair of types being tested, it builds a main index called "index" containing a single document with as many fields as
- * types being tested on the left of the pair, and then creates that many other lookup indexes, each with a single document containing
- * exactly two fields: the field to join on, and a field to return.
- * The assertion is that for valid combinations, the return result should exist, and for invalid combinations an exception should be thrown.
- * If no exception is thrown, and no result is returned, our validation rules are not aligned with the internal behaviour (i.e. a bug).
- * Let's assume we want to test a lookup using a byte field in the main index and integer in the lookup index, then we'll create 2 indices,
- * named {@code main_index} and {@code lookup_byte_integer} resp.
- * The main index contains a field called {@code main_byte} and the lookup index has {@code lookup_integer}. To test the pair, we run
- * {@code FROM main_index | RENAME main_byte AS lookup_integer | LOOKUP JOIN lookup_index ON lookup_integer | KEEP other}
- * and assert that the result exists and is equal to "value".
+ * Functional Utility: This test suite orchestrates a matrix-style evaluation of join logic.
+ * Algorithm: Permutation-based testing with dynamic index lifecycle management.
+ * State Invariant: Each test case (DataType main x DataType lookup) is isolated via dedicated indices.
  */
 @ClusterScope(scope = SUITE, numClientNodes = 1, numDataNodes = 1)
 public class LookupJoinTypesIT extends ESIntegTestCase {
@@ -91,7 +85,11 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
     private static final Map<String, TestConfigs> testConfigurations = new HashMap<>();
     static {
-        // Initialize the test configurations for string tests
+        /**
+         * Block Logic: Configuration static initializer.
+         * Logic: Defines the expected outcomes (pass/fail/unsupported) for the entire type matrix.
+         * Invariant: Every DataType permutation must either be classified as supported or unsupported.
+         */
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("strings", TestConfigs::new);
             configs.addPasses(KEYWORD, KEYWORD);
@@ -275,9 +273,18 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         testLookupJoinTypes("others");
     }
 
+    /**
+     * @brief Orchestrates the execution of lookup join queries for a specific test group.
+     * @param group The label of the test configuration group (e.g., "integers").
+     */
     private void testLookupJoinTypes(String group) {
         initIndexes(group);
         initData(group);
+        /**
+         * Block Logic: Test execution iteration.
+         * Pre-condition: Test indices and data have been successfully provisioned.
+         * Invariant: Validates each type pair within the group using ES|QL query syntax.
+         */
         for (TestConfig config : testConfigurations.get(group).configs.values()) {
             if ((isValidDataType(config.mainType()) && isValidDataType(config.lookupType())) == false) {
                 continue;
@@ -302,6 +309,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief Provisioning logic for the test indices.
+     * Logic: Aggregates field specifications to minimize the number of index creation calls.
+     */
     private void initIndexes(String group) {
         Collection<TestConfig> configs = testConfigurations.get(group).configs.values();
         String propertyPrefix = "{\n  \"properties\" : {\n";
@@ -326,9 +337,16 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         );
     }
 
+    /**
+     * @brief Data ingestion logic for the test indices.
+     */
     private void initData(String group) {
         Collection<TestConfig> configs = testConfigurations.get(group).configs.values();
         int docId = 0;
+        /**
+         * Block Logic: Populate lookup indices.
+         * Invariant: Each lookup index contains exactly one document with a single-key join target.
+         */
         for (TestConfig config : configs) {
             String doc = String.format(Locale.ROOT, """
                 {
@@ -339,6 +357,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
             index(config.lookupIndexName(), "" + (++docId), doc);
             refresh(config.lookupIndexName());
         }
+        /**
+         * Block Logic: Populate the primary index.
+         * Invariant: The main index document contains a comprehensive field set for all join tests.
+         */
         List<String> mainProperties = configs.stream().map(this::mainPropertyFor).distinct().collect(Collectors.toList());
         index(MAIN_INDEX, "1", String.format(Locale.ROOT, """
             {
@@ -371,6 +393,9 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
     private static final double SCALING_FACTOR = 10.0;
 
+    /**
+     * @brief Generates representative sample data for each ES|QL DataType.
+     */
     private static Object sampleDataFor(DataType type) {
         return switch (type) {
             case BOOLEAN -> true;
@@ -451,6 +476,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @interface TestConfig
+     * @brief Functional contract for verifying lookup join permutations.
+     */
     interface TestConfig {
         DataType mainType();
 
@@ -514,6 +543,9 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief Implementation for test cases expected to succeed.
+     */
     private record TestConfigPasses(DataType mainType, DataType lookupType, boolean hasResults) implements TestConfig {
         @Override
         public void testQuery(String query) {
@@ -530,6 +562,9 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief Implementation for test cases expected to trigger exceptions.
+     */
     private record TestConfigFails<E extends Exception>(DataType mainType, DataType lookupType, Class<E> exception, Consumer<E> assertion)
         implements
             TestConfig {

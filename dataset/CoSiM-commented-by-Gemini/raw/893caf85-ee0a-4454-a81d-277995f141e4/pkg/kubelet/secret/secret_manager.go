@@ -1,3 +1,7 @@
+// @raw/893caf85-ee0a-4454-a81d-277995f141e4/pkg/kubelet/secret/secret_manager.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -117,6 +121,8 @@ func newSecretStore(kubeClient clientset.Interface, clock clock.Clock, getTTL Ge
 }
 
 func isSecretOlder(newSecret, oldSecret *v1.Secret) bool {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if newSecret == nil || oldSecret == nil {
 		return false
 	}
@@ -134,6 +140,8 @@ func (s *secretStore) Add(namespace, name string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	item, exists := s.items[key]
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !exists {
 		item = &secretStoreItem{
 			refCount: 0,
@@ -152,8 +160,12 @@ func (s *secretStore) Delete(namespace, name string) {
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if item, ok := s.items[key]; ok {
 		item.refCount--
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if item.refCount == 0 {
 			delete(s.items, key)
 		}
@@ -163,11 +175,19 @@ func (s *secretStore) Delete(namespace, name string) {
 func GetObjectTTLFromNodeFunc(getNode func() (*v1.Node, error)) GetObjectTTLFunc {
 	return func() (time.Duration, bool) {
 		node, err := getNode()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return time.Duration(0), false
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if node != nil && node.Annotations != nil {
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if value, ok := node.Annotations[v1.ObjectTTLAnnotationKey]; ok {
+				// Block Logic: Conditional evaluation for divergent control flow.
+				// Invariant: Taken branch maintains control flow invariants.
 				if intValue, err := strconv.Atoi(value); err == nil {
 					return time.Duration(intValue) * time.Second, true
 				}
@@ -179,6 +199,8 @@ func GetObjectTTLFromNodeFunc(getNode func() (*v1.Node, error)) GetObjectTTLFunc
 
 func (s *secretStore) isSecretFresh(data *secretData) bool {
 	secretTTL := s.defaultTTL
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if ttl, ok := s.getTTL(); ok {
 		secretTTL = ttl
 	}
@@ -192,14 +214,20 @@ func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 		s.lock.Lock()
 		defer s.lock.Unlock()
 		item, exists := s.items[key]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !exists {
 			return nil
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if item.secret == nil {
 			item.secret = &secretData{}
 		}
 		return item.secret
 	}()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if data == nil {
 		return nil, fmt.Errorf("secret %q/%q not registered", namespace, name)
 	}
@@ -208,8 +236,12 @@ func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 	// needed and return data.
 	data.Lock()
 	defer data.Unlock()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if data.err != nil || !s.isSecretFresh(data) {
 		opts := metav1.GetOptions{}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if data.secret != nil && data.err == nil {
 			// This is just a periodic refresh of a secret we successfully fetched previously.
 			// In this case, server data from apiserver cache to reduce the load on both
@@ -217,11 +249,15 @@ func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 			util.FromApiserverCache(&opts)
 		}
 		secret, err := s.kubeClient.CoreV1().Secrets(namespace).Get(name, opts)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil && !apierrors.IsNotFound(err) && data.secret == nil && data.err == nil {
 			// Couldn't fetch the latest secret, but there is no cached data to return.
 			// Return the fetch result instead.
 			return secret, err
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if (err == nil && !isSecretOlder(secret, data.secret)) || apierrors.IsNotFound(err) {
 			// If the fetch succeeded with a newer version of the secret, or if the
 			// secret could not be found in the apiserver, update the cached data to
@@ -273,6 +309,8 @@ func (c *cachingSecretManager) RegisterPod(pod *v1.Pod) {
 	names := getSecretNames(pod)
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for name := range names {
 		c.secretStore.Add(pod.Namespace, name)
 	}
@@ -280,7 +318,11 @@ func (c *cachingSecretManager) RegisterPod(pod *v1.Pod) {
 	key := objectKey{namespace: pod.Namespace, name: pod.Name}
 	prev = c.registeredPods[key]
 	c.registeredPods[key] = pod
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if prev != nil {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for name := range getSecretNames(prev) {
 			// On an update, the .Add() call above will have re-incremented the
 			// ref count of any existing secrets, so any secrets that are in both
@@ -299,7 +341,11 @@ func (c *cachingSecretManager) UnregisterPod(pod *v1.Pod) {
 	defer c.lock.Unlock()
 	prev = c.registeredPods[key]
 	delete(c.registeredPods, key)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if prev != nil {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for name := range getSecretNames(prev) {
 			c.secretStore.Delete(prev.Namespace, name)
 		}

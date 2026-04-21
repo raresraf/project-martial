@@ -3,7 +3,18 @@
  * Copyright © 2000-2010 David Woodhouse <dwmw2@infradead.org> et al.
  */
 
-/* Overhauled routines for dealing with different mmap regions of flash */
+/**
+ * @file map.h
+ * @brief Polymorphic abstraction layer for Memory Technology Device (MTD) flash mapping.
+ * 
+ * Functional Intent: Provides a standardized interface for interacting with diverse 
+ * flash memory architectures. It abstracts differences in bus widths (bankwidth), 
+ * endianness, and CPU-to-device mapping strategies. Supports both simple linear 
+ * memory-mapped I/O and complex, indirect access methods required by banked 
+ * or segmented flash regions.
+ * 
+ * Domain: Production Systems, Kernel Device Drivers, Storage Abstraction.
+ */
 
 #ifndef __LINUX_MTD_MAP_H__
 #define __LINUX_MTD_MAP_H__
@@ -18,6 +29,10 @@
 #include <linux/unaligned.h>
 #include <asm/barrier.h>
 
+/* Block Logic: Dynamic Bankwidth resolution.
+ * Logic: Macros for determining the hardware access width at compile-time (if fixed) 
+ * or runtime (if multiple widths are enabled).
+ */
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_1
 #define map_bankwidth(map) 1
 #define map_bankwidth_is_1(map) (map_bankwidth(map) == 1)
@@ -60,9 +75,7 @@
 #define map_bankwidth_is_4(map) (0)
 #endif
 
-/* ensure we never evaluate anything shorted than an unsigned long
- * to zero, and ensure we'll never miss the end of an comparison (bjd) */
-
+/* Optimization: Calculate number of 'unsigned long' units needed to hold a single bank operation. */
 #define map_calc_words(map) ((map_bankwidth(map) + (sizeof(unsigned long)-1)) / sizeof(unsigned long))
 
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_8
@@ -108,7 +121,7 @@
 #endif
 
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_32
-/* always use indirect access for 256-bit to preserve kernel stack */
+/* Optimization: use indirect access for 256-bit to preserve kernel stack frame limits. */
 # undef map_bankwidth
 # define map_bankwidth(map) ((map)->bankwidth)
 # undef map_bankwidth_is_large
@@ -166,66 +179,51 @@ static inline int map_bankwidth_supported(int w)
 
 #define MAX_MAP_LONGS (((MAX_MAP_BANKWIDTH * 8) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
+/**
+ * @union map_word
+ * @brief Opaque container for a single device-width data word.
+ * 
+ * Logic: Encapsulates hardware data regardless of whether it fits in a 
+ * standard CPU register or spans multiple 'unsigned long' units.
+ */
 typedef union {
 	unsigned long x[MAX_MAP_LONGS];
 } map_word;
 
-/* The map stuff is very simple. You fill in your struct map_info with
-   a handful of routines for accessing the device, making sure they handle
-   paging etc. correctly if your device needs it. Then you pass it off
-   to a chip probe routine -- either JEDEC or CFI probe or both -- via
-   do_map_probe(). If a chip is recognised, the probe code will invoke the
-   appropriate chip driver (if present) and return a struct mtd_info.
-   At which point, you fill in the mtd->module with your own module
-   address, and register it with the MTD core code. Or you could partition
-   it and register the partitions instead, or keep it for your own private
-   use; whatever.
 
-   The mtd->priv field will point to the struct map_info, and any further
-   private data required by the chip driver is linked from the
-   mtd->priv->fldrv_priv field. This allows the map driver to get at
-   the destructor function map->fldrv_destroy() when it's tired
-   of living.
-*/
-
+/**
+ * @struct map_info
+ * @brief State container for an individual flash mapping instance.
+ *
+ * Functional Utility: Encapsulates memory addresses, bus characteristics, 
+ * and optional function pointers for device access. Acts as the primary handle 
+ * passed between the MTD core and specific chip drivers (CFI, JEDEC).
+ */
 struct map_info {
 	const char *name;
 	unsigned long size;
 	resource_size_t phys;
 #define NO_XIP (-1UL)
 
-	void __iomem *virt;
-	void *cached;
+	void __iomem *virt; // Logic: CPU virtual address for I/O access.
+	void *cached; // Logic: Read-only memory-backed cache for performance.
 
-	int swap; /* this mapping's byte-swapping requirement */
-	int bankwidth; /* in octets. This isn't necessarily the width
-		       of actual bus cycles -- it's the repeat interval
-		      in bytes, before you are talking to the first chip again.
-		      */
+	int swap; // Logic: Byte-swapping strategy for endianness conversion.
+	int bankwidth; // Logic: Width of the repeat interval in bytes.
 
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
+	// Algorithm: Polymorphic function pointers for non-linear or indirect hardware access.
 	map_word (*read)(struct map_info *, unsigned long);
 	void (*copy_from)(struct map_info *, void *, unsigned long, ssize_t);
 
 	void (*write)(struct map_info *, const map_word, unsigned long);
 	void (*copy_to)(struct map_info *, unsigned long, const void *, ssize_t);
-
-	/* We can perhaps put in 'point' and 'unpoint' methods, if we really
-	   want to enable XIP for non-linear mappings. Not yet though. */
 #endif
-	/* It's possible for the map driver to use cached memory in its
-	   copy_from implementation (and _only_ with copy_from).  However,
-	   when the chip driver knows some flash area has changed contents,
-	   it will signal it to the map driver through this routine to let
-	   the map driver invalidate the corresponding cache as needed.
-	   If there is no cache to care about this can be set to NULL. */
+	
+	// Synchronization: Hook for cache invalidation when flash content is updated by hardware.
 	void (*inval_cache)(struct map_info *, unsigned long, ssize_t);
 
-	/* This will be called with 1 as parameter when the first map user
-	 * needs VPP, and called with 0 when the last user exits. The map
-	 * core maintains a reference counter, and assumes that VPP is a
-	 * global resource applying to all mapped flash chips on the system.
-	 */
+	/* Logic: VPP (Programming Voltage) control for legacy flash devices. */
 	void (*set_vpp)(struct map_info *, int);
 
 	unsigned long pfow_base;
@@ -256,6 +254,7 @@ void map_destroy(struct mtd_info *mtd);
 #define INVALIDATE_CACHED_RANGE(map, from, size) \
 	do { if (map->inval_cache) map->inval_cache(map, from, size); } while (0)
 
+/* Block Logic: Multi-word comparison and bitwise operation helpers. */
 #define map_word_equal(map, val1, val2)					\
 ({									\
 	int i, ret = 1;							\
@@ -318,6 +317,9 @@ void map_destroy(struct mtd_info *mtd);
 	ret;								\
 })
 
+/**
+ * map_word_load - Loads a word from memory with unaligned access handling.
+ */
 static inline map_word map_word_load(struct map_info *map, const void *ptr)
 {
 	map_word r;
@@ -340,6 +342,11 @@ static inline map_word map_word_load(struct map_info *map, const void *ptr)
 	return r;
 }
 
+/**
+ * map_word_load_partial - Merges a partial byte buffer into an existing map word.
+ * 
+ * Logic: Respects endianness when updating bit positions within a single-word bank.
+ */
 static inline map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
 {
 	int i;
@@ -370,6 +377,9 @@ static inline map_word map_word_load_partial(struct map_info *map, map_word orig
 #define MAP_FF_LIMIT 8
 #endif
 
+/**
+ * map_word_ff - Generates a map_word with all bits set (flash 'empty' state).
+ */
 static inline map_word map_word_ff(struct map_info *map)
 {
 	map_word r;
@@ -386,6 +396,9 @@ static inline map_word map_word_ff(struct map_info *map)
 	return r;
 }
 
+/**
+ * inline_map_read - Performs raw hardware read using architecture-specific IO primitives.
+ */
 static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
 {
 	map_word r;
@@ -408,6 +421,9 @@ static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
 	return r;
 }
 
+/**
+ * inline_map_write - Performs raw hardware write and ensures a memory barrier.
+ */
 static inline void inline_map_write(struct map_info *map, const map_word datum, unsigned long ofs)
 {
 	if (map_bankwidth_is_1(map))
@@ -424,9 +440,14 @@ static inline void inline_map_write(struct map_info *map, const map_word datum, 
 		memcpy_toio(map->virt+ofs, datum.x, map->bankwidth);
 	else
 		BUG();
+	
+	// Synchronization: Global memory barrier ensuring write completion before subsequent operations.
 	mb();
 }
 
+/**
+ * inline_map_copy_from - Optimized block transfer from device to host memory.
+ */
 static inline void inline_map_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
 {
 	if (map->cached)
@@ -435,6 +456,9 @@ static inline void inline_map_copy_from(struct map_info *map, void *to, unsigned
 		memcpy_fromio(to, map->virt + from, len);
 }
 
+/**
+ * inline_map_copy_to - Optimized block transfer from host memory to device.
+ */
 static inline void inline_map_copy_to(struct map_info *map, unsigned long to, const void *from, ssize_t len)
 {
 	memcpy_toio(map->virt + to, from, len);

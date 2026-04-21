@@ -262,6 +262,10 @@ impl Headers {
     pub(crate) fn fill(&self, filler: Option<HeadersInit>) -> ErrorResult {
         match filler {
             Some(HeadersInit::ByteStringSequenceSequence(v)) => {
+                /**
+                 * BLOCK: Sequence iteration
+                 * INVARIANT: Process all key-value pairs in the provided sequence.
+                 */
                 for mut seq in v {
                     if seq.len() == 2 {
                         let val = seq.pop().unwrap();
@@ -545,6 +549,10 @@ pub(crate) fn is_vchar(x: u8) -> bool {
 }
 
 /// <http://tools.ietf.org/html/rfc7230#section-3.2.6>
+pub(crate) fn is_obs_text(x: u8) -> bool {
+    matches!(x, 0x80..=0xFF)
+}
+7230#section-3.2.6>
 pub(crate) fn is_obs_text(x: u8) -> bool {
     matches!(x, 0x80..=0xFF)
 }

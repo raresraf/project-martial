@@ -1,3 +1,13 @@
+/**
+ * @file helper.cpp
+ * @brief Multi-module source for GPGPU Texture Compression (ETC1).
+ * 
+ * This file serves as a consolidated container for:
+ * 1. OpenCL Host Infrastructure (helper.cpp/hpp)
+ * 2. Matrix processing configuration (mat_config.h)
+ * 3. Core ETC1 Compression Kernel (sol_device.cl)
+ * 4. Image Compression Orchestration (texture_compress_skl.cpp)
+ */
 
 >>>> file: helper.cpp
 #include 
@@ -11,7 +21,7 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Validates OpenCL API return codes on the host.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +33,7 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Validates OpenCL build status and retrieves logs upon failure.
  */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
@@ -38,8 +48,8 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Loads kernel source from a file into a host-side string.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -53,7 +63,7 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Map of OpenCL error codes to human-readable labels.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -108,7 +118,7 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves the full build log for a specific program and device.
  */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
@@ -127,6 +137,7 @@ void cl_get_compiler_err_log(cl_program program,
 	build_log[ log_size ] = '\0';
 	cout << endl << build_log << endl;
 }
+
 >>>> file: helper.hpp
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
@@ -152,9 +163,10 @@ void cl_get_compiler_err_log(cl_program program,
 
 void read_kernel(string file_name, string &str_kernel);
 
+/**
+ * @brief Error termination macro.
+ */
 #define DIE(assertion, call_description)                    \
-
-
 do {                                                        \
     if (assertion) {                                        \
             fprintf(stderr, "(%d): ",                       \
@@ -165,7 +177,12 @@ do {                                                        \
 } while(0);
 
 #endif
+
 >>>> file: mat_config.h
+/**
+ * @file mat_config.h
+ * @brief Computational grid configurations for matrix-style operations.
+ */
 #define	MAT_ORDER	512
 
 #define USE_MMUL_1	1
@@ -195,10 +212,19 @@ do {                                                        \
 #define LOCAL_WORK_1	(TILE_SIZE / WORK_PER_THREAD)
 
 #endif
+
 >>>> file: sol_device.cl
+/**
+ * @file sol_device.cl
+ * @brief ETC1 Kernel implementation for OpenCL.
+ */
 #define UINT32_MAX   (4294967295U)
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * @union Color
+ * @brief Texel representation for bitwise and channel-wise access.
+ */
 typedef union Color
 {
 	struct BgraColorType
@@ -213,12 +239,18 @@ typedef union Color
 } Color;
 
 
+/**
+ * @brief Internal memory copy for kernel buffers.
+ */
 void memcpy(char *dst, __global char *src, int n)
 {
 	for (int i=0; i<n; i++)
 		dst[i] = src[i];
 }
 
+/**
+ * @brief Internal buffer zeroing.
+ */
 void memset(__global uchar *buff, int n)
 {
 	for (int i = 0; i < n; i++)
@@ -226,23 +258,31 @@ void memset(__global uchar *buff, int n)
 }
 
 
+/**
+ * @brief Helper for component clamping.
+ */
 uchar another_clamp(int val, int min, int max)
 {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * @brief Quantizes 8-bit to 5-bit color.
+ */
 uchar round_to_5_bits(float val)
 {
 	return another_clamp((float)val * 31.0f / 255.0f + 0.5f, (uchar)0, (uchar)31);
 }
 
+/**
+ * @brief Quantizes 8-bit to 4-bit color.
+ */
 uchar round_to_4_bits(float val)
 {
 	return another_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
-// Codeword tables.
-// See: Table 3.17.2
+// ETC1 Codeword tables for luminance modulation.
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 		{-8, -2, 2, 8},
 		{-17, -5, 5, 17},
@@ -253,30 +293,10 @@ ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 		{-106, -33, 33, 106},
 		{-183, -47, 47, 183}};
 
-// Maps modifier indices to pixel index values.
-// See: Table 3.17.3
+// Modifier index mapping to pixel data.
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
-// The ETC1 specification index texels as follows:
-// [a][e][i][m]     [ 0][ 4][ 8][12]
-// [b][f][j][n]  [ 1][ 5][ 9][13]
-// [c][g][k][o]     [ 2][ 6][10][14]
-// [d][h][l][p]     [ 3][ 7][11][15]
-
-// [ 0][ 1][ 2][ 3]     [ 0][ 1][ 4][ 5]
-// [ 4][ 5][ 6][ 7]  [ 8][ 9][12][13]
-// [ 8][ 9][10][11]     [ 2][ 3][ 6][ 7]
-// [12][13][14][15]     [10][11][14][15]
-
-// However, when extracting sub blocks from BGRA data the natural array
-// indexing order ends up different:
-// vertical0: [a][e][b][f]  horizontal0: [a][e][i][m]
-//            [c][g][d][h]               [b][f][j][n]
-// vertical1: [i][m][j][n]  horizontal1: [c][g][k][o]
-//            [k][o][l][p]               [d][h][l][p]
-
-// In order to translate from the natural array indices in a sub block to the
-// indices (number) used by specification and hardware we use this table.
+// Texel index mapping for ETC1 sub-blocks.
 __constant uchar g_idx_to_num[4][8] = {
 		{0, 4, 1, 5, 2, 6, 3, 7},        // Vertical block 0.
 		{8, 12, 9, 13, 10, 14, 11, 15},  // Vertical block 1.
@@ -286,7 +306,9 @@ __constant uchar g_idx_to_num[4][8] = {
 		{2, 6, 10, 14, 3, 7, 11, 15}     // Horizontal block 1.
 };
 
-// Constructs a color from a given base color and luminance value.
+/**
+ * @brief Applies luminance modulation to a base color.
+ */
 Color makeColor(const Color base, short lum)
 {
 	int b = (int)(base.channels.b) + lum;
@@ -301,8 +323,9 @@ Color makeColor(const Color base, short lum)
 	return color;
 }
 
-// Calculates the error metric for two colors. A small error signals that the
-// colors are similar to each other, a large error the signals the opposite.
+/**
+ * @brief Color error metric for quantization selection.
+ */
 uint getColorError(const Color u, const Color v)
 {
 #ifdef USE_PERCEIVED_ERROR_METRIC
@@ -322,6 +345,9 @@ uint getColorError(const Color u, const Color v)
 #endif
 }
 
+/**
+ * @brief Packs colors for individual mode.
+ */
 void WriteColors444(__global uchar* block,
 					const Color color0, const Color color1){
 	// Write output color for BGRA textures.
@@ -332,6 +358,9 @@ void WriteColors444(__global uchar* block,
 	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
+/**
+ * @brief Packs colors for differential mode.
+ */
 void WriteColors555(__global uchar* block,
 					const Color color0, const Color color1)
 {
@@ -362,6 +391,9 @@ void WriteColors555(__global uchar* block,
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Serializes the table index for a sub-block.
+ */
 void WriteCodewordTable(__global uchar* block, uchar sub_block_id, uchar table)
 {
 	uchar shift = (2 + (3 - sub_block_id * 3));
@@ -369,6 +401,9 @@ void WriteCodewordTable(__global uchar* block, uchar sub_block_id, uchar table)
 	block[3] |= table << shift;
 }
 
+/**
+ * @brief Serializes 2-bit pixel indices.
+ */
 void WritePixelData(__global uchar* block, uint pixel_data)
 {
 	block[4] |= pixel_data >> 24;
@@ -377,6 +412,9 @@ void WritePixelData(__global uchar* block, uint pixel_data)
 	block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Sets partitioning flip bit.
+ */
 void WriteFlip(__global uchar* block, bool flip)
 {
 	block[3] &= ~0x01;
@@ -385,16 +423,18 @@ void WriteFlip(__global uchar* block, bool flip)
 
 
 
+/**
+ * @brief Sets encoding diff bit.
+ */
 void WriteDiff(__global uchar* block, bool diff)
 {
 	block[3] &= ~0x02;
 	block[3] |= (uchar)(diff) << 1;
 }
 
-// Compress and rounds BGR888 into BGR444. The resulting BGR444 color is
-// expanded to BGR888 as it would be in hardware after decompression. The
-// actual 444-bit data is available in the four most significant bits of each
-// channel.
+/**
+ * @brief Quantizes BGR888 to BGR444.
+ */
 Color makeColor444(const float* bgr)
 {
 	uchar b4 = round_to_4_bits(bgr[0]);
@@ -409,10 +449,9 @@ Color makeColor444(const float* bgr)
 	return bgr444;
 }
 
-// Compress and rounds BGR888 into BGR555. The resulting BGR555 color is
-// expanded to BGR888 as it would be in hardware after decompression. The
-// actual 555-bit data is available in the five most significant bits of each
-// channel.
+/**
+ * @brief Quantizes BGR888 to BGR555.
+ */
 Color makeColor555(const float* bgr)
 {
 	uchar b5 = round_to_5_bits(bgr[0]);
@@ -429,6 +468,9 @@ Color makeColor555(const float* bgr)
 
 
 
+/**
+ * @brief Computes average color for an 8-texel sub-block.
+ */
 void getAverageColor(const Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -448,6 +490,9 @@ void getAverageColor(const Color* src, float* avg_color)
 
 
 
+/**
+ * @brief Optimization search for best luminance modifiers.
+ */
 unsigned long computeLuminance(__global uchar* block,
 							   const Color* src,
 							   const Color base,
@@ -625,6 +670,9 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	return true;
 }
 
+/**
+ * @brief Evaluates partition modes and encodes a 4x4 block.
+ */
 unsigned long compressBlock(__global uchar* dst,
 							const Color* ver_src,
 							const Color* hor_src,
@@ -662,7 +710,7 @@ unsigned long compressBlock(__global uchar* dst,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 
 			int component_diff = v - u;
-			if (component_diff  3)
+			if (component_diff < -4 || component_diff > 3)
 			{
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -731,7 +779,9 @@ unsigned long compressBlock(__global uchar* dst,
 }
 
 
-
+/**
+ * @brief OpenCL Kernel entry point.
+ */
 void __kernel compress(__global uchar* src,  __global uchar* dst, int width, int height)
 {
 	int col = get_global_id(0);
@@ -764,12 +814,16 @@ void __kernel compress(__global uchar* src,  __global uchar* dst, int width, int
                 		memcpy((char*)(hor_blocks + 8), (__global char*)row2, 16);
                 		memcpy((char*)(hor_blocks + 12), (__global char*)row3, 16);
 
-                		compressBlock(dst, ver_blocks, hor_blocks, INT_MAX);
+                		compressBlock(dst, ver_blocks, hor_blocks, UINT32_MAX);
             		}
         	}
     	}
 }
 >>>> file: texture_compress_skl.cpp
+/**
+ * @file texture_compress_skl.cpp
+ * @brief Host-side orchestration for GPGPU ETC1 compression.
+ */
 #include "compress.hpp"
 #include "helper.hpp"
 
@@ -781,6 +835,9 @@ void __kernel compress(__global uchar* src,  __global uchar* dst, int width, int
 
 using namespace std;
 
+/**
+ * @brief Constructor: Platform/Device discovery and environment setup.
+ */
 TextureCompressor::TextureCompressor() {
 
 
@@ -794,7 +851,6 @@ TextureCompressor::TextureCompressor() {
 	size_t attr_size = 0;
 	cl_char* attr_data = NULL;
 
-	int flag = 0;
 	
 	/* get num of available OpenCL platforms */
 
@@ -838,12 +894,12 @@ TextureCompressor::TextureCompressor() {
 		platform = this->platform_ids[platf];
 		DIE(platform == 0, "platform selection");
 		
-		/* get num of available OpenCL devices type GPU on the selected platform */
+		/* get num of available OpenCL devices on the selected platform */
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &device_num));
 		this->device_ids = new cl_device_id[device_num];
 		DIE(this->device_ids == NULL, "alloc devices");
 		
-		/* get all available OpenCL devices type GPU on the selected platform */
+		/* get all available OpenCL devices on the selected platform */
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL,
 							   device_num, this->device_ids, NULL));
 		cout << "\tDevices found " << device_num  << endl;
@@ -875,7 +931,7 @@ TextureCompressor::TextureCompressor() {
 			cout << attr_data;
 			delete[] attr_data;
 			
-			/* select device based on cli arguments */
+			/* select device */
 			if(device_num > 1 && dev == 0){
 				device = this->device_ids[dev];
 				cout << " <--- SELECTED ";
@@ -906,13 +962,21 @@ TextureCompressor::TextureCompressor() {
 	
 	this->kernel = clCreateKernel(this->program, "compress", &ret);
 	CL_ERR(ret);
- } 	// constructor/Users/grigore.lupescu/Desktop/RESEARCH/asc/teme/tema3/2018/Tema3-schelet/src/compress.cpp
+ } 	
+
+/**
+ * @brief Destructor: Resource cleanup.
+ */
 TextureCompressor::~TextureCompressor() {
 	clReleaseProgram(this->program);
 	clReleaseKernel(this->kernel);
 	clReleaseCommandQueue(this->command_queue);
 	clReleaseContext(this->context);	
  }
+
+/**
+ * @brief Orchestrates full image compression.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int width, int height)
 {
 	int ret;
@@ -926,18 +990,16 @@ unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int 
 
 	cl_mem src_in = clCreateBuffer(this->context, CL_MEM_READ_ONLY, sizeof(uint8_t) * width * height * 4 ,NULL, NULL);
 	cl_mem dst_out = clCreateBuffer(this->context, CL_MEM_WRITE_ONLY, sizeof(uint8_t) * width * height * 4 / 8, NULL, NULL);
-	//cl_mem err_s = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(unsigned long), NULL, NULL);
+	
 	ret = clEnqueueWriteBuffer(this->command_queue, src_in, CL_TRUE, 0, sizeof(uint8_t) * width * height * 4, src ,0, NULL, NULL);
 
 
 	ret = clEnqueueWriteBuffer(this->command_queue, dst_out, CL_TRUE, 0, sizeof(uint8_t) * width * height * 4 / 8, dst, 0, NULL, NULL);
-	//ret = clEnqueueWriteBuffer(this->command_queue, err_s, CL_TRUE, 0, sizeof(unsigned long), error_sum, 0, NULL, NULL); 
 	
 	
 	ret = 0;
 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&src_in);
 	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&dst_out);
-	//ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&err_s);
 	ret = clSetKernelArg(kernel, 2, sizeof(int), (void*)&width);
 	ret = clSetKernelArg(kernel, 3, sizeof(int), (void*)&height);
 	
@@ -961,4 +1023,3 @@ unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int 
 
 	return 0;
 }	
-	

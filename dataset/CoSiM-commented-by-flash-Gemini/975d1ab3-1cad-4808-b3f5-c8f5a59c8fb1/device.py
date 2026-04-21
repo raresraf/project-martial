@@ -1,45 +1,42 @@
-
-
 """
-This module implements components for a distributed simulation or sensor network,
-featuring device-specific script processing, inter-device communication, and
-synchronization mechanisms. It models how individual devices operate, process
-tasks, and coordinate their actions in a multi-threaded environment.
+@file device.py
+@brief Distributed simulation framework with asynchronous script execution and barrier synchronization.
 
-Key components:
-- `ReusableBarrier`: A thread synchronization barrier that can be reset and reused.
-- `Device`: Represents a single device in the network, managing its data, scripts, and interactions with a supervisor and neighbors.
-- `DeviceThread`: The main thread of execution for a `Device`, responsible for orchestrating script processing and communication.
-- `ScriptThread`: A worker thread that executes individual scripts on behalf of a `Device`.
+Functional Intent: Implements a multi-threaded environment where individual devices 
+coordinate task execution using a shared memory model. It leverages a reusable 
+barrier to align timepoints across the network and fine-grained locking to 
+ensure data consistency during localized state transitions.
+
+Domain: Production Systems, Distributed Computing, Parallel Processing.
 """
 
 from threading import Condition, Event, RLock, Thread
 
 class ReusableBarrier(object):
     """
-    Implements a reusable thread synchronization barrier.
-    All participating threads wait at the barrier until the specified number of threads
-    (`num_threads`) have arrived. Once all threads arrive, they are released, and the
-    barrier can be reset for reuse.
+    @brief Reusable thread synchronization barrier using a condition variable.
+    
+    Functional Utility: Orchestrates a rendezvous point for a fixed number of 
+    threads. Unlike standard barriers, it supports dynamic reconfiguration 
+    (via reinit) and can be immediately reused for subsequent execution phases.
     """
     
     def __init__(self, num_threads):
         """
-        Initializes the ReusableBarrier.
-        
-        Args:
-            num_threads (int): The number of threads that must reach the barrier before they are all released.
+        @brief Initializes the barrier with a target thread count.
+        @param num_threads The total number of threads that must arrive before release.
         """
         self.num_threads = num_threads
         self.count_threads = self.num_threads
-        # Condition variable used for synchronizing threads at the barrier.
+        # Synchronization: Protects the arrival counter and coordinates thread suspension/awakening.
         self.cond = Condition()
 
     def reinit(self):
         """
-        Reinitializes the barrier. This method is called when a thread needs to signal
-        that it is leaving the barrier, adjusting the `num_threads` count.
-        It then immediately calls `wait()` to synchronize with other remaining threads.
+        @brief Dynamically reduces the participant count and enters a wait state.
+        
+        Logic: Used when a device leaves the network, ensuring the remaining 
+        threads are not permanently blocked at the barrier.
         """
         self.cond.acquire()
         self.num_threads -= 1
@@ -48,90 +45,90 @@ class ReusableBarrier(object):
 
     def wait(self):
         """
-        Causes the calling thread to wait at the barrier until all `num_threads`
-        have arrived. Once all threads arrive, they are all released simultaneously.
-        The barrier then resets its internal counter to `num_threads` for reuse.
+        @brief Blocks the calling thread until the collective rendezvous is reached.
+        
+        Algorithm: Last-in-releases-all pattern.
+        Invariant: At the moment of release, the internal counter is reset to 
+        the full thread quota for the next cycle.
         """
         self.cond.acquire()
         self.count_threads -= 1
         if self.count_threads == 0:
-            self.cond.notify_all() # Release all waiting threads.
-            self.count_threads = self.num_threads # Reset barrier for reuse.
+            # Block Logic: The final thread to arrive awakens the entire swarm.
+            self.cond.notify_all() 
+            self.count_threads = self.num_threads 
         else:
-            self.cond.wait() # Wait until all threads arrive.
+            # Block Logic: Arrival threads suspend here until notify_all is called.
+            self.cond.wait() 
         self.cond.release()
 
 class Device(object):
     """
-    Represents a single device in the distributed simulation network.
-    Each device has an ID, sensor data, interacts with a supervisor, and can process scripts.
-    It manages its own threads for script execution and coordinates with other devices
-    using shared locks and a reusable barrier.
+    @brief Represents a physical or logical computational node in the network.
+    
+    Functional Utility: Manages device-local sensor state and orchestrates 
+    parallel task execution. Coordinates with global peer devices through 
+    shared synchronization primitives established during the setup phase.
     """
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        Initializes a Device instance.
-
-        Args:
-            device_id (int): A unique identifier for the device.
-            sensor_data (dict): A dictionary representing the sensor data collected by the device.
-            supervisor (Supervisor): The supervisor object responsible for managing devices and scripts.
+        @brief Initializes the device's operational state and starts its manager thread.
         """
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
-        # Event to signal that new scripts have been received by the device.
+        
+        # Synchronization: Event-based signaling for asynchronous message and task delivery.
         self.script_received = Event()
-        # Event to signal the device's thread to start processing.
         self.start = Event()
-        self.scripts = [] # List of all scripts assigned to this device.
-        self.scripts_to_process = [] # Queue of scripts waiting to be processed in the current timepoint.
-        # Event to signal that all scripts for the current timepoint have been processed.
         self.timepoint_done = Event()
-        self.nr_script_threats = 0 # Counter for active script execution threads.
 
-        # The main thread responsible for this device's operations.
+        self.scripts = [] 
+        self.scripts_to_process = [] 
+        self.nr_script_threats = 0 
+
+        # Control: Bootstraps the primary management loop in a separate thread.
         self.thread = DeviceThread(self)
         self.thread.start()
-        self.script_threats = [] # List of threads currently executing scripts.
-        self.barrier_devices = None # Reusable barrier for synchronizing all devices.
-        self.neighbours = None # List of neighboring devices.
-        self.cors = 8 # Maximum number of concurrent script threads this device can run.
-        self.lock = None # Shared RLock for accessing common device resources across all devices.
-        self.lock_self = None # Shared RLock for device-specific setup operations to prevent race conditions.
-        self.results = {} # Dictionary to store results from executed scripts.
-        self.results_lock = None # Shared RLock for thread-safe access to results.
+        
+        self.script_threats = [] 
+        self.barrier_devices = None 
+        self.neighbours = None 
+        
+        # Optimization: Throttling parameter for controlling local CPU core utilization.
+        self.cors = 8 
+        
+        # Synchronization: Global locks for protecting shared data planes across the device cluster.
+        self.lock = None 
+        self.lock_self = None 
+        self.results = {} 
+        self.results_lock = None 
 
     def __str__(self):
-        """
-        Returns a string representation of the device.
-        """
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        Sets up shared synchronization primitives (locks, barrier) across all devices.
-        This method ensures that these primitives are initialized only once and shared
-        among all devices in the simulation.
-
-        Args:
-            devices (list): A list of all Device objects in the simulation.
+        @brief Orchestrates the cluster-wide initialization of shared sync resources.
+        
+        Algorithm: Lazy initialization with double-check locking logic.
+        Logic: Ensures that all devices in the simulation converge on a single 
+        set of RLock and Barrier instances to maintain global consistency.
         """
-        # Initializes scripts to be processed in the current timepoint.
+        # Block Logic: Pre-execution task queueing.
         for script in self.scripts:
             self.lock.acquire()
             self.scripts_to_process.append(script)
             self.lock.release()
 
-        # Initializes a shared lock for device-specific setup operations if not already set.
+        # Invariant: Each device in the 'devices' list is updated to reference the same sync objects.
         if not self.lock_self:
             lock = RLock()
             for device in devices:
                 device.lock_self = lock
 
         self.lock_self.acquire()
-        # Initializes a shared lock for common device resources if not already set.
         if not self.lock:
             rlock = RLock()
             for device in devices:
@@ -139,7 +136,6 @@ class Device(object):
         self.lock_self.release()
 
         self.lock_self.acquire()
-        # Initializes a shared lock for accessing results if not already set.
         if not self.results_lock:
             results_lock = RLock()
             for device in devices:
@@ -147,44 +143,34 @@ class Device(object):
         self.lock_self.release()
 
         self.lock_self.acquire()
-        # Initializes a shared reusable barrier for all devices if not already set,
-        # and signals all device threads to start.
         if not self.barrier_devices:
             barrier = ReusableBarrier(len(devices))
             for device in devices:
                 device.barrier_devices = barrier
-                device.start.set() # Signals each device's thread to begin execution.
+                # Synchronization: Triggers all management threads to transition to 'active' state.
+                device.start.set() 
         self.lock_self.release()
 
     def assign_script(self, script, location):
         """
-        Assigns a script to the device for execution at a specific data location.
-        
-        Args:
-            script (Script): The script object to be executed.
-            location: The data location the script operates on.
+        @brief Registers a new processing task and triggers the availability signal.
         """
         if script is not None:
             self.lock.acquire()
             self.scripts.append((script, location))
             self.scripts_to_process.append((script, location))
-            self.script_received.set() # Signals that a new script is available.
+            self.script_received.set() 
             self.lock.release()
         else:
+            # Logic: Signaling 'None' indicates the end of task distribution for the current epoch.
             self.lock.acquire()
-            self.timepoint_done.set() # Signals that script assignments for the current timepoint are complete.
-            self.script_received.set() # Also signals script received to unblock any waiting threads.
+            self.timepoint_done.set() 
+            self.script_received.set() 
             self.lock.release()
 
     def get_data(self, location):
         """
-        Retrieves sensor data for a given location.
-        
-        Args:
-            location: The specific location for which to retrieve data.
-            
-        Returns:
-            Any: The sensor data at the specified location, or None if not found.
+        @brief Thread-safe retrieval of sensor data at a specific logical address.
         """
         if location in self.sensor_data:
             data = self.sensor_data[location]
@@ -194,71 +180,90 @@ class Device(object):
 
     def set_data(self, location, data):
         """
-        Sets (updates) sensor data for a given location.
-        
-        Args:
-            location: The specific location for which to set data.
-            data: The new data value to set.
+        @brief Atomically updates sensor data for a specific logical address.
         """
         if location in self.sensor_data:
             self.sensor_data[location] = data
         
     def shutdown(self):
         """
-        Waits for the device's main thread to complete its execution.
+        @brief Gracefully terminates the device by waiting for the management loop to settle.
         """
         self.thread.join()
 
+class DeviceThread(Thread):
+    """
+    @brief Management thread that orchestrates task scheduling and inter-device communication.
+    
+    Logic: Implements the high-level workflow for a simulation timepoint: 
+    neighborhood discovery, data gathering, parallel script dispatch, 
+    and result dissemination.
+    """
+
     def __init__(self, device):
-        
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.device.neighbours = None
 
     def run(self):
+        """
+        @brief Core operational cycle for the device node.
         
+        Algorithm: Iterative epoch-based execution.
+        Logic: 
+        1. Waits for global network readiness.
+        2. Discovers neighborhood topology.
+        3. Executes localized parallel data transformations.
+        4. Reaches global consensus at the barrier.
+        """
         self.device.start.wait()
         while True:
+            # Block Logic: Timepoint initialization.
             self.device.scripts_to_process = []
             for script in self.device.scripts:
                 self.device.scripts_to_process.append(script)
 
-            
+            # Block Logic: Dynamic topology resolution via supervisor.
             self.device.neighbours = self.device.supervisor.get_neighbours()
 
             if self.device.neighbours is None:
+                # Synchronization: Signals departure to prevent remaining peers from hanging.
                 self.device.barrier_devices.reinit()
                 break
 
             self.device.results = {}
+            
+            /**
+             * Block Logic: Script processing batch loop.
+             * Invariant: Continuously spawns worker threads until all scripts for 
+             * the current timepoint have been executed and joined.
+             */
             while True:
                 if not self.device.timepoint_done.is_set():
                     self.device.script_received.wait()
                     self.device.script_received.clear()
 
-                
                 if len(self.device.scripts_to_process) == 0:
                     if self.device.timepoint_done.is_set():
                         break
 
-                
                 while len(self.device.scripts_to_process):
                     list_threats = []
                     self.device.script_threats = []
                     self.device.nr_script_threats = 0
                     
+                    # Logic: Throttles worker spawning based on configured core count.
                     while len(self.device.scripts_to_process) and self.device.nr_script_threats < self.device.cors:
                         script, location = self.device.scripts_to_process.pop(0)
                         list_threats.append((script, location))
-                        self.device.nr_script_threats += 1
+                        self.nr_script_threats += 1
 
                     for script, location in list_threats:
                         script_data = []
                         
+                        # Block Logic: Neighborhood data aggregation phase.
                         neighbours = self.device.neighbours
                         for device in neighbours:
-
-
                             device.lock_self.acquire()
                             data = device.get_data(location)
                             device.lock_self.release()
@@ -271,17 +276,17 @@ class Device(object):
                         if data is not None:
                             script_data.append(data)
 
+                        # Parallel Execution: Offloads computational task to a dedicated worker.
                         thread_script_d = ScriptThread(self.device, script, location, script_data)
-
                         self.device.script_threats.append(thread_script_d)
                         thread_script_d.start()
 
+                    # Synchronization: Waits for all local workers to complete their sub-tasks.
                     for thread in self.device.script_threats:
                         thread.join()
 
-            
+            # Block Logic: State dissemination phase.
             for location, result in self.device.results.iteritems():
-                
                 for device in self.device.neighbours:
                     device.lock_self.acquire()
                     device.set_data(location, result)
@@ -291,18 +296,22 @@ class Device(object):
                 self.device.set_data(location, result)
                 self.device.lock_self.release()
 
-            
+            # Synchronization: Finalizes the timepoint and waits for all network peers.
             self.device.timepoint_done.wait()
             self.device.timepoint_done.clear()
 
-            
             self.device.barrier_devices.wait()
 
 class ScriptThread(Thread):
+    """
+    @brief Worker thread specialized for executing a single data-processing script.
     
+    Functional Utility: Isolates script execution logic to prevent blocking 
+    the device manager thread. Ensures thread-safe updates to the device-local 
+    results map upon completion.
+    """
 
     def __init__(self, device, script, location, script_data):
-        
         Thread.__init__(self, name="Device Script Thread %d" % device.device_id)
         self.device = device
         self.location = location
@@ -310,12 +319,17 @@ class ScriptThread(Thread):
         self.script_data = script_data
 
     def run(self):
-        
+        """
+        @brief Executes the transformation script and registers the result.
+        """
         if self.script_data != []:
-            
+            # Functional Intent: Executes user-defined script logic on aggregated neighbor data.
             result = self.script.run(self.script_data)
             
+            # Synchronization: Protects the result map from concurrent write hazards.
             self.device.results_lock.acquire()
             self.device.results[self.location] = result
             self.device.results_lock.release()
+        
+        # Logic: Decrements the device's active thread counter to allow further scheduling.
         self.device.nr_script_threats -= 1

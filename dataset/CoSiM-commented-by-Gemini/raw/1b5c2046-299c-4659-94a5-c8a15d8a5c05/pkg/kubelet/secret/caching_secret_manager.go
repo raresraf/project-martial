@@ -33,37 +33,55 @@ import (
 )
 
 const (
+	// defaultTTL defines the fallback duration for which a secret is considered valid
+	// in the cache if no node-specific TTL is configured.
 	defaultTTL = time.Minute
 )
 
+// GetObjectTTLFunc is a function signature for retrieving the desired Time-To-Live
+// for cached objects, typically sourced from node annotations.
 type GetObjectTTLFunc func() (time.Duration, bool)
 
-// secretStoreItems is a single item stored in secretStore.
+// secretStoreItem represents a single entry in the secret cache, maintaining
+// a reference count to determine its survival in the cache.
 type secretStoreItem struct {
+	// refCount tracks how many registered pods currently reference this secret.
 	refCount int
+	// secret points to the actual data and metadata for the cached secret.
 	secret   *secretData
 }
 
+// secretData encapsulates the state of a cached Secret, including its value,
+// any retrieval errors, and timing information for expiration logic.
 type secretData struct {
 	sync.Mutex
 
+	// secret is the cached Kubernetes Secret resource.
 	secret         *v1.Secret
+	// err stores the error from the last attempt to fetch this secret.
 	err            error
+	// lastUpdateTime records when the cache was last refreshed from the API server.
 	lastUpdateTime time.Time
 }
 
-// secretStore is a local cache of secrets.
+// secretStore implements a reference-counted local cache for Secrets.
+// It optimizes performance by reducing redundant API calls while ensuring
+// that data is refreshed according to a configurable TTL policy.
 type secretStore struct {
 	kubeClient clientset.Interface
 	clock      clock.Clock
 
 	lock  sync.Mutex
+	// items maps object keys to their corresponding cached items.
 	items map[objectKey]*secretStoreItem
 
+	// defaultTTL is the baseline expiration duration.
 	defaultTTL time.Duration
+	// getTTL is an optional hook to override the TTL dynamically.
 	getTTL     GetObjectTTLFunc
 }
 
+// newSecretStore initializes a new secretStore with the provided client and timing configuration.
 func newSecretStore(kubeClient clientset.Interface, clock clock.Clock, getTTL GetObjectTTLFunc, ttl time.Duration) *secretStore {
 	return &secretStore{
 		kubeClient: kubeClient,
@@ -74,6 +92,8 @@ func newSecretStore(kubeClient clientset.Interface, clock clock.Clock, getTTL Ge
 	}
 }
 
+// isSecretOlder compares two Secret versions using their ResourceVersion.
+// It returns true if the 'newSecret' is strictly older than 'oldSecret'.
 func isSecretOlder(newSecret, oldSecret *v1.Secret) bool {
 	if newSecret == nil || oldSecret == nil {
 		return false
@@ -83,12 +103,12 @@ func isSecretOlder(newSecret, oldSecret *v1.Secret) bool {
 	return newVersion < oldVersion
 }
 
+// Add establishes a new reference to a secret in the cache.
+// If the secret is not present, it initializes a new tracking entry.
+// Note: This does not trigger an immediate fetch; retrieval is deferred until Get().
 func (s *secretStore) Add(namespace, name string) {
 	key := objectKey{namespace: namespace, name: name}
 
-	// Add is called from RegisterPod, thus it needs to be efficient.
-	// Thus Add() is only increasing refCount and generation of a given secret.
-	// Then Get() is responsible for fetching if needed.
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	item, exists := s.items[key]
@@ -101,10 +121,12 @@ func (s *secretStore) Add(namespace, name string) {
 	}
 
 	item.refCount++
-	// This will trigger fetch on the next Get() operation.
+	// Invalidate the cached data to ensure a fresh fetch on the next Get call.
 	item.secret = nil
 }
 
+// Delete removes a reference to a secret from the cache.
+// If the reference count reaches zero, the item is evicted from the cache.
 func (s *secretStore) Delete(namespace, name string) {
 	key := objectKey{namespace: namespace, name: name}
 
@@ -118,6 +140,8 @@ func (s *secretStore) Delete(namespace, name string) {
 	}
 }
 
+// GetObjectTTLFromNodeFunc returns a GetObjectTTLFunc that derives the TTL
+// from a specific annotation on the Node resource.
 func GetObjectTTLFromNodeFunc(getNode func() (*v1.Node, error)) GetObjectTTLFunc {
 	return func() (time.Duration, bool) {
 		node, err := getNode()
@@ -135,6 +159,7 @@ func GetObjectTTLFromNodeFunc(getNode func() (*v1.Node, error)) GetObjectTTLFunc
 	}
 }
 
+// isSecretFresh determines if the cached secret data is still within its TTL.
 func (s *secretStore) isSecretFresh(data *secretData) bool {
 	secretTTL := s.defaultTTL
 	if ttl, ok := s.getTTL(); ok {
@@ -143,9 +168,12 @@ func (s *secretStore) isSecretFresh(data *secretData) bool {
 	return s.clock.Now().Before(data.lastUpdateTime.Add(secretTTL))
 }
 
+// Get retrieves a secret from the cache, performing a refresh from the API server
+// if the cached entry is missing, invalidated, or expired.
 func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 	key := objectKey{namespace: namespace, name: name}
 
+	// Phase 1: Identify or initialize the cached data entry.
 	data := func() *secretData {
 		s.lock.Lock()
 		defer s.lock.Unlock()
@@ -162,28 +190,26 @@ func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 		return nil, fmt.Errorf("secret %q/%q not registered", namespace, name)
 	}
 
-	// After updating data in secretStore, lock the data, fetch secret if
-	// needed and return data.
+	// Phase 2: Ensure the data is fresh under lock.
 	data.Lock()
 	defer data.Unlock()
 	if data.err != nil || !s.isSecretFresh(data) {
 		opts := metav1.GetOptions{}
 		if data.secret != nil && data.err == nil {
-			// This is just a periodic refresh of a secret we successfully fetched previously.
-			// In this case, server data from apiserver cache to reduce the load on both
-			// etcd and apiserver (the cache is eventually consistent).
+			// Optimize: use apiserver cache for periodic background refreshes.
 			util.FromApiserverCache(&opts)
 		}
 		secret, err := s.kubeClient.CoreV1().Secrets(namespace).Get(name, opts)
+		
+		// Strategic fallback: if we failed to fetch but have no cached data, return error.
 		if err != nil && !apierrors.IsNotFound(err) && data.secret == nil && data.err == nil {
-			// Couldn't fetch the latest secret, but there is no cached data to return.
-			// Return the fetch result instead.
 			return secret, err
 		}
+		
+		// Update cache if:
+		// 1. Fetch succeeded and is at least as new as what we have.
+		// 2. Fetch returned a 'Not Found' error (marking the secret as deleted).
 		if (err == nil && !isSecretOlder(secret, data.secret)) || apierrors.IsNotFound(err) {
-			// If the fetch succeeded with a newer version of the secret, or if the
-			// secret could not be found in the apiserver, update the cached data to
-			// reflect the current status.
 			data.secret = secret
 			data.err = err
 			data.lastUpdateTime = s.clock.Now()
@@ -192,14 +218,15 @@ func (s *secretStore) Get(namespace, name string) (*v1.Secret, error) {
 	return data.secret, data.err
 }
 
-// NewCachingSecretManager creates a manager that keeps a cache of all secrets
-// necessary for registered pods.
-// It implements the following logic:
-// - whenever a pod is created or updated, the cached versions of all its secrets
-//   are invalidated
-// - every GetSecret() call tries to fetch the value from local cache; if it is
-//   not there, invalidated or too old, we fetch it from apiserver and refresh the
-//   value in cache; otherwise it is just fetched from cache
+// NewCachingSecretManager initializes a Manager that optimizes Secret access through
+// a reference-counted local cache.
+//
+// Lifecycle Logic:
+// 1. Pod Registration: Invalidates any existing cache entries for the pod's secrets.
+// 2. Retrieval (GetSecret):
+//    - Hits the local cache if the data is present and fresh.
+//    - Triggers a background refresh from the API server if data is stale.
+//    - Falls back to the API server if data is missing or invalidated.
 func NewCachingSecretManager(kubeClient clientset.Interface, getTTL GetObjectTTLFunc) Manager {
 	secretStore := newSecretStore(kubeClient, clock.RealClock{}, getTTL, defaultTTL)
 	return newCacheBasedSecretManager(secretStore)

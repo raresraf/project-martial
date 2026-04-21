@@ -1,3 +1,10 @@
+/**
+ * @raw/d55234b2-42b1-4904-a9d1-ef70314c2cd2/libs/simdvec/src/main/java/org/elasticsearch/simdvec/ES91Int4VectorsScorer.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -26,7 +33,7 @@ import static org.apache.lucene.index.VectorSimilarityFunction.MAXIMUM_INNER_PRO
 public class ES91Int4VectorsScorer {
 
     public static final int BULK_SIZE = 16;
-    protected static final float FOUR_BIT_SCALE = 1f / ((1 << 4) - 1);
+    protected static final float FOUR_BIT_SCALE = 1f / ((1 << 4) - 1); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
     /** The wrapper {@link IndexInput}. */
     protected final IndexInput in;
@@ -52,6 +59,10 @@ public class ES91Int4VectorsScorer {
     public long int4DotProduct(byte[] b) throws IOException {
         in.readBytes(scratch, 0, dimensions);
         int total = 0;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < dimensions; i++) {
             total += scratch[i] * b[i];
         }
@@ -64,6 +75,10 @@ public class ES91Int4VectorsScorer {
      * determined by {code count} and the results are stored in the provided {@code scores} array.
      */
     public void int4DotProductBulk(byte[] b, int count, float[] scores) throws IOException {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < count; i++) {
             scores[i] = int4DotProduct(b);
         }
@@ -123,10 +138,18 @@ public class ES91Int4VectorsScorer {
         int4DotProductBulk(q, BULK_SIZE, scores);
         in.readFloats(lowerIntervals, 0, BULK_SIZE);
         in.readFloats(upperIntervals, 0, BULK_SIZE);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < BULK_SIZE; i++) {
             targetComponentSums[i] = Short.toUnsignedInt(in.readShort());
         }
         in.readFloats(additionalCorrections, 0, BULK_SIZE);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < BULK_SIZE; i++) {
             scores[i] = applyCorrections(
                 queryLowerInterval,
@@ -169,6 +192,10 @@ public class ES91Int4VectorsScorer {
         float score = ax * ay * dimensions + ay * lx * (float) targetComponentSum + ax * ly * y1 + lx * ly * qcDist;
         // For euclidean, we need to invert the score and apply the additional correction, which is
         // assumed to be the squared l2norm of the centroid centered vectors.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (similarityFunction == EUCLIDEAN) {
             score = queryAdditionalCorrection + additionalCorrection - 2 * score;
             return Math.max(1 / (1f + score), 0);
@@ -176,6 +203,10 @@ public class ES91Int4VectorsScorer {
             // For cosine and max inner product, we need to apply the additional correction, which is
             // assumed to be the non-centered dot-product between the vector and the centroid
             score += queryAdditionalCorrection + additionalCorrection - centroidDp;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (similarityFunction == MAXIMUM_INNER_PRODUCT) {
                 return VectorUtil.scaleMaxInnerProductScore(score);
             }

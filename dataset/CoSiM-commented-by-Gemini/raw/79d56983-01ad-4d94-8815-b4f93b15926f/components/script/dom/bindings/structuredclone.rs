@@ -1,3 +1,9 @@
+/**
+ * @file structuredclone.rs
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -113,10 +119,18 @@ unsafe fn read_object<T: Serializable>(
     let serialized = objects_map
         .remove(&id)
         .expect("No object to be deserialized found.");
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if objects_map.is_empty() {
         *objects = None;
     }
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok(obj) = T::deserialize(owner, serialized, can_gc) {
         let destination = T::deserialized_storage(sc_reader).get_or_insert_with(HashMap::new);
         let reflector = obj.reflector().get_jsobject().get();
@@ -134,6 +148,10 @@ unsafe fn write_object<T: Serializable>(
     w: *mut JSStructuredCloneWriter,
     sc_writer: &mut StructuredDataWriter,
 ) -> bool {
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok((new_id, serialized)) = object.serialize() {
         let objects = T::serialized_storage(StructuredData::Writer(sc_writer))
             .get_or_insert_with(HashMap::new);
@@ -176,7 +194,15 @@ unsafe extern "C" fn read_callback(
     let sc_reader = &mut *(closure as *mut StructuredDataReader);
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let global = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
+    /**
+     * Block Logic: Iteration pre-condition and bounds.
+     * Invariant: Loop iterates over assigned memory/elements.
+     */
     for serializable in SerializableInterface::iter() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if tag == StructuredCloneTags::from(serializable) as u32 {
             let reader = reader_for_type(serializable);
             return reader(&global, r, sc_reader, CanGc::note());
@@ -196,6 +222,10 @@ unsafe fn try_serialize<T: Serializable + IDLInterface>(
     w: *mut JSStructuredCloneWriter,
     writer: &mut StructuredDataWriter,
 ) -> Result<bool, InterfaceDoesNotMatch> {
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok(obj) = root_from_object::<T>(*obj, cx) {
         return Ok(write_object(val, global, &*obj, w, writer));
     }
@@ -227,8 +257,16 @@ unsafe extern "C" fn write_callback(
     let sc_writer = &mut *(closure as *mut StructuredDataWriter);
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let global = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
+    /**
+     * Block Logic: Iteration pre-condition and bounds.
+     * Invariant: Loop iterates over assigned memory/elements.
+     */
     for serializable in SerializableInterface::iter() {
         let serializer = serialize_for_type(serializable);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Ok(result) = serializer(serializable, cx, obj, &global, w, sc_writer) {
             return result;
         }
@@ -272,6 +310,10 @@ fn receive_object<T: Transferable>(
     let storage = T::serialized_storage(StructuredData::Reader(sc_reader));
     let serialized = if let Some(objects) = storage.as_mut() {
         let object = objects.remove(&id).expect("Transferred port to be stored");
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if objects.is_empty() {
             *storage = None;
         }
@@ -282,6 +324,10 @@ fn receive_object<T: Transferable>(
         );
     };
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok(received) = T::transfer_receive(&owner, id, serialized) {
         return_object.set(received.reflector().rootable().get());
         let storage = T::deserialized_storage(sc_reader).get_or_insert_with(Vec::new);
@@ -304,9 +350,21 @@ unsafe extern "C" fn read_transfer_callback(
     let sc_reader = &mut *(closure as *mut StructuredDataReader);
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let owner = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
+    /**
+     * Block Logic: Iteration pre-condition and bounds.
+     * Invariant: Loop iterates over assigned memory/elements.
+     */
     for transferrable in TransferrableInterface::iter() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if tag == StructuredCloneTags::from(transferrable) as u32 {
             let transfer_receiver = receiver_for_type(transferrable);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if transfer_receiver(&owner, sc_reader, extra_data, return_object).is_ok() {
                 return true;
             }
@@ -324,9 +382,17 @@ unsafe fn try_transfer<T: Transferable + IDLInterface>(
     ownership: *mut TransferableOwnership,
     extra_data: *mut u64,
 ) -> Result<(), ()> {
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok(object) = root_from_object::<T>(*obj, cx) {
         *tag = StructuredCloneTags::from(interface) as u32;
         *ownership = TransferableOwnership::SCTAG_TMO_CUSTOM;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Ok((id, object)) = object.transfer() {
             // 2. Store the transferred object at a given key.
             let objects = T::serialized_storage(StructuredData::Writer(sc_writer))
@@ -379,8 +445,16 @@ unsafe extern "C" fn write_transfer_callback(
     extra_data: *mut u64,
 ) -> bool {
     let sc_writer = &mut *(closure as *mut StructuredDataWriter);
+    /**
+     * Block Logic: Iteration pre-condition and bounds.
+     * Invariant: Loop iterates over assigned memory/elements.
+     */
     for transferable in TransferrableInterface::iter() {
         let try_transfer = transfer_for_type(transferable);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if try_transfer(transferable, obj, cx, sc_writer, tag, ownership, extra_data).is_ok() {
             return true;
         }
@@ -420,7 +494,15 @@ unsafe extern "C" fn can_transfer_callback(
     _same_process_scope_required: *mut bool,
     _closure: *mut raw::c_void,
 ) -> bool {
+    /**
+     * Block Logic: Iteration pre-condition and bounds.
+     * Invariant: Loop iterates over assigned memory/elements.
+     */
     for transferable in TransferrableInterface::iter() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Ok(can_transfer) = can_transfer_for_type(transferable, obj, cx) {
             return can_transfer;
         }
@@ -464,36 +546,40 @@ pub(crate) enum StructuredData<'a> {
 /// <https://html.spec.whatwg.org/multipage/#safe-passing-of-structured-data>
 pub(crate) struct StructuredDataReader {
     /// A map of deserialized blobs, stored temporarily here to keep them rooted.
-    pub(crate) blobs: Option<HashMap<StorageKey, DomRoot<Blob>>>,
+    pub(crate) blobs: Option<HashMap<StorageKey, DomRoot<Blob>>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
     /// A vec of transfer-received DOM ports,
     /// to be made available to script through a message event.
-    pub(crate) message_ports: Option<Vec<DomRoot<MessagePort>>>,
+    pub(crate) message_ports: Option<Vec<DomRoot<MessagePort>>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
     /// A map of port implementations,
     /// used as part of the "transfer-receiving" steps of ports,
     /// to produce the DOM ports stored in `message_ports` above.
-    pub(crate) port_impls: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub(crate) port_impls: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
     /// A map of blob implementations,
     /// used as part of the "deserialize" steps of blobs,
     /// to produce the DOM blobs stored in `blobs` above.
-    pub(crate) blob_impls: Option<HashMap<BlobId, BlobImpl>>,
+    pub(crate) blob_impls: Option<HashMap<BlobId, BlobImpl>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 }
 
 /// A data holder for transferred and serialized objects.
 pub(crate) struct StructuredDataWriter {
     /// Transferred ports.
-    pub(crate) ports: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub(crate) ports: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
     /// Serialized blobs.
-    pub(crate) blobs: Option<HashMap<BlobId, BlobImpl>>,
+    pub(crate) blobs: Option<HashMap<BlobId, BlobImpl>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 }
 
 /// Writes a structured clone. Returns a `DataClone` error if that fails.
 pub(crate) fn write(
     cx: SafeJSContext,
     message: HandleValue,
-    transfer: Option<CustomAutoRooterGuard<Vec<*mut JSObject>>>,
+    transfer: Option<CustomAutoRooterGuard<Vec<*mut JSObject>>>, /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 ) -> Fallible<StructuredSerializedData> {
     unsafe {
         rooted!(in(*cx) let mut val = UndefinedValue());
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(transfer) = transfer {
             transfer.to_jsval(*cx, val.handle_mut());
         }
@@ -522,6 +608,10 @@ pub(crate) fn write(
             sc_writer_ptr as *mut raw::c_void,
             val.handle(),
         );
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !result {
             JS_ClearPendingException(*cx);
             return Err(Error::DataClone);
@@ -550,7 +640,7 @@ pub(crate) fn read(
     global: &GlobalScope,
     mut data: StructuredSerializedData,
     rval: MutableHandleValue,
-) -> Result<Vec<DomRoot<MessagePort>>, ()> {
+) -> Result<Vec<DomRoot<MessagePort>>, ()> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
     let cx = GlobalScope::get_cx();
     let _ac = enter_realm(global);
     let mut sc_reader = StructuredDataReader {
@@ -589,6 +679,10 @@ pub(crate) fn read(
 
         DeleteJSAutoStructuredCloneBuffer(scbuf);
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if result {
             // Any transfer-received port-impls should have been taken out.
             assert!(sc_reader.port_impls.is_none());

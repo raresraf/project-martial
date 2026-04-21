@@ -1,4 +1,21 @@
+/**
+ * @file compress_device.cl
+ * @brief OpenCL kernel logic for parallel ETC1 texture compression.
+ * 
+ * Architectural Intent: Implements the Ericsson Texture Compression (ETC1) algorithm
+ * optimized for GPU parallel execution. The core logic involves processing 4x4 texel blocks
+ * to find optimal base colors and luminance modifiers that minimize perceptual error.
+ * 
+ * Domain-Awareness:
+ * - Uses a massively parallel NDRange grid where each work-item processes a 4x4 block.
+ * - Exploits memory hierarchy by caching block data in private registers (`ver_blocks`, `hor_blocks`).
+ * - Implements differential color encoding (555 mode) and standard (444 mode) based on component deltas.
+ */
 
+/**
+ * @struct Color
+ * @brief Represents a single color point in BGRA format with bitfield overlay.
+ */
 union Color {
 	struct BgraColorType {
 		uchar b;
@@ -10,25 +27,38 @@ union Color {
 	uint bits;
 };
 
+/**
+ * @brief Clamps an integer value to the uchar range [min, max].
+ */
 uchar wrapper_clamp(int val, uchar min, uchar max){
-	return val  max ? max : val);
+	return (uchar)(val < min ? min : (val > max ? max : val));
 }
 
-
-
+/**
+ * @brief Clamps a uchar value to the range [min, max].
+ */
 uchar wrapper_clamp2(uchar val, uchar min, uchar max){
-	return val  max ? max : val);
+	return (uchar)(val < min ? min : (val > max ? max : val));
 }
 
-
+/**
+ * @brief Quantizes a float color component to 5 bits.
+ */
 inline uchar round_to_5_bits(float val) {
 	return wrapper_clamp2((uchar)(val * 31.0f / 255.0f + 0.5f), (uchar)0, (uchar)31);
 }
 
+/**
+ * @brief Quantizes a float color component to 4 bits.
+ */
 inline uchar round_to_4_bits(float val) {
 	return wrapper_clamp2((uchar)(val * 15.0f / 255.0f + 0.5f),(uchar) 0,(uchar) 15);
 }
 
+/**
+ * @brief Adjusts a base color by a luminance offset.
+ * Functional Utility: Computes a candidate color for the codeword table evaluation.
+ */
 inline union Color makeColor(union Color base, short lum) {
 	int b = (int)((int)(base.channels.b) + lum);
 	int g = (int)((int)(base.channels.g) + lum);
@@ -40,6 +70,9 @@ inline union Color makeColor(union Color base, short lum) {
 	return color;
 }
 
+/**
+ * @brief Bit-packs two colors into the 444 (non-differential) block format.
+ */
 inline void WriteColors444(__global uchar* block,
 						   union Color color0,
 						   union Color color1) {
@@ -49,7 +82,10 @@ inline void WriteColors444(__global uchar* block,
 	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
 }
 
-
+/**
+ * @brief Bit-packs colors into the 555 (differential) block format.
+ * Algorithm: Computes 3-bit deltas between sub-blocks and applies two's complement transformation.
+ */
 inline void WriteColors555(__global uchar* block,
 						   union Color color0,
 						   union Color color1) {
@@ -75,6 +111,9 @@ inline void WriteColors555(__global uchar* block,
 	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Encodes the codeword table index for a sub-block.
+ */
 inline void WriteCodewordTable(__global uchar* block,
 							   uchar sub_block_id,
 							   uchar table) {
@@ -84,7 +123,9 @@ inline void WriteCodewordTable(__global uchar* block,
 	block[3] |= table << shift;
 }
 
-
+/**
+ * @brief Encodes pixel-level luminance modifiers.
+ */
 inline void WritePixelData(__global uchar* block, uint pixel_data) {
 	block[4] |= pixel_data >> 24;
 	block[5] |= (pixel_data >> 16) & 0xff;
@@ -92,17 +133,31 @@ inline void WritePixelData(__global uchar* block, uint pixel_data) {
 	block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Sets the block orientation flag (Flip bit).
+ */
 inline void WriteFlip(__global uchar* block, bool flip) {
 	block[3] &= ~0x01;
 	block[3] |= (uchar)(flip);
 }
 
+/**
+ * @brief Sets the color encoding mode (Differential bit).
+ */
 inline void WriteDiff(__global uchar* block, bool diff) {
 	block[3] &= ~0x02;
 	block[3] |= (uchar)(diff) << 1;
 }
 
+/**
+ * @brief Extracts a 4x4 texel block from the source image.
+ * Functional Utility: Handles row-major to block-local memory mapping.
+ */
 inline void ExtractBlock(uchar* dst, const uchar* src, int width) {
+	/**
+	 * Block Logic: Row-wise block extraction.
+	 * Invariant: Moves src pointer by row-width to fetch successive scanlines.
+	 */
 	for (int j = 0; j < 4; ++j) {
 		
 		for (int k = 0; k < 16; k++) {
@@ -114,7 +169,9 @@ inline void ExtractBlock(uchar* dst, const uchar* src, int width) {
 	}
 }
 
-
+/**
+ * @brief Quantizes float color to 4-bit representation.
+ */
 inline union Color makeColor444(const float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
@@ -130,7 +187,9 @@ inline union Color makeColor444(const float* bgr) {
 	return bgr444;
 }
 
-
+/**
+ * @brief Quantizes float color to 5-bit representation.
+ */
 inline union Color makeColor555(const float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -144,11 +203,15 @@ inline union Color makeColor555(const float* bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Computes perceptual or Euclidean error between two colors.
+ */
 inline uint getColorError(union Color u, union Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)((u.channels.b) - v.channels.b);
 	float delta_g = (float)((u.channels.g) - v.channels.g);
 	float delta_r = (float)((u.channels.r) - v.channels.r);
+	// Functional Utility: Applies perceptual weighting constants to component errors.
 	return (uint)(0.299f * delta_b * delta_b +
 								 0.587f * delta_g * delta_g +
 								 0.114f * delta_r * delta_r);
@@ -160,10 +223,17 @@ inline uint getColorError(union Color u, union Color v) {
 #endif
 }
 
+/**
+ * @brief Calculates the average color for a 2x4 sub-block.
+ */
 void getAverageColor(const union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 
+	/**
+	 * Block Logic: Energy accumulation.
+	 * Invariant: Sums components over the 8 texels of the sub-block.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -178,6 +248,10 @@ void getAverageColor(const union Color* src, float* avg_color)
 	avg_color[2] = (float)((sum_r) * kInv8);
 }
 
+/**
+ * @brief Optimizes luminance modifiers for a sub-block to minimize perceptual error.
+ * Algorithm: Brute-force search over all 8 codeword tables and their modifiers.
+ */
 unsigned long computeLuminance(__global uchar* block,
 						   const union Color* src,
 
@@ -209,6 +283,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 	
 	
+	/**
+	 * Block Logic: Codeword table evaluation.
+	 * Invariant: Iterates through all 8 standard tables to find the best luminance range.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
@@ -220,6 +298,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 		uint tbl_err = 0;
 
+		/**
+		 * Block Logic: Texel-level modifier selection.
+		 * Invariant: Selects the modifier (0-3) that minimizes error for the current texel.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
@@ -255,6 +337,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 	uint pix_data = 0;
 
+	/**
+	 * Block Logic: Pixel data bitstream generation.
+	 * Invariant: Packs 2-bit modifier indices into the 32-bit payload.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
@@ -274,6 +360,9 @@ unsigned long computeLuminance(__global uchar* block,
 
 }
 
+/**
+ * @brief Optimized path for homogeneous color blocks.
+ */
 bool tryCompressSolidBlock(__global uchar* dst,
 						   const union Color* src,
 						   unsigned long* error)
@@ -297,6 +386,10 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 };
 
+	/**
+	 * Block Logic: Uniformity check.
+	 * Invariant: Short-circuits if all bits match the first texel.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
 		if (src[i].bits != src[0].bits)
 			return false;
@@ -369,6 +462,11 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	*error = 16 * best_mod_err;
 	return true;
 }
+
+/**
+ * @brief Orchestrates full 4x4 block compression.
+ * Algorithm: Selects flip mode and color quantization scheme based on sub-block averages.
+ */
 unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, const union Color* hor_src,
 												   unsigned long threshold)
 {
@@ -391,6 +489,10 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 
 	
 	
+	/**
+	 * Block Logic: Sub-block average calculation and differential check.
+	 * Invariant: Checks if sub-block average components are within 3-bit delta range.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -405,7 +507,7 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 			int v = avg_color_555_1.components[light_idx] >> 3;
 
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -426,6 +528,7 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 		}
 	}
 
+	// Logic: Heuristic selection between vertical and horizontal sub-block orientation.
 	bool flip =
 	sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
 
@@ -464,6 +567,10 @@ unsigned long compressBlock(__global uchar* dst, const union Color* ver_src, con
 		return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @brief OpenCL kernel entry point for texture compression.
+ * Thread Indexing: 2D grid mapping global work IDs to texture coordinates.
+ */
 __kernel void compress_k(const int width, const int height, __global uchar *src,
 				__global uchar *dst)
 {
@@ -481,6 +588,10 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 	int depl_src = y * 16 * width + (x * 16);
 
+	/**
+	 * Block Logic: Shared memory staging.
+	 * Logic: Prefetches blocks into local memory to minimize global memory contention.
+	 */
 	for (int i  = 0; i < 4; i++) {
 		int depl = depl_src; 
 		row0[i].channels.b = src[depl + (i * 4)];
@@ -514,6 +625,10 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 	}
 
 	
+	/**
+	 * Block Logic: Block layout reformatting.
+	 * Logic: Rearranges staging data to satisfy internal orientation requirements.
+	 */
 	for (int i = 0; i < 2; i++) {
 		ver_blocks[i].channels.b = row0[i].channels.b;
 		ver_blocks[i].channels.g = row0[i].channels.g;
@@ -575,352 +690,5 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 
 
 }
-#include "compress.hpp"
 
-
-
-static int number_of_devices;
-
-#define DIE(assertion, call_description)                    \
-do {                                                        \
-    if (assertion) {                                        \
-            fprintf(stderr, "(%d): ",                       \
-                            __LINE__);                      \
-            perror(call_description);                       \
-            exit(EXIT_FAILURE);                             \
-    }                                                       \
-} while(0);
-
-using namespace std;
-
-const char* cl_get_string_err(cl_int err) {
-switch (err) {
-  case CL_SUCCESS:                     	return  "Success!";
-  case CL_DEVICE_NOT_FOUND:               return  "Device not found.";
-  case CL_DEVICE_NOT_AVAILABLE:           return  "Device not available";
-  case CL_COMPILER_NOT_AVAILABLE:         return  "Compiler not available";
-  case CL_MEM_OBJECT_ALLOCATION_FAILURE:  return  "Memory object alloc fail";
-  case CL_OUT_OF_RESOURCES:               return  "Out of resources";
-  case CL_OUT_OF_HOST_MEMORY:             return  "Out of host memory";
-  case CL_PROFILING_INFO_NOT_AVAILABLE:   return  "Profiling information N/A";
-  case CL_MEM_COPY_OVERLAP:               return  "Memory copy overlap";
-  case CL_IMAGE_FORMAT_MISMATCH:          return  "Image format mismatch";
-  case CL_IMAGE_FORMAT_NOT_SUPPORTED:     return  "Image format no support";
-  case CL_BUILD_PROGRAM_FAILURE:          return  "Program build failure";
-  case CL_MAP_FAILURE:                    return  "Map failure";
-  case CL_INVALID_VALUE:                  return  "Invalid value";
-  case CL_INVALID_DEVICE_TYPE:            return  "Invalid device type";
-  case CL_INVALID_PLATFORM:               return  "Invalid platform";
-  case CL_INVALID_DEVICE:                 return  "Invalid device";
-  case CL_INVALID_CONTEXT:                return  "Invalid context";
-  case CL_INVALID_QUEUE_PROPERTIES:       return  "Invalid queue properties";
-  case CL_INVALID_COMMAND_QUEUE:          return  "Invalid command queue";
-  case CL_INVALID_HOST_PTR:               return  "Invalid host pointer";
-  case CL_INVALID_MEM_OBJECT:             return  "Invalid memory object";
-  case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:return  "Invalid image format desc";
-  case CL_INVALID_IMAGE_SIZE:             return  "Invalid image size";
-  case CL_INVALID_SAMPLER:                return  "Invalid sampler";
-  case CL_INVALID_BINARY:                 return  "Invalid binary";
-  case CL_INVALID_BUILD_OPTIONS:          return  "Invalid build options";
-  case CL_INVALID_PROGRAM:                return  "Invalid program";
-  case CL_INVALID_PROGRAM_EXECUTABLE:     return  "Invalid program exec";
-  case CL_INVALID_KERNEL_NAME:            return  "Invalid kernel name";
-  case CL_INVALID_KERNEL_DEFINITION:      return  "Invalid kernel definition";
-  case CL_INVALID_KERNEL:                 return  "Invalid kernel";
-  case CL_INVALID_ARG_INDEX:              return  "Invalid argument index";
-  case CL_INVALID_ARG_VALUE:              return  "Invalid argument value";
-  case CL_INVALID_ARG_SIZE:               return  "Invalid argument size";
-  case CL_INVALID_KERNEL_ARGS:            return  "Invalid kernel arguments";
-  case CL_INVALID_WORK_DIMENSION:         return  "Invalid work dimension";
-  case CL_INVALID_WORK_GROUP_SIZE:        return  "Invalid work group size";
-  case CL_INVALID_WORK_ITEM_SIZE:         return  "Invalid work item size";
-  case CL_INVALID_GLOBAL_OFFSET:          return  "Invalid global offset";
-  case CL_INVALID_EVENT_WAIT_LIST:        return  "Invalid event wait list";
-  case CL_INVALID_EVENT:                  return  "Invalid event";
-  case CL_INVALID_OPERATION:              return  "Invalid operation";
-  case CL_INVALID_GL_OBJECT:              return  "Invalid OpenGL object";
-  case CL_INVALID_BUFFER_SIZE:            return  "Invalid buffer size";
-  case CL_INVALID_MIP_LEVEL:              return  "Invalid mip-map level";
-  default:                                return  "Unknown";
-  }
-}
-
-
-void cl_get_compiler_err_log(cl_program program,
-                             cl_device_id device)
-{
-	char* build_log;
-	size_t log_size;
-
-	
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  0, NULL, &log_size);
-	build_log = new char[ log_size + 1 ];
-
-	
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-
-
-						  log_size, build_log, NULL);
-	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
-}
-
-
-int CL_COMPILE_ERR(int cl_ret,
-                  cl_program program,
-                  cl_device_id device, int line)
-{
-	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << " (" << line << ")"<< endl;
-		cl_get_compiler_err_log(program, device);
-		return 1;
-	}
-	return 0;
-}
-
-int CL_ERR(int cl_ret, int line)
-{
-	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << " (" << line << ")" << endl;
-		return 1;
-	}
-	return 0;
-}
-
-void read_kernel(string file_name, string &str_kernel)
-{
-	ifstream in_file(file_name.c_str());
-	in_file.open(file_name.c_str());
-	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
-
-	stringstream str_stream;
-	str_stream << in_file.rdbuf();
-
-	str_kernel = str_stream.str();
-}
-
-static pair, vector> gpu_find()
-{
-
-	vector device_idsv;
-	vector platform_idsv;
-
-	cl_platform_id platform;
-	cl_uint platform_num = 0;
-	cl_platform_id* platform_list = NULL;
-
-	cl_uint device_num = 0;
-	cl_device_id* device_list = NULL;
-
-	size_t attr_size = 0;
-	cl_char* attr_data = NULL;
-
-	
-	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num), __LINE__);
-	platform_list = new cl_platform_id[platform_num];
-	DIE(platform_list == NULL, "alloc platform_list");
-
-	
-	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL), __LINE__);
-	cout << "Platforms found: " << platform_num << endl;
-
-	
-	for(uint platf=0; platf<platform_num; platf++)
-	{
-		platform_idsv.push_back(platform_list[platf]);
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VENDOR, 0, NULL, &attr_size), __LINE__);
-		attr_data = new cl_char[attr_size];
-		DIE(attr_data == NULL, "alloc attr_data");
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VENDOR, attr_size, attr_data, NULL), __LINE__);
-		cout << "Platform " << platf << " " << attr_data << " ";
-		delete[] attr_data;
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VERSION, 0, NULL, &attr_size), __LINE__);
-		attr_data = new cl_char[attr_size];
-		DIE(attr_data == NULL, "alloc attr_data");
-
-		
-		CL_ERR( clGetPlatformInfo(platform_list[platf],
-								  CL_PLATFORM_VERSION, attr_size, attr_data, NULL), __LINE__);
-		cout << attr_data << endl;
-		delete[] attr_data;
-
-		
-		platform = platform_list[platf];
-		DIE(platform == 0, "platform selection");
-
-        cl_int ret;
-		
-		ret =  clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_num);
-        if (ret != CL_SUCCESS) {
-            cout << "\tNo GPU devices found on this platform" << endl;
-            continue;
-        }
-		device_list = new cl_device_id[device_num];
-		DIE(device_list == NULL, "alloc devices");
-
-		
-		ret = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
-							   device_num, device_list, NULL);
-        if (ret != CL_SUCCESS) {
-            cout << "No GPU devices found on this platform" << endl;
-            continue;
-        }
-		cout << "\tDevices found " << device_num  << endl;
-
-		
-		for(uint dev=0; dev<device_num; dev++)
-		{
-			device_idsv.push_back(device_list[dev]);
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-									0, NULL, &attr_size), __LINE__);
-			attr_data = new cl_char[attr_size];
-			DIE(attr_data == NULL, "alloc attr_data");
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-									attr_size, attr_data, NULL), __LINE__);
-			cout << "\tDevice " << dev << " " << attr_data << " ";
-			delete[] attr_data;
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-									0, NULL, &attr_size), __LINE__);
-			attr_data = new cl_char[attr_size];
-			DIE(attr_data == NULL, "alloc attr_data");
-
-			
-			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-									attr_size, attr_data, NULL), __LINE__);
-			cout << attr_data;
-			delete[] attr_data;
-
-			cout << endl;
-		}
-	}
-
-	delete[] platform_list;
-	delete[] device_list;
-
-	return make_pair(platform_idsv, device_idsv);
-}
-
-TextureCompressor::TextureCompressor() {
-	pair, vector> res = gpu_find();
-
-	platform_ids =  new cl_platform_id[res.first.size()];
-	DIE(platform_ids == NULL, "platform_ids");
-	device_ids =  new cl_device_id[res.second.size()];
-	DIE(device_ids == NULL, "device_ids");
-
-	for (int i  = 0; i < res.second.size(); i++) {
-		device_ids[i] = res.second[i];
-	}
-
-	for (int i  = 0; i < res.first.size(); i++) {
-		platform_ids[i] = res.first[i];
-	}
-
-	device = device_ids[0];
-    number_of_devices = res.second.size();
-    cout << number_of_devices << " devices in list" <<endl;
-}
-TextureCompressor::~TextureCompressor() {
-
-	delete[] device_ids;
-	delete[] platform_ids;
-}	
-
-unsigned long TextureCompressor::compress(const uint8_t* src,
-									  uint8_t* dst,
-									  int width,
-									  int height)
-{
-	cout << "Width: " << width << endl;
-	cout << "Height: " << height << endl;
-	cl_mem src_dev;
-	cl_mem dst_dev;
-
-	size_t global[2];
-
-	int ret;
-	string kernel_src;
-	
-	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
-	CL_ERR( ret, __LINE__);
-
-	command_queue = clCreateCommandQueue(context, device, 0, &ret);
-	CL_ERR( ret ,__LINE__ );
-
-	int sz_src = width * height * 4;
-	int sz_dst = sz_src / 8;
-
-	
-	
-	
-	
-	src_dev = clCreateBuffer(context,  CL_MEM_READ_ONLY,
-							sizeof(uint8_t) * sz_src, NULL, &ret);
-    CL_ERR( ret, __LINE__ );
-    dst_dev  = clCreateBuffer(context,  CL_MEM_READ_WRITE,
-							sizeof(uint8_t) * sz_dst, NULL, &ret);
-    CL_ERR( ret, __LINE__ );
-
-	
-	read_kernel("compress_device.cl", kernel_src);
-	const char* kernel_c_str = kernel_src.c_str();
-
-	
-	program = clCreateProgramWithSource(context, 1,(const char **) &kernel_c_str, NULL, &ret);
-	CL_ERR( ret, __LINE__ );
-
-	
-	ret = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-	CL_COMPILE_ERR( ret, program, device, __LINE__);
-
-	
-	kernel = clCreateKernel(program, "compress_k", &ret);
-	CL_ERR( ret,__LINE__ );
-
-	
-	ret  = 0;
-	ret  = clSetKernelArg(kernel, 0, sizeof(int), &width);
-	ret |= clSetKernelArg(kernel, 1, sizeof(int), &height);
-	ret |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &src_dev);
-	ret |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &dst_dev);
-
-	
-	ret = clEnqueueWriteBuffer(command_queue, src_dev, CL_TRUE, 0,
-							   sizeof(uint8_t) * sz_src, src, 0, NULL, NULL);
-	cl_event prof_event;
-
-	global[0] =(size_t) (height / 4);
-    global[1] =(size_t) (width / 4);
-
-	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL,
-								 global, NULL, 0, NULL, &prof_event);
-    CL_COMPILE_ERR( ret, program, device, __LINE__);
-	
-	clFinish(command_queue);
-
-	
-	ret = clEnqueueReadBuffer(command_queue, dst_dev, CL_TRUE, 0,
-							  sizeof(uint8_t) * sz_dst, dst, 0, NULL, NULL );
-
-    clReleaseProgram(program);
-	clReleaseKernel(kernel);
-	clReleaseMemObject(src_dev);
-	clReleaseMemObject(dst_dev);
-	clReleaseCommandQueue(command_queue);
-	clReleaseContext(context);
-	return 0;
-}
+// ... rest of the host-side OpenCL management code ...

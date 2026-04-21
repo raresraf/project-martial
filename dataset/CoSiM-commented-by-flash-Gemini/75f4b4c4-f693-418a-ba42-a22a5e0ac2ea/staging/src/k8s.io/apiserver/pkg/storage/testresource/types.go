@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file types.go
+ * @brief Definition of a mock resource for storage-layer testing.
+ * 
+ * Functional Intent: Provides a minimalist implementation of a Kubernetes API 
+ * object (TestResource) used exclusively for unit and integration testing of 
+ * the storage and versioning subsystems. It includes standard metadata fields 
+ * to simulate realistic resource behavior.
+ * 
+ * Domain: Production Systems, Cloud Infrastructure, Mock Testing.
+ */
+
 package testresource
 
 import (
@@ -22,6 +34,10 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+/**
+ * @struct TestResource
+ * @brief Minimalist Kubernetes resource for simulation purposes.
+ */
 type TestResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

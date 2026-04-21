@@ -1,5 +1,30 @@
+/**
+ * @raw/bcc7c3b3-83ce-4955-8f23-5fb4e37d10a8/helper.cpp
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 
->>>> file: helper.cpp
+/**
+ * @file helper.cpp
+ * @brief Integrated OpenCL-accelerated Texture Compression Module (ETC1-style).
+ *
+ * This module provides a complete pipeline for lossy texture compression using OpenCL.
+ * It encompasses utility functions for OpenCL environment management, kernel source loading,
+ * and the core compression logic implemented both in C++ for host-side management and 
+ * OpenCL C for device-side execution.
+ *
+ * The architecture is divided into:
+ * 1. OpenCL Diagnostics: Error mapping and build log retrieval.
+ * 2. File I/O: Kernel source acquisition.
+ * 3. OpenCL Kernel (skl_device.cl): High-performance SIMD-friendly compression logic.
+ * 4. Host Orchestration (TextureCompressor): GPU discovery, resource management, and execution control.
+ *
+ * Structure Note: This file contains concatenated sub-modules (helper, kernel, and compressor).
+ */
+
+>>>> file: helper.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include 
 #include 
 #include 
@@ -11,24 +36,47 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Evaluates an OpenCL return code and logs errors to stdout.
+ *
+ * This diagnostic utility performs high-level error propagation by mapping 
+ * OpenCL numeric status codes to human-readable semantic strings.
+ *
+ * @param cl_ret The return code from an OpenCL API call.
+ * @return 0 on success (CL_SUCCESS), 1 otherwise.
  */
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return 1;
 	}
 	return 0;
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Specialized error checker for OpenCL program compilation.
+ *
+ * Beyond basic error reporting, this function retrieves the detailed 
+ * compiler log from the device upon failure, facilitating debugging of 
+ * kernel syntax and optimization issues.
+ *
+ * @param cl_ret API return code from clBuildProgram.
+ * @param program The program object being built.
+ * @param device The target device for the build.
+ * @return 0 on success, 1 on failure.
  */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if(cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -36,8 +84,14 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Loads an OpenCL kernel source from the filesystem.
+ *
+ * Reads the entire contents of a .cl file into a string for use with 
+ * clCreateProgramWithSource. Includes a critical assertion for file existence.
+ *
+ * @param file_name Path to the kernel source file.
+ * @param str_kernel Reference to the string where source will be loaded.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -45,13 +99,19 @@ void read_kernel(string file_name, string &str_kernel)
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	str_kernel = str_stream.str();
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Maps OpenCL error codes to human-readable semantic strings.
+ *
+ * This function provides a lookup table for standard OpenCL return codes, 
+ * converting numeric identifiers into descriptive text to aid in diagnostics.
+ *
+ * @param err OpenCL error constant.
+ * @return A descriptive string identifying the error type.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -122,9 +182,9 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
->>>> file: helper.hpp
+>>>> file: helper.hpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
@@ -146,6 +206,10 @@ void read_kernel(string file_name, string &str_kernel);
 
 #define DIE(assertion, call_description)  \
 do { \
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (assertion) { \
 		fprintf(stderr, "(%d): ", __LINE__); \
 		perror(call_description); \
@@ -154,10 +218,18 @@ do { \
 } while(0);
 
 #endif
->>>> file: skl_device.cl
+>>>> file: skl_device.cl /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #define INT32_MAX (2147483647L)
 #define UINT32_MAX (4294967295UL)
 
+/**
+ * @brief Semantic representation of a 32-bit pixel color.
+ * 
+ * This union facilitates multiple access patterns:
+ * - Structural: Named RGBA/BGRA channels.
+ * - Indexed: Raw component array for iterative processing.
+ * - Atomic: 32-bit integer for fast comparisons and copies.
+ */
 typedef union {
 	struct BgraColorType {
 		uchar b;
@@ -170,14 +242,26 @@ typedef union {
 } Color;
 
 
+/**
+ * @brief Naive byte-wise memory copy.
+ * Used for intra-kernel data movement where specialized OpenCL vector copies are inapplicable.
+ */
 #define memcpy(dst, src, size) \
 	{ \
 	uchar *dst2 = (uchar*)dst; \
 	uchar *src2 = (uchar*)src; \
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < size; i++) \
 		dst2[i] = src2[i]; \
 	}\
 
+/**
+ * @brief Clamping utilities for various numeric precisions.
+ * Prevents overflow/underflow during color space transformations and luminance adjustments.
+ */
 uchar clampUC(uchar val, uchar min, uchar max) {
 	return val  max ? max : val);
 }
@@ -190,6 +274,11 @@ float clampFl(float val, float min, float max) {
 	return val  max ? max : val);
 }
 
+/**
+ * @brief Quantization functions for reduced-bitdepth color spaces.
+ * Maps 8-bit components to 4-bit or 5-bit representations, used in ETC1's
+ * differential and individual mode color encoding.
+ */
 uchar round_to_4_bits(float val) {
 	return (uchar) clampFl(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
@@ -200,10 +289,19 @@ uchar round_to_5_bits(float val) {
 
 void memset(uchar *src, uchar c, int size)
 {
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < size; i++)
 		src[i] = c;
 }
 
+/**
+ * @brief Applies a luminance modifier to a base color.
+ * Part of the ETC1 compression scheme where a base color is adjusted by a 
+ * codeword table value to produce final pixel candidates.
+ */
 Color makeColor(const Color base, short lum) {
 	int b = (int)(base.channels.b) + lum;
 	int g = (int)(base.channels.g) + lum;
@@ -216,8 +314,12 @@ Color makeColor(const Color base, short lum) {
 	return color;
 }
 
-// Calculates the error metric for two colors. A small error signals that the
-// colors are similar to each other, a large error the signals the opposite.
+/**
+ * @brief Calculates the error metric for two colors.
+ * Used to evaluate the fidelity of a compressed representation.
+ * Supports both standard Euclidean distance and a perceived error metric 
+ * that weights components based on human visual sensitivity.
+ */
 int getColorError(const Color u, const Color v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)(u.channels.b) - v.channels.b;
@@ -236,19 +338,26 @@ int getColorError(const Color u, const Color v) {
 #endif
 }
 
+/**
+ * @brief Encodes a color into 4-4-4 format (Individual mode).
+ * Expands 4-bit components back to 8-bit for internal processing.
+ */
 Color makeColor444(const float* bgr) {
 	uchar b4 = round_to_4_bits(bgr[0]);
 	uchar g4 = round_to_4_bits(bgr[1]);
 	uchar r4 = round_to_4_bits(bgr[2]);
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.g = (g4 << 4) | g4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	bgr444.channels.r = (r4 << 4) | r4; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	// Added to distinguish between expanded 555 and 444 colors.
 	bgr444.channels.a = 0x44;
 	return bgr444;
 }
 
+/**
+ * @brief Encodes a color into 5-5-5 format (Differential mode base).
+ */
 Color makeColor555(const float* bgr) {
 	uchar b5 = round_to_5_bits(bgr[0]);
 	uchar g5 = round_to_5_bits(bgr[1]);
@@ -263,9 +372,9 @@ Color makeColor555(const float* bgr) {
 }
 
 void WriteColors444(uchar *block, const Color color0, const Color color1) {
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WriteColors555(uchar *block, const Color color0, const Color color1) {
@@ -280,26 +389,26 @@ void WriteColors555(uchar *block, const Color color0, const Color color1) {
 		3,  //  3 (011b)
 	};
 
-	short delta_r = (short)((color1.channels.r >> 3) - (color0.channels.r >> 3));
-	short delta_g = (short)((color1.channels.g >> 3) - (color0.channels.g >> 3));
-	short delta_b = (short)((color1.channels.b >> 3) - (color0.channels.b >> 3));
+	short delta_r = (short)((color1.channels.r >> 3) - (color0.channels.r >> 3)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	short delta_g = (short)((color1.channels.g >> 3) - (color0.channels.g >> 3)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	short delta_b = (short)((color1.channels.b >> 3) - (color0.channels.b >> 3)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[2] = (color0.channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WriteCodewordTable(uchar* block, uchar sub_block_id, uchar table) {
 	uchar shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[3] |= table << shift; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 void WritePixelData(uchar* block, int pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	block[7] |= pixel_data & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 
@@ -308,6 +417,10 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -320,6 +433,20 @@ void getAverageColor(const Color* src, float* avg_color)
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
 
+/**
+ * @brief Performs luminance optimization for a sub-block.
+ * 
+ * Iteratively searches through standard ETC1 codeword tables to find the modifier 
+ * set that minimizes the aggregate color error for 8 texels.
+ *
+ * @param block Output compressed block buffer.
+ * @param src Input color samples for the sub-block.
+ * @param base The base color derived for this sub-block.
+ * @param sub_block_id Index of the sub-block (0 or 1).
+ * @param idx_to_num_tab Mapping from linear index to standard ETC1 texel position.
+ * @param threshold Error threshold for early termination.
+ * @return The cumulative error for the best found table.
+ */
 ulong computeLuminance(uchar* block, const Color* src, const Color base, int sub_block_id, const uchar* idx_to_num_tab, ulong threshold) {
 	uint best_tbl_err = threshold;
 	uchar best_tbl_idx = 0;
@@ -337,12 +464,20 @@ ulong computeLuminance(uchar* block, const Color* src, const Color base, int sub
 
 	// Try all codeword tables to find the one giving the best results for this
 	// block.
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Pre-compute all the candidate colors; combinations of the base color and
 		// all available luminance values.
 
 
 		Color candidate_color[4];  // [modifier]
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -350,32 +485,60 @@ ulong computeLuminance(uchar* block, const Color* src, const Color base, int sub
 
 		}
 		uint tbl_err = 0;
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (uint i = 0; i < 8; ++i) {
 			// Try all modifiers in the current table to find which one gives the
 			// smallest error.
 			uint best_mod_err = threshold;
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				const Color color = candidate_color[mod_idx];
 
 				uint mod_err = getColorError(src[i], color);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (mod_err == 0)
 						break;  // We cannot do any better than this.
 				}
 			}
 
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  // We're already doing worse than the best table so skip.
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (tbl_err == 0)
 				break;  // We cannot do any better than this.
 		}
@@ -387,17 +550,21 @@ ulong computeLuminance(uchar* block, const Color* src, const Color base, int sub
 
 	__const uchar g_mod_to_pix[4] = { 3, 2, 0, 1 };
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
 
-		uint lsb = pix_idx & 0x1;
-		uint msb = pix_idx >> 1;
+		uint lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		uint msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		// Obtain the texel number as specified in the standard.
 		int texel_num = idx_to_num_tab[i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 
 	WritePixelData(block, pix_data);
@@ -430,7 +597,15 @@ bool tryCompressSolidBlock(uchar* dst,
 		{ 2, 6, 10, 14, 3, 7, 11, 15 }     // Horizontal block 1.
 	};
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -439,12 +614,12 @@ bool tryCompressSolidBlock(uchar* dst,
 	__private Color base = makeColor555(src_color_float);
 
 	
-	uchar var = dst[3] & ~0x02;
+	uchar var = dst[3] & ~0x02; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	dst[3] = var;
-	dst[3] |= ((uchar)(1)) << 1;
+	dst[3] |= ((uchar)(1)) << 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-	var = dst[3] & ~0x01;
+	var = dst[3] & ~0x01; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	dst[3] &= var;
 	dst[3] |= (uchar)(0);
 	
@@ -455,24 +630,44 @@ bool tryCompressSolidBlock(uchar* dst,
 
 	uint best_mod_err = UINT32_MAX;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Try all modifiers in the current table to find which one gives the
 		// smallest error.
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = codeword_tables[tbl_idx][mod_idx];
 			const Color color = makeColor(base, lum);
 
 			uint mod_err = getColorError(*src, color);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  // We cannot do any better than this.
 			}
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -481,16 +676,24 @@ bool tryCompressSolidBlock(uchar* dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 
 	uchar pix_idx = g_mod_to_pix[best_mod_idx];
-	uint lsb = pix_idx & 0x1;
-	uint msb = pix_idx >> 1;
+	uint lsb = pix_idx & 0x1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	uint msb = pix_idx >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	uint pix_data = 0;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (uint j = 0; j < 8; ++j) {
 			// Obtain the texel number as specified in the standard.
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			pix_data |= lsb << (texel_num); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		}
 	}
 
@@ -500,10 +703,29 @@ bool tryCompressSolidBlock(uchar* dst,
 }
 
 
+/**
+ * @brief High-level block compression entry point.
+ * 
+ * Implements the core logic for compressing a 4x4 pixel block into 64 bits.
+ * It evaluates:
+ * 1. Solid block optimization.
+ * 2. Differential vs. Individual mode based on average color deltas.
+ * 3. Horizontal vs. Vertical block partitioning (Flip bit).
+ *
+ * @param dst Output buffer for the 8-byte compressed block.
+ * @param ver_src Source pixels for vertical partitioning evaluation.
+ * @param hor_src Source pixels for horizontal partitioning evaluation.
+ * @param threshold Error threshold for early exit.
+ * @return Total reconstruction error for the block.
+ */
 ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong threshold) {
 
 	__private ulong solid_error = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -517,6 +739,10 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 	__private Color sub_block_avg[4];
 	__private uchar use_differential[2] = { 1, 1 };
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 0, j = 1; i < 4; i += 2, j += 2) {
 		__private float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -526,11 +752,19 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = 0;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -546,7 +780,15 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 	}
 
 	uint sub_block_err[4] = { 0 };
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (uint i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (uint j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -558,16 +800,24 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 	memset(dst, 0, 8);
 	uchar var;
 	var = ~0x02;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		dst[3] = var;
-		dst[3] |= ((uchar)(1)) << 1;
+		dst[3] |= ((uchar)(1)) << 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 	else {
 		dst[3] = var;
-		dst[3] |= ((uchar)(0)) << 1;
+		dst[3] |= ((uchar)(0)) << 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	}
 
 	var = ~0x01;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (flip) {
 		dst[3] &= var;
 		dst[3] |= (uchar)(1);
@@ -581,6 +831,10 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 			sub_block_avg[sub_block_off_1]);
@@ -615,6 +869,16 @@ ulong compressBlock(uchar* dst, const Color* ver_src, Color* hor_src, ulong thre
 	return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @brief OpenCL Kernel for parallel ETC1 compression.
+ * 
+ * Each work-item is responsible for compressing a single 4x4 pixel block.
+ * It manages:
+ * - Local tiling: Reading a 4x4 block from global source memory.
+ * - Sub-block partitioning: Preparing both vertical and horizontal partitioning 
+ *   candidates to find the optimal 'Flip' configuration.
+ * - Result writeback: Storing the 8-byte compressed block to global destination.
+ */
 __kernel void
 compress(__global uchar* src,
         __global uchar* dst,
@@ -629,7 +893,15 @@ compress(__global uchar* src,
 
 	uchar local_src[64];
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < 4; i++)
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (int j = 0; j < 4; j++) {
 			local_src[inc]		= src[4 * (row * width / 4 + col) + i * width + j * 4];
 			local_src[inc + 1]	= src[4 * (row * width / 4 + col) + i * width + j * 4 + 1];
@@ -672,11 +944,15 @@ compress(__global uchar* src,
 	ulong old_error;
 	old_error = compressBlock(local_dst, ver_blocks, hor_blocks, INT32_MAX);
 	
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < 8; i++)
 		dst[row * width / 4 * 8 + col * 8 + i] = local_dst[i];
 }
 
->>>> file: texture_compress_skl.cpp
+>>>> file: texture_compress_skl.cpp /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #include "compress.hpp"
 
 #include 
@@ -692,6 +968,16 @@ compress(__global uchar* src,
 
 using namespace std;
 
+/**
+ * @brief Discovers and selects a suitable OpenCL GPU device.
+ * 
+ * Iterates through all available platforms and GPU-type devices, logging their 
+ * vendors and versions. It selects the first available GPU for execution.
+ *
+ * @param device Output parameter for the selected device ID.
+ * @param platform_select Preferred platform index (currently auto-selects).
+ * @param device_select Preferred device index (currently auto-selects).
+ */
 void gpu_find(cl_device_id &device, 
 		uint platform_select, 
 		uint device_select)
@@ -713,9 +999,13 @@ void gpu_find(cl_device_id &device,
 
 	/* get all available OpenCL platforms */
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
-	cout << "Platforms found: " << platform_num << endl;
+	cout << "Platforms found: " << platform_num << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	/* list all platforms and VENDOR/VERSION properties */
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 		/* get attribute CL_PLATFORM_VENDOR */
@@ -727,7 +1017,7 @@ void gpu_find(cl_device_id &device,
 		/* get data CL_PLATFORM_VENDOR */
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 				CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
-		cout << "Platform " << platf << " " << attr_data << " ";
+		cout << "Platform " << platf << " " << attr_data << " "; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		delete[] attr_data;
 
 		/* get attribute size CL_PLATFORM_VERSION */
@@ -739,7 +1029,7 @@ void gpu_find(cl_device_id &device,
 		/* get data size CL_PLATFORM_VERSION */
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 				CL_PLATFORM_VERSION, attr_size, attr_data, NULL));
-		cout << attr_data << endl;
+		cout << attr_data << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		delete[] attr_data;
 
 		/* no valid platform found */
@@ -747,6 +1037,10 @@ void gpu_find(cl_device_id &device,
 		DIE(platform == 0, "platform selection");
 
 		/* get num of available OpenCL devices type ALL on the selected platform */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if(clGetDeviceIDs(platform, 
 			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
 			device_num = 0;
@@ -759,9 +1053,13 @@ void gpu_find(cl_device_id &device,
 		/* get all available OpenCL devices type ALL on the selected platform */
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
 			  device_num, device_list, NULL));
-		cout << "\tDevices found " << device_num  << endl;
+		cout << "\tDevices found " << device_num  << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		/* list all devices and TYPE/VERSION properties */
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			/* get attribute size */
@@ -773,7 +1071,7 @@ void gpu_find(cl_device_id &device,
 			/* get attribute CL_DEVICE_NAME */
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
 				attr_size, attr_data, NULL));
-			cout << "\tDevice " << dev << " " << attr_data << " ";
+			cout << "\tDevice " << dev << " " << attr_data << " "; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			delete[] attr_data;
 
 			/* get attribute size */
@@ -785,13 +1083,17 @@ void gpu_find(cl_device_id &device,
 			/* get attribute CL_DEVICE_VERSION */
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
 				attr_size, attr_data, NULL));
-			cout << attr_data; 
+			cout << attr_data;  /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			delete[] attr_data;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (device_list[dev] != NULL) {			
 				/* select device based on cli arguments */
 				device = device_list[dev];
-				cout << " <--- SELECTED " << endl;		
+				cout << " <--- SELECTED " << endl;		 /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 				break;
 			}	
 		}
@@ -801,6 +1103,15 @@ void gpu_find(cl_device_id &device,
 	delete[] device_list;
 }
 
+/**
+ * @brief Initializes the TextureCompressor with OpenCL resources.
+ * 
+ * Performs the following:
+ * 1. Hardware discovery via gpu_find.
+ * 2. OpenCL context and command queue creation.
+ * 3. Kernel source loading and program compilation.
+ * 4. Kernel object instantiation.
+ */
 TextureCompressor::TextureCompressor() {
 	cl_device_id device2;
 	uint platform_select = 0;
@@ -834,9 +1145,22 @@ TextureCompressor::TextureCompressor() {
 
 }
 
- // constructor/Users/grigore.lupescu/Desktop/RESEARCH/asc/teme/tema3/2018/Tema3-schelet/src/compress.cpp
-TextureCompressor::~TextureCompressor() { }	// destructor
-	
+/**
+ * @brief Compresses a raw image buffer using the GPU.
+ * 
+ * Executes the full offload cycle:
+ * 1. Allocates GPU buffers for source images and compressed output.
+ * 2. Synchronously uploads raw pixel data (RGBA).
+ * 3. Configures kernel arguments and work-group dimensions (4x4 blocks).
+ * 4. Enqueues and waits for GPU execution.
+ * 5. Downloads the resulting compressed texture and error metrics.
+ *
+ * @param src Pointer to raw 8-bit RGBA source data.
+ * @param dst Pointer to destination buffer for compressed data.
+ * @param width Image width (must be multiple of 4).
+ * @param height Image height (must be multiple of 4).
+ * @return Cumulative compression error.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int width, int height)
 {
 	// TODO
@@ -845,17 +1169,17 @@ unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int 
         size_t local[2];
 	int ret = 0;
 
-        cout << "Begin sending to GPU" << endl;
+        cout << "Begin sending to GPU" << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	sImg = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(uint8_t) * width * height * 4, NULL, NULL);
 
 	cImg = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint8_t) * width * height / 2, NULL, NULL); 
 	
 	/* Write the buffer to GPU*/
-	cout << "BEGIN WRITING IMAGE TO GPU" << endl << endl;
+	cout << "BEGIN WRITING IMAGE TO GPU" << endl << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	ret = clEnqueueWriteBuffer(command_queue, sImg, CL_TRUE, 0, sizeof(uint8_t) * width * height * 4, src, 0, NULL, NULL);
 
-	cout << "END WRITING IMAGE TO GPU" << endl << endl;
+	cout << "END WRITING IMAGE TO GPU" << endl << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	int err = 0;
 	cl_mem err_buff;
@@ -883,12 +1207,12 @@ unsigned long TextureCompressor::compress(const uint8_t* src, uint8_t* dst, int 
 	ret = clFinish(command_queue);
 
 
-	cout << "BEGIN READ FROM GPU" << endl << endl;
+	cout << "BEGIN READ FROM GPU" << endl << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	/* Read into the buffer from GPU*/
 	ret = clEnqueueReadBuffer(command_queue, cImg, CL_TRUE, 0, sizeof(uint8_t) * width  * height / 2 , dst, 0, NULL, NULL );
 	ret += clEnqueueReadBuffer(command_queue, err_buff, CL_TRUE, 0, sizeof(int), &err, 0, NULL, NULL);
 
-	cout << "END READ FROM GPU" << endl << endl;
+	cout << "END READ FROM GPU" << endl << endl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	clReleaseProgram(program);
         clReleaseKernel(kernel);

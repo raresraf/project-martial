@@ -1,9 +1,27 @@
+/**
+ * @file kernel.cl
+ * @brief High-performance OpenCL Texture Compression Kernel.
+ * 
+ * This module implements a parallelized texture compression algorithm (likely ETC1 variant).
+ * It leverages OpenCL's GPGPU capabilities to perform computationally intensive color 
+ * error minimization and luminance matching across large textures in real-time.
+ * 
+ * The kernel handles 4x4 pixel blocks, optimizing for hardware-specific constraints
+ * such as memory alignment and SIMD execution patterns.
+ */
 
 # define INT32_MAX              (2147483647)
 # define UINT32_MAX             (4294967295U)
 
 #define ALIGNAS(X)      __attribute__((aligned(X)))
 
+/**
+ * @struct Color
+ * @brief Represents a pixel color in BGRA format with multi-representation access.
+ * 
+ * Provides efficient access to individual channels, a component array, or the 
+ * full 32-bit representation to facilitate different optimization paths.
+ */
 typedef union Color {
     struct BgraColorType {
         uchar b;
@@ -65,6 +83,10 @@ inline uchar round_to_4_bits(float val) {
 }
 
 
+/**
+ * @brief Predefined luminance adjustment tables for texture encoding.
+ * These tables are used to derive pixel-specific colors from a base block color.
+ */
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
         {-8, -2, 2, 8},
         {-17, -5, 5, 17},
@@ -80,6 +102,9 @@ __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
 
+/**
+ * @brief Mapping tables for pixel indexing within 4x4 blocks.
+ */
 __constant uchar g_idx_to_num[4][8] = {
         {0, 4, 1, 5, 2, 6, 3, 7},        
         {8, 12, 9, 13, 10, 14, 11, 15},  
@@ -231,6 +256,21 @@ void getAverageColor(const Color* src, float* avg_color)
     avg_color[2] = (float)(sum_r) * kInv8;
 }
 
+/**
+ * @brief Computes the optimal luminance table and pixel indices for a sub-block.
+ * 
+ * This is the core optimization loop. It iterates through all available codeword
+ * tables and modulation indices to find the combination that minimizes the 
+ * color error between the original source and the reconstructed pixels.
+ * 
+ * @param block Output buffer for compressed block data.
+ * @param src Original source pixels for the sub-block.
+ * @param base The base color for this sub-block.
+ * @param sub_block_id Index of the sub-block (0 or 1).
+ * @param idx_to_num_tab Remapping table for pixel positions.
+ * @param threshold Error threshold for early exit.
+ * @return The minimum total error found for this sub-block.
+ */
 unsigned long computeLuminance(__global uchar* block, const Color* src, const Color * base, int sub_block_id, __constant uchar* idx_to_num_tab, unsigned long threshold){
     uint best_tbl_err = threshold;
     uchar best_tbl_idx = 0;
@@ -303,6 +343,10 @@ unsigned long computeLuminance(__global uchar* block, const Color* src, const Co
 }
 
 
+/**
+ * @brief Attempts to compress a block as a single solid color.
+ * Optimization for uniform regions to bypass complex searches.
+ */
 int tryCompressSolidBlock(__global uchar *dst, const Color *src, unsigned long *error) {
     for (unsigned int i = 1; i < 16; ++i) {
         if (src[i].bits != src[0].bits)
@@ -456,6 +500,17 @@ unsigned long compressBlock(__global uchar *dst, const Color *ver_src, const Col
     return 0;
 }
 
+/**
+ * @brief OpenCL Kernel for parallel texture compression.
+ * 
+ * Each work-item processes a 4x4 pixel block. It extracts both vertical and 
+ * horizontal block candidates to determine the best splitting strategy (flip bit).
+ * 
+ * @param src Pointer to the raw input RGBA texture data.
+ * @param dst Pointer to the destination buffer for compressed blocks.
+ * @param width Image width.
+ * @param height Image height.
+ */
 __kernel void compress(__global const uchar *src, __global uchar *dst, int width, int height) {
     int gid_0 = get_global_id(1);
     int gid_1 = get_global_id(0);
@@ -473,6 +528,7 @@ __kernel void compress(__global const uchar *src, __global uchar *dst, int width
     __global union Color *row2 = row1 + width;
     __global union Color *row3 = row2 + width;
 
+    // Block reconstruction for vertical and horizontal partitioning analysis.
     memcpy(ver_blocks, row0, 8);
     memcpy(ver_blocks + 2, row1, 8);
     memcpy(ver_blocks + 4, row2, 8);
@@ -489,7 +545,7 @@ __kernel void compress(__global const uchar *src, __global uchar *dst, int width
 	
     compressed_error += compressBlock(dst, ver_blocks, hor_blocks, INT32_MAX);
 
-}		
+}
 #include "compress.hpp"
 
 
@@ -528,6 +584,13 @@ do {                                                        \
 
 
 
+/**
+ * @class TextureCompressor
+ * @brief Host-side controller for OpenCL-accelerated texture compression.
+ * 
+ * Manages the OpenCL lifecycle including device discovery, context creation,
+ * kernel compilation, and memory orchestration between host and device.
+ */
 TextureCompressor::TextureCompressor() {
     
     gpu_find(device, 0, 0, platform_ids, device_ids);
@@ -540,6 +603,15 @@ TextureCompressor::~TextureCompressor() {
 }
 
 
+/**
+ * @brief Entry point for compressing a texture using the GPU.
+ * 
+ * @param src Pointer to input RGBA data.
+ * @param dst Pointer to destination buffer for compressed data.
+ * @param width Image width.
+ * @param height Image height.
+ * @return Compression error metric (currently placeholder 0).
+ */
 unsigned long TextureCompressor::compress(const uint8_t *src,
                                           uint8_t *dst,
                                           int width,

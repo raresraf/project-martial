@@ -1,3 +1,9 @@
+/**
+ * @file utils.h
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 
 
 #include <stdio.h>

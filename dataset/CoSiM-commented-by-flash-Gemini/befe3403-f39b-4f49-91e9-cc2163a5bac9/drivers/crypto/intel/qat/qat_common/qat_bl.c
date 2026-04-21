@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright(c) 2014 - 2022 Intel Corporation */
+
+/**
+ * @file qat_bl.c
+ * @brief DMA buffer list management for Intel QAT hardware acceleration.
+ * 
+ * Functional Intent: Provides high-level primitives for translating standard 
+ * Linux scatter-gather lists (SGL) into the structured buffer list format 
+ * expected by QAT firmware. Handles DMA mapping, memory alignment, and 
+ * support for both in-place and out-of-place (source/destination) operations.
+ * 
+ * Domain: Production Systems, Kernel Device Drivers, DMA Memory Management.
+ */
+
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/pci.h>
@@ -10,6 +23,13 @@
 #include "qat_bl.h"
 #include "qat_crypto.h"
 
+/**
+ * qat_bl_free_bufl - Releases DMA mappings and associated memory for a request's buffers.
+ * 
+ * Logic: Iterates through both source and destination buffer lists, unmapping 
+ * each individual scatter-gather entry from the physical device address space 
+ * before freeing the list containers.
+ */
 void qat_bl_free_bufl(struct adf_accel_dev *accel_dev,
 		      struct qat_request_buffs *buf)
 {
@@ -23,8 +43,10 @@ void qat_bl_free_bufl(struct adf_accel_dev *accel_dev,
 	int bl_dma_dir;
 	int i;
 
+	// Optimization: Determines DMA direction based on buffer reuse (in-place vs out-of-place).
 	bl_dma_dir = blp != blpout ? DMA_TO_DEVICE : DMA_BIDIRECTIONAL;
 
+	// Block Logic: Source buffer unmapping.
 	for (i = 0; i < bl->num_bufs; i++)
 		dma_unmap_single(dev, bl->buffers[i].addr,
 				 bl->buffers[i].len, bl_dma_dir);
@@ -34,6 +56,7 @@ void qat_bl_free_bufl(struct adf_accel_dev *accel_dev,
 	if (!buf->sgl_src_valid)
 		kfree(bl);
 
+	// Block Logic: Destination buffer unmapping (for out-of-place ops).
 	if (blp != blpout) {
 		for (i = 0; i < blout->num_mapped_bufs; i++) {
 			dma_unmap_single(dev, blout->buffers[i].addr,
@@ -47,6 +70,18 @@ void qat_bl_free_bufl(struct adf_accel_dev *accel_dev,
 	}
 }
 
+/**
+ * __qat_bl_sgl_to_bufl - Internal engine for SGL to QAT-Bufl translation.
+ * 
+ * Algorithm: Sequential SGL traversal and DMA mapping.
+ * 1. Estimates required descriptor memory.
+ * 2. Maps virtual scatter-gather entries to physical device space.
+ * 3. Handles byte offsets (skipping) to support sub-buffer requests.
+ * 4. Optionally appends extra buffers (e.g. for authentication tags).
+ * 
+ * Invariant: Successfully maps all input entries or rolls back the entire 
+ * operation on partial failure to prevent DMA leakage.
+ */
 static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 				struct scatterlist *sgl,
 				struct scatterlist *sglout,
@@ -76,6 +111,7 @@ static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 	buf->sgl_src_valid = false;
 	buf->sgl_dst_valid = false;
 
+	// Optimization: Uses pre-allocated static header for small SGLs to avoid slab overhead.
 	if (n > QAT_MAX_BUFF_DESC) {
 		bufl = kzalloc_node(sz, flags, node);
 		if (unlikely(!bufl))
@@ -94,12 +130,14 @@ static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 
 	left = sskip;
 
+	// Block Logic: Source mapping pass.
 	for_each_sg(sgl, sg, n, i) {
 		int y = sg_nctr;
 
 		if (!sg->length)
 			continue;
 
+		// Logic: Handle sub-buffer offset by consuming SGL length.
 		if (left >= sg->length) {
 			left -= sg->length;
 			continue;
@@ -117,13 +155,15 @@ static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 		}
 	}
 	bufl->num_bufs = sg_nctr;
+	// Synchronization: Final DMA map of the entire descriptor list.
 	blp = dma_map_single(dev, bufl, sz, DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(dev, blp)))
 		goto err_in;
 	buf->bl = bufl;
 	buf->blp = blp;
 	buf->sz = sz;
-	/* Handle out of place operation */
+
+	/* Block Logic: Out-of-place destination handling. */
 	if (sgl != sglout) {
 		struct qat_alg_buf *buffers;
 		int extra_buff = extra_dst_buff ? 1 : 0;
@@ -172,6 +212,7 @@ static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 				left = 0;
 			}
 		}
+		// Logic: Appends optional auxiliary buffer (e.g. for authentication codes).
 		if (extra_buff) {
 			buffers[sg_nctr].addr = extra_dst_buff;
 			buffers[sg_nctr].len = sz_extra_dst_buff;
@@ -187,13 +228,14 @@ static int __qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 		buf->bloutp = bloutp;
 		buf->sz_out = sz_out;
 	} else {
-		/* Otherwise set the src and dst to the same address */
+		/* In-place Logic: Source and destination share the same DMA address. */
 		buf->bloutp = buf->blp;
 		buf->sz_out = 0;
 	}
 	return 0;
 
 err_out:
+	// Rollback Logic: Destination failures.
 	if (!dma_mapping_error(dev, bloutp))
 		dma_unmap_single(dev, bloutp, sz_out, DMA_TO_DEVICE);
 
@@ -211,6 +253,7 @@ err_out:
 		kfree(buflout);
 
 err_in:
+	// Rollback Logic: Source or allocation failures.
 	if (!dma_mapping_error(dev, blp))
 		dma_unmap_single(dev, blp, sz, DMA_TO_DEVICE);
 
@@ -228,6 +271,9 @@ err_in:
 	return -ENOMEM;
 }
 
+/**
+ * qat_bl_sgl_to_bufl - Public entry point for creating DMA descriptors for a crypto request.
+ */
 int qat_bl_sgl_to_bufl(struct adf_accel_dev *accel_dev,
 		       struct scatterlist *sgl,
 		       struct scatterlist *sglout,

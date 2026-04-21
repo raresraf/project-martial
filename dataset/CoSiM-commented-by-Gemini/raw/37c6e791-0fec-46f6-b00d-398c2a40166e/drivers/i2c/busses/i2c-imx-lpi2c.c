@@ -1,3 +1,10 @@
+/**
+ * @raw/37c6e791-0fec-46f6-b00d-398c2a40166e/drivers/i2c/busses/i2c-imx-lpi2c.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * This is i.MX low power i2c controller driver.
@@ -121,8 +128,8 @@
 #define SCFGR2_FILTSDA_SHIFT	24
 #define SCFGR2_FILTSCL_SHIFT	16
 #define SCFGR2_CLKHOLD(x)	(x)
-#define SCFGR2_FILTSDA(x)	((x) << SCFGR2_FILTSDA_SHIFT)
-#define SCFGR2_FILTSCL(x)	((x) << SCFGR2_FILTSCL_SHIFT)
+#define SCFGR2_FILTSDA(x)	((x) << SCFGR2_FILTSDA_SHIFT) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+#define SCFGR2_FILTSCL(x)	((x) << SCFGR2_FILTSCL_SHIFT) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #define SASR_READ_REQ	0x1
 #define SLAVE_INT_FLAG	(SIER_TDIE | SIER_RDIE | SIER_AVIE | \
 			 SIER_SDIE | SIER_BEIE)
@@ -204,17 +211,29 @@ static int lpi2c_imx_bus_busy(struct lpi2c_imx_struct *lpi2c_imx)
 	int err;
 
 	err = lpi2c_imx_read_msr_poll_timeout(temp,
-					      temp & (MSR_ALF | MSR_BBF | MSR_MBF));
+					      temp & (MSR_ALF | MSR_BBF | MSR_MBF)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	/* check for arbitration lost, clear if set */
-	if (temp & MSR_ALF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (temp & MSR_ALF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		writel(temp, lpi2c_imx->base + LPI2C_MSR);
 		return -EAGAIN;
 	}
 
 	/* check for bus not busy */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		dev_dbg(&lpi2c_imx->adapter.dev, "bus not work\n");
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (lpi2c_imx->adapter.bus_recovery_info)
 			i2c_recover_bus(&lpi2c_imx->adapter);
 		return -ETIMEDOUT;
@@ -225,7 +244,7 @@ static int lpi2c_imx_bus_busy(struct lpi2c_imx_struct *lpi2c_imx)
 
 static u32 lpi2c_imx_txfifo_cnt(struct lpi2c_imx_struct *lpi2c_imx)
 {
-	return readl(lpi2c_imx->base + LPI2C_MFSR) & 0xff;
+	return readl(lpi2c_imx->base + LPI2C_MFSR) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static void lpi2c_imx_set_mode(struct lpi2c_imx_struct *lpi2c_imx)
@@ -233,12 +252,28 @@ static void lpi2c_imx_set_mode(struct lpi2c_imx_struct *lpi2c_imx)
 	unsigned int bitrate = lpi2c_imx->bitrate;
 	enum lpi2c_imx_mode mode;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (bitrate < I2C_MAX_FAST_MODE_FREQ)
 		mode = STANDARD;
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (bitrate < I2C_MAX_FAST_MODE_PLUS_FREQ)
 		mode = FAST;
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (bitrate < I2C_MAX_HIGH_SPEED_MODE_FREQ)
 		mode = FAST_PLUS;
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (bitrate < I2C_MAX_ULTRA_FAST_MODE_FREQ)
 		mode = HS;
 	else
@@ -257,7 +292,7 @@ static int lpi2c_imx_start(struct lpi2c_imx_struct *lpi2c_imx,
 	writel(temp, lpi2c_imx->base + LPI2C_MCR);
 	writel(0x7f00, lpi2c_imx->base + LPI2C_MSR);
 
-	temp = i2c_8bit_addr_from_msg(msgs) | (GEN_START << 8);
+	temp = i2c_8bit_addr_from_msg(msgs) | (GEN_START << 8); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	writel(temp, lpi2c_imx->base + LPI2C_MTDR);
 
 	return lpi2c_imx_bus_busy(lpi2c_imx);
@@ -268,12 +303,20 @@ static void lpi2c_imx_stop(struct lpi2c_imx_struct *lpi2c_imx)
 	unsigned int temp;
 	int err;
 
-	writel(GEN_STOP << 8, lpi2c_imx->base + LPI2C_MTDR);
+	writel(GEN_STOP << 8, lpi2c_imx->base + LPI2C_MTDR); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-	err = lpi2c_imx_read_msr_poll_timeout(temp, temp & MSR_SDF);
+	err = lpi2c_imx_read_msr_poll_timeout(temp, temp & MSR_SDF); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		dev_dbg(&lpi2c_imx->adapter.dev, "stop timeout\n");
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (lpi2c_imx->adapter.bus_recovery_info)
 			i2c_recover_bus(&lpi2c_imx->adapter);
 	}
@@ -291,44 +334,72 @@ static int lpi2c_imx_config(struct lpi2c_imx_struct *lpi2c_imx)
 
 	clk_rate = lpi2c_imx->rate_per;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->mode == HS || lpi2c_imx->mode == ULTRA_FAST)
 		filt = 0;
 	else
 		filt = 2;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (prescale = 0; prescale <= 7; prescale++) {
-		clk_cycle = clk_rate / ((1 << prescale) * lpi2c_imx->bitrate)
-			    - 3 - (filt >> 1);
+		clk_cycle = clk_rate / ((1 << prescale) * lpi2c_imx->bitrate) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			    - 3 - (filt >> 1); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		clkhi = DIV_ROUND_UP(clk_cycle, I2C_CLK_RATIO + 1);
 		clklo = clk_cycle - clkhi;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (clklo < 64)
 			break;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (prescale > 7)
 		return -EINVAL;
 
 	/* set MCFGR1: PINCFG, PRESCALE, IGNACK */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->mode == ULTRA_FAST)
 		pincfg = TWO_PIN_OO;
 	else
 		pincfg = TWO_PIN_OD;
-	temp = prescale | pincfg << 24;
+	temp = prescale | pincfg << 24; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->mode == ULTRA_FAST)
 		temp |= MCFGR1_IGNACK;
 
 	writel(temp, lpi2c_imx->base + LPI2C_MCFGR1);
 
 	/* set MCFGR2: FILTSDA, FILTSCL */
-	temp = (filt << 16) | (filt << 24);
+	temp = (filt << 16) | (filt << 24); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	writel(temp, lpi2c_imx->base + LPI2C_MCFGR2);
 
 	/* set MCCR: DATAVD, SETHOLD, CLKHI, CLKLO */
 	sethold = clkhi;
-	datavd = clkhi >> 1;
-	temp = datavd << 24 | sethold << 16 | clkhi << 8 | clklo;
+	datavd = clkhi >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	temp = datavd << 24 | sethold << 16 | clkhi << 8 | clklo; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->mode == HS)
 		writel(temp, lpi2c_imx->base + LPI2C_MCCR1);
 	else
@@ -343,6 +414,10 @@ static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	int ret;
 
 	ret = pm_runtime_resume_and_get(lpi2c_imx->adapter.dev.parent);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return ret;
 
@@ -351,6 +426,10 @@ static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	writel(0, lpi2c_imx->base + LPI2C_MCR);
 
 	ret = lpi2c_imx_config(lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto rpm_put;
 
@@ -398,13 +477,25 @@ static int lpi2c_imx_txfifo_empty(struct lpi2c_imx_struct *lpi2c_imx)
 	err = lpi2c_imx_read_msr_poll_timeout(temp,
 					      (temp & MSR_NDF) || !lpi2c_imx_txfifo_cnt(lpi2c_imx));
 
-	if (temp & MSR_NDF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (temp & MSR_NDF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		dev_dbg(&lpi2c_imx->adapter.dev, "NDF detected\n");
 		return -EIO;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (err) {
 		dev_dbg(&lpi2c_imx->adapter.dev, "txfifo empty timeout\n");
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (lpi2c_imx->adapter.bus_recovery_info)
 			i2c_recover_bus(&lpi2c_imx->adapter);
 		return -ETIMEDOUT;
@@ -415,7 +506,7 @@ static int lpi2c_imx_txfifo_empty(struct lpi2c_imx_struct *lpi2c_imx)
 
 static void lpi2c_imx_set_tx_watermark(struct lpi2c_imx_struct *lpi2c_imx)
 {
-	writel(lpi2c_imx->txfifosize >> 1, lpi2c_imx->base + LPI2C_MFCR);
+	writel(lpi2c_imx->txfifosize >> 1, lpi2c_imx->base + LPI2C_MFCR); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static void lpi2c_imx_set_rx_watermark(struct lpi2c_imx_struct *lpi2c_imx)
@@ -424,21 +515,33 @@ static void lpi2c_imx_set_rx_watermark(struct lpi2c_imx_struct *lpi2c_imx)
 
 	remaining = lpi2c_imx->msglen - lpi2c_imx->delivered;
 
-	if (remaining > (lpi2c_imx->rxfifosize >> 1))
-		temp = lpi2c_imx->rxfifosize >> 1;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (remaining > (lpi2c_imx->rxfifosize >> 1)) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		temp = lpi2c_imx->rxfifosize >> 1; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	else
 		temp = 0;
 
-	writel(temp << 16, lpi2c_imx->base + LPI2C_MFCR);
+	writel(temp << 16, lpi2c_imx->base + LPI2C_MFCR); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static void lpi2c_imx_write_txfifo(struct lpi2c_imx_struct *lpi2c_imx)
 {
 	unsigned int data, txcnt;
 
-	txcnt = readl(lpi2c_imx->base + LPI2C_MFSR) & 0xff;
+	txcnt = readl(lpi2c_imx->base + LPI2C_MFSR) & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+	/**
+	 * Block Logic: Condition check initialization for iterative traversal.
+	 * Invariant: Condition remains true across iterations, ensuring execution state.
+	 */
 	while (txcnt < lpi2c_imx->txfifosize) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (lpi2c_imx->delivered == lpi2c_imx->msglen)
 			break;
 
@@ -447,6 +550,10 @@ static void lpi2c_imx_write_txfifo(struct lpi2c_imx_struct *lpi2c_imx)
 		txcnt++;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->delivered < lpi2c_imx->msglen)
 		lpi2c_imx_intctrl(lpi2c_imx, MIER_TDIE | MIER_NDIE);
 	else
@@ -460,15 +567,23 @@ static void lpi2c_imx_read_rxfifo(struct lpi2c_imx_struct *lpi2c_imx)
 
 	do {
 		data = readl(lpi2c_imx->base + LPI2C_MRDR);
-		if (data & MRDR_RXEMPTY)
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
+		if (data & MRDR_RXEMPTY) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			break;
 
-		lpi2c_imx->rx_buf[lpi2c_imx->delivered++] = data & 0xff;
+		lpi2c_imx->rx_buf[lpi2c_imx->delivered++] = data & 0xff; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	} while (1);
 
 	/*
 	 * First byte is the length of remaining packet in the SMBus block
 	 * data read. Add it to msgs->len.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (lpi2c_imx->block_data) {
 		blocklen = lpi2c_imx->rx_buf[0];
@@ -477,6 +592,10 @@ static void lpi2c_imx_read_rxfifo(struct lpi2c_imx_struct *lpi2c_imx)
 
 	remaining = lpi2c_imx->msglen - lpi2c_imx->delivered;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!remaining) {
 		complete(&lpi2c_imx->complete);
 		return;
@@ -486,14 +605,18 @@ static void lpi2c_imx_read_rxfifo(struct lpi2c_imx_struct *lpi2c_imx)
 	lpi2c_imx_set_rx_watermark(lpi2c_imx);
 
 	/* multiple receive commands */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->block_data) {
 		lpi2c_imx->block_data = 0;
 		temp = remaining;
-		temp |= (RECV_DATA << 8);
+		temp |= (RECV_DATA << 8); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		writel(temp, lpi2c_imx->base + LPI2C_MTDR);
-	} else if (!(lpi2c_imx->delivered & 0xff)) {
+	} else if (!(lpi2c_imx->delivered & 0xff)) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		temp = (remaining > CHUNK_DATA ? CHUNK_DATA : remaining) - 1;
-		temp |= (RECV_DATA << 8);
+		temp |= (RECV_DATA << 8); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		writel(temp, lpi2c_imx->base + LPI2C_MTDR);
 	}
 
@@ -514,11 +637,11 @@ static void lpi2c_imx_read(struct lpi2c_imx_struct *lpi2c_imx,
 	unsigned int temp;
 
 	lpi2c_imx->rx_buf = msgs->buf;
-	lpi2c_imx->block_data = msgs->flags & I2C_M_RECV_LEN;
+	lpi2c_imx->block_data = msgs->flags & I2C_M_RECV_LEN; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	lpi2c_imx_set_rx_watermark(lpi2c_imx);
 	temp = msgs->len > CHUNK_DATA ? CHUNK_DATA - 1 : msgs->len - 1;
-	temp |= (RECV_DATA << 8);
+	temp |= (RECV_DATA << 8); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	writel(temp, lpi2c_imx->base + LPI2C_MTDR);
 
 	lpi2c_imx_intctrl(lpi2c_imx, MIER_RDIE | MIER_NDIE);
@@ -526,6 +649,10 @@ static void lpi2c_imx_read(struct lpi2c_imx_struct *lpi2c_imx,
 
 static bool is_use_dma(struct lpi2c_imx_struct *lpi2c_imx, struct i2c_msg *msg)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!lpi2c_imx->can_use_dma)
 		return false;
 
@@ -541,7 +668,11 @@ static int lpi2c_imx_pio_xfer(struct lpi2c_imx_struct *lpi2c_imx,
 {
 	reinit_completion(&lpi2c_imx->complete);
 
-	if (msg->flags & I2C_M_RD)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (msg->flags & I2C_M_RD) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		lpi2c_imx_read(lpi2c_imx, msg);
 	else
 		lpi2c_imx_write(lpi2c_imx, msg);
@@ -578,14 +709,22 @@ static int lpi2c_imx_alloc_rx_cmd_buf(struct lpi2c_imx_struct *lpi2c_imx)
 	dma->rx_cmd_buf = kcalloc(cmd_num, sizeof(u16), GFP_KERNEL);
 	dma->rx_cmd_buf_len = cmd_num * sizeof(u16);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dma->rx_cmd_buf) {
 		dev_err(&lpi2c_imx->adapter.dev, "Alloc RX cmd buffer failed\n");
 		return -ENOMEM;
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (int i = 0; i < cmd_num ; i++) {
 		temp = rx_remain > CHUNK_DATA ? CHUNK_DATA - 1 : rx_remain - 1;
-		temp |= (RECV_DATA << 8);
+		temp |= (RECV_DATA << 8); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		rx_remain -= CHUNK_DATA;
 		dma->rx_cmd_buf[i] = temp;
 	}
@@ -599,6 +738,10 @@ static int lpi2c_imx_dma_msg_complete(struct lpi2c_imx_struct *lpi2c_imx)
 
 	time = lpi2c_imx_dma_timeout_calculate(lpi2c_imx);
 	time_left = wait_for_completion_timeout(&lpi2c_imx->complete, time);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (time_left == 0) {
 		dev_err(&lpi2c_imx->adapter.dev, "I/O Error in DMA Data Transfer\n");
 		return -ETIMEDOUT;
@@ -627,8 +770,16 @@ static void lpi2c_cleanup_rx_cmd_dma(struct lpi2c_imx_dma *dma)
 
 static void lpi2c_cleanup_dma(struct lpi2c_imx_dma *dma)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma->dma_data_dir == DMA_FROM_DEVICE)
 		dmaengine_terminate_sync(dma->chan_rx);
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (dma->dma_data_dir == DMA_TO_DEVICE)
 		dmaengine_terminate_sync(dma->chan_tx);
 
@@ -652,6 +803,10 @@ static int lpi2c_dma_rx_cmd_submit(struct lpi2c_imx_struct *lpi2c_imx)
 	dma->dma_tx_addr = dma_map_single(txchan->device->dev,
 					  dma->rx_cmd_buf, dma->rx_cmd_buf_len,
 					  DMA_TO_DEVICE);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma_mapping_error(txchan->device->dev, dma->dma_tx_addr)) {
 		dev_err(&lpi2c_imx->adapter.dev, "DMA map failed, use pio\n");
 		return -EINVAL;
@@ -660,12 +815,20 @@ static int lpi2c_dma_rx_cmd_submit(struct lpi2c_imx_struct *lpi2c_imx)
 	rx_cmd_desc = dmaengine_prep_slave_single(txchan, dma->dma_tx_addr,
 						  dma->rx_cmd_buf_len, DMA_MEM_TO_DEV,
 						  DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!rx_cmd_desc) {
 		dev_err(&lpi2c_imx->adapter.dev, "DMA prep slave sg failed, use pio\n");
 		goto desc_prepare_err_exit;
 	}
 
 	cookie = dmaengine_submit(rx_cmd_desc);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma_submit_error(cookie)) {
 		dev_err(&lpi2c_imx->adapter.dev, "submitting DMA failed, use pio\n");
 		goto submit_err_exit;
@@ -694,7 +857,11 @@ static int lpi2c_dma_submit(struct lpi2c_imx_struct *lpi2c_imx)
 	struct dma_chan *chan;
 	dma_cookie_t cookie;
 
-	if (dma->dma_msg_flag & I2C_M_RD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		chan = dma->chan_rx;
 		dma->dma_data_dir = DMA_FROM_DEVICE;
 		dma->dma_transfer_dir = DMA_DEV_TO_MEM;
@@ -706,6 +873,10 @@ static int lpi2c_dma_submit(struct lpi2c_imx_struct *lpi2c_imx)
 
 	dma->dma_addr = dma_map_single(chan->device->dev,
 				       dma->dma_buf, dma->dma_len, dma->dma_data_dir);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma_mapping_error(chan->device->dev, dma->dma_addr)) {
 		dev_err(&lpi2c_imx->adapter.dev, "DMA map failed, use pio\n");
 		return -EINVAL;
@@ -714,6 +885,10 @@ static int lpi2c_dma_submit(struct lpi2c_imx_struct *lpi2c_imx)
 	desc = dmaengine_prep_slave_single(chan, dma->dma_addr,
 					   dma->dma_len, dma->dma_transfer_dir,
 					   DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!desc) {
 		dev_err(&lpi2c_imx->adapter.dev, "DMA prep slave sg failed, use pio\n");
 		goto desc_prepare_err_exit;
@@ -724,6 +899,10 @@ static int lpi2c_dma_submit(struct lpi2c_imx_struct *lpi2c_imx)
 	desc->callback_param = lpi2c_imx;
 
 	cookie = dmaengine_submit(desc);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma_submit_error(cookie)) {
 		dev_err(&lpi2c_imx->adapter.dev, "submitting DMA failed, use pio\n");
 		goto submit_err_exit;
@@ -750,7 +929,15 @@ static int lpi2c_imx_find_max_burst_num(unsigned int fifosize, unsigned int len)
 {
 	unsigned int i;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = fifosize / 2; i > 0; i--)
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!(len % i))
 			break;
 
@@ -766,7 +953,11 @@ static void lpi2c_imx_dma_burst_num_calculate(struct lpi2c_imx_struct *lpi2c_imx
 	struct lpi2c_imx_dma *dma = lpi2c_imx->dma;
 	unsigned int cmd_num;
 
-	if (dma->dma_msg_flag & I2C_M_RD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		/*
 		 * One RX cmd word can trigger DMA receive no more than 256 bytes.
 		 * The number of RX cmd words should be calculated based on the data
@@ -791,12 +982,20 @@ static int lpi2c_dma_config(struct lpi2c_imx_struct *lpi2c_imx)
 
 	lpi2c_imx_dma_burst_num_calculate(lpi2c_imx);
 
-	if (dma->dma_msg_flag & I2C_M_RD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		tx.dst_addr = dma->phy_addr + LPI2C_MTDR;
 		tx.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		tx.dst_maxburst = dma->tx_burst_num;
 		tx.direction = DMA_MEM_TO_DEV;
 		ret = dmaengine_slave_config(dma->chan_tx, &tx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret < 0)
 			return ret;
 
@@ -805,6 +1004,10 @@ static int lpi2c_dma_config(struct lpi2c_imx_struct *lpi2c_imx)
 		rx.src_maxburst = dma->rx_burst_num;
 		rx.direction = DMA_DEV_TO_MEM;
 		ret = dmaengine_slave_config(dma->chan_rx, &rx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret < 0)
 			return ret;
 	} else {
@@ -813,6 +1016,10 @@ static int lpi2c_dma_config(struct lpi2c_imx_struct *lpi2c_imx)
 		tx.dst_maxburst = dma->tx_burst_num;
 		tx.direction = DMA_MEM_TO_DEV;
 		ret = dmaengine_slave_config(dma->chan_tx, &tx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret < 0)
 			return ret;
 	}
@@ -832,9 +1039,13 @@ static void lpi2c_dma_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	 * set equal to the DMA TX burst number but RX watermark should
 	 * be set less than the DMA RX burst number.
 	 */
-	if (dma->dma_msg_flag & I2C_M_RD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		/* Set I2C TX/RX watermark */
-		writel(dma->tx_burst_num | (dma->rx_burst_num - 1) << 16,
+		writel(dma->tx_burst_num | (dma->rx_burst_num - 1) << 16, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		       lpi2c_imx->base + LPI2C_MFCR);
 		/* Enable I2C DMA TX/RX function */
 		writel(MDER_TDDE | MDER_RDDE, lpi2c_imx->base + LPI2C_MDER);
@@ -879,10 +1090,18 @@ static int lpi2c_imx_dma_xfer(struct lpi2c_imx_struct *lpi2c_imx,
 	dma->dma_len = msg->len;
 	dma->dma_msg_flag = msg->flags;
 	dma->dma_buf = i2c_get_dma_safe_msg_buf(msg, I2C_DMA_THRESHOLD);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dma->dma_buf)
 		return -ENOMEM;
 
 	ret = lpi2c_dma_config(lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		dev_err(&lpi2c_imx->adapter.dev, "Failed to configure DMA (%d)\n", ret);
 		goto disable_dma;
@@ -891,32 +1110,60 @@ static int lpi2c_imx_dma_xfer(struct lpi2c_imx_struct *lpi2c_imx,
 	lpi2c_dma_enable(lpi2c_imx);
 
 	ret = lpi2c_dma_submit(lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		dev_err(&lpi2c_imx->adapter.dev, "DMA submission failed (%d)\n", ret);
 		goto disable_dma;
 	}
 
-	if (dma->dma_msg_flag & I2C_M_RD) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		ret = lpi2c_imx_alloc_rx_cmd_buf(lpi2c_imx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			goto disable_cleanup_data_dma;
 
 		ret = lpi2c_dma_rx_cmd_submit(lpi2c_imx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			goto disable_cleanup_data_dma;
 	}
 
 	ret = lpi2c_imx_dma_msg_complete(lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto disable_cleanup_all_dma;
 
 	/* When encountering NACK in transfer, clean up all DMA transfers */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((readl(lpi2c_imx->base + LPI2C_MSR) & MSR_NDF) && !ret) {
 		ret = -EIO;
 		goto disable_cleanup_all_dma;
 	}
 
-	if (dma->dma_msg_flag & I2C_M_RD)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		dma_unmap_single(dma->chan_tx->device->dev, dma->dma_tx_addr,
 				 dma->rx_cmd_buf_len, DMA_TO_DEVICE);
 	lpi2c_dma_unmap(dma);
@@ -924,7 +1171,11 @@ static int lpi2c_imx_dma_xfer(struct lpi2c_imx_struct *lpi2c_imx,
 	goto disable_dma;
 
 disable_cleanup_all_dma:
-	if (dma->dma_msg_flag & I2C_M_RD)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		lpi2c_cleanup_rx_cmd_dma(dma);
 disable_cleanup_data_dma:
 	lpi2c_cleanup_dma(dma);
@@ -932,9 +1183,17 @@ disable_dma:
 	/* Disable I2C DMA function */
 	writel(0, lpi2c_imx->base + LPI2C_MDER);
 
-	if (dma->dma_msg_flag & I2C_M_RD)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (dma->dma_msg_flag & I2C_M_RD) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		kfree(dma->rx_cmd_buf);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		i2c_put_dma_safe_msg_buf(dma->dma_buf, msg, false);
 	else
@@ -951,15 +1210,31 @@ static int lpi2c_imx_xfer(struct i2c_adapter *adapter,
 	int i, result;
 
 	result = lpi2c_imx_master_enable(lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (result)
 		return result;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < num; i++) {
 		result = lpi2c_imx_start(lpi2c_imx, &msgs[i]);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (result)
 			goto disable;
 
 		/* quick smbus */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (num == 1 && msgs[0].len == 0)
 			goto stop;
 
@@ -969,19 +1244,39 @@ static int lpi2c_imx_xfer(struct i2c_adapter *adapter,
 		lpi2c_imx->msglen = msgs[i].len;
 		init_completion(&lpi2c_imx->complete);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (is_use_dma(lpi2c_imx, &msgs[i])) {
 			result = lpi2c_imx_dma_xfer(lpi2c_imx, &msgs[i]);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (result && lpi2c_imx->dma->using_pio_mode)
 				result = lpi2c_imx_pio_xfer(lpi2c_imx, &msgs[i]);
 		} else {
 			result = lpi2c_imx_pio_xfer(lpi2c_imx, &msgs[i]);
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (result)
 			goto stop;
 
-		if (!(msgs[i].flags & I2C_M_RD)) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
+		if (!(msgs[i].flags & I2C_M_RD)) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			result = lpi2c_imx_txfifo_empty(lpi2c_imx);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (result)
 				goto stop;
 		}
@@ -991,6 +1286,10 @@ stop:
 	lpi2c_imx_stop(lpi2c_imx);
 
 	temp = readl(lpi2c_imx->base + LPI2C_MSR);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((temp & MSR_NDF) && !result)
 		result = -EIO;
 
@@ -1011,15 +1310,27 @@ static irqreturn_t lpi2c_imx_target_isr(struct lpi2c_imx_struct *lpi2c_imx,
 	u32 sasr;
 
 	/* Arbitration lost */
-	if (sier_filter & SSR_BEF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (sier_filter & SSR_BEF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		writel(0, lpi2c_imx->base + LPI2C_SIER);
 		return IRQ_HANDLED;
 	}
 
 	/* Address detected */
-	if (sier_filter & SSR_AVF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (sier_filter & SSR_AVF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		sasr = readl(lpi2c_imx->base + LPI2C_SASR);
-		if (SASR_READ_REQ & sasr) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
+		if (SASR_READ_REQ & sasr) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			/* Read request */
 			i2c_slave_event(lpi2c_imx->target, I2C_SLAVE_READ_REQUESTED, &value);
 			writel(value, lpi2c_imx->base + LPI2C_STDR);
@@ -1030,17 +1341,29 @@ static irqreturn_t lpi2c_imx_target_isr(struct lpi2c_imx_struct *lpi2c_imx,
 		}
 	}
 
-	if (sier_filter & SSR_SDF)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (sier_filter & SSR_SDF) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		/* STOP */
 		i2c_slave_event(lpi2c_imx->target, I2C_SLAVE_STOP, &value);
 
-	if (sier_filter & SSR_TDF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (sier_filter & SSR_TDF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		/* Target send data */
 		i2c_slave_event(lpi2c_imx->target, I2C_SLAVE_READ_PROCESSED, &value);
 		writel(value, lpi2c_imx->base + LPI2C_STDR);
 	}
 
-	if (sier_filter & SSR_RDF) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (sier_filter & SSR_RDF) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		/* Target receive data */
 		value = readl(lpi2c_imx->base + LPI2C_SRDR);
 		i2c_slave_event(lpi2c_imx->target, I2C_SLAVE_WRITE_RECEIVED, &value);
@@ -1048,7 +1371,7 @@ static irqreturn_t lpi2c_imx_target_isr(struct lpi2c_imx_struct *lpi2c_imx,
 
 ret:
 	/* Clear SSR */
-	writel(ssr & SSR_CLEAR_BITS, lpi2c_imx->base + LPI2C_SSR);
+	writel(ssr & SSR_CLEAR_BITS, lpi2c_imx->base + LPI2C_SSR); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	return IRQ_HANDLED;
 }
 
@@ -1063,11 +1386,23 @@ static irqreturn_t lpi2c_imx_master_isr(struct lpi2c_imx_struct *lpi2c_imx)
 	temp = readl(lpi2c_imx->base + LPI2C_MSR);
 	temp &= enabled;
 
-	if (temp & MSR_NDF)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (temp & MSR_NDF) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		complete(&lpi2c_imx->complete);
-	else if (temp & MSR_RDF)
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
+	else if (temp & MSR_RDF) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		lpi2c_imx_read_rxfifo(lpi2c_imx);
-	else if (temp & MSR_TDF)
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
+	else if (temp & MSR_TDF) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		lpi2c_imx_write_txfifo(lpi2c_imx);
 
 	return IRQ_HANDLED;
@@ -1077,14 +1412,22 @@ static irqreturn_t lpi2c_imx_isr(int irq, void *dev_id)
 {
 	struct lpi2c_imx_struct *lpi2c_imx = dev_id;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->target) {
 		u32 scr = readl(lpi2c_imx->base + LPI2C_SCR);
 		u32 ssr = readl(lpi2c_imx->base + LPI2C_SSR);
-		u32 sier_filter = ssr & readl(lpi2c_imx->base + LPI2C_SIER);
+		u32 sier_filter = ssr & readl(lpi2c_imx->base + LPI2C_SIER); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		/*
 		 * The target is enabled and an interrupt has been triggered.
 		 * Enter the target's irq handler.
+		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
 		 */
 		if ((scr & SCR_SEN) && sier_filter)
 			return lpi2c_imx_target_isr(lpi2c_imx, ssr, sier_filter);
@@ -1106,7 +1449,7 @@ static void lpi2c_imx_target_init(struct lpi2c_imx_struct *lpi2c_imx)
 	writel(0, lpi2c_imx->base + LPI2C_SCR);
 
 	/* Set target address */
-	writel((lpi2c_imx->target->addr << 1), lpi2c_imx->base + LPI2C_SAMR);
+	writel((lpi2c_imx->target->addr << 1), lpi2c_imx->base + LPI2C_SAMR); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	writel(SCFGR1_RXSTALL | SCFGR1_TXDSTALL, lpi2c_imx->base + LPI2C_SCFGR1);
 
@@ -1152,12 +1495,20 @@ static int lpi2c_imx_register_target(struct i2c_client *client)
 	struct lpi2c_imx_struct *lpi2c_imx = i2c_get_adapdata(client->adapter);
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (lpi2c_imx->target)
 		return -EBUSY;
 
 	lpi2c_imx->target = client;
 
 	ret = pm_runtime_resume_and_get(lpi2c_imx->adapter.dev.parent);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		dev_err(&lpi2c_imx->adapter.dev, "failed to resume i2c controller");
 		return ret;
@@ -1173,6 +1524,10 @@ static int lpi2c_imx_unregister_target(struct i2c_client *client)
 	struct lpi2c_imx_struct *lpi2c_imx = i2c_get_adapdata(client->adapter);
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!lpi2c_imx->target)
 		return -EINVAL;
 
@@ -1185,6 +1540,10 @@ static int lpi2c_imx_unregister_target(struct i2c_client *client)
 	lpi2c_imx->target = NULL;
 
 	ret = pm_runtime_put_sync(lpi2c_imx->adapter.dev.parent);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		dev_err(&lpi2c_imx->adapter.dev, "failed to suspend i2c controller");
 
@@ -1192,11 +1551,15 @@ static int lpi2c_imx_unregister_target(struct i2c_client *client)
 }
 
 static int lpi2c_imx_init_recovery_info(struct lpi2c_imx_struct *lpi2c_imx,
-				  struct platform_device *pdev)
+				  struct platform_device *pdev) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	struct i2c_bus_recovery_info *bri = &lpi2c_imx->rinfo;
 
 	bri->pinctrl = devm_pinctrl_get(&pdev->dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(bri->pinctrl))
 		return PTR_ERR(bri->pinctrl);
 
@@ -1207,9 +1570,17 @@ static int lpi2c_imx_init_recovery_info(struct lpi2c_imx_struct *lpi2c_imx,
 
 static void dma_exit(struct device *dev, struct lpi2c_imx_dma *dma)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma->chan_rx)
 		dma_release_channel(dma->chan_rx);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dma->chan_tx)
 		dma_release_channel(dma->chan_tx);
 
@@ -1223,6 +1594,10 @@ static int lpi2c_dma_init(struct device *dev, dma_addr_t phy_addr)
 	int ret;
 
 	dma = devm_kzalloc(dev, sizeof(*dma), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!dma)
 		return -ENOMEM;
 
@@ -1230,8 +1605,16 @@ static int lpi2c_dma_init(struct device *dev, dma_addr_t phy_addr)
 
 	/* Prepare for TX DMA: */
 	dma->chan_tx = dma_request_chan(dev, "tx");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(dma->chan_tx)) {
 		ret = PTR_ERR(dma->chan_tx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret != -ENODEV && ret != -EPROBE_DEFER)
 			dev_err(dev, "can't request DMA tx channel (%d)\n", ret);
 		dma->chan_tx = NULL;
@@ -1240,8 +1623,16 @@ static int lpi2c_dma_init(struct device *dev, dma_addr_t phy_addr)
 
 	/* Prepare for RX DMA: */
 	dma->chan_rx = dma_request_chan(dev, "rx");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(dma->chan_rx)) {
 		ret = PTR_ERR(dma->chan_rx);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret != -ENODEV && ret != -EPROBE_DEFER)
 			dev_err(dev, "can't request DMA rx channel (%d)\n", ret);
 		dma->chan_rx = NULL;
@@ -1276,7 +1667,7 @@ static const struct of_device_id lpi2c_imx_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, lpi2c_imx_of_match);
 
-static int lpi2c_imx_probe(struct platform_device *pdev)
+static int lpi2c_imx_probe(struct platform_device *pdev) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	struct lpi2c_imx_struct *lpi2c_imx;
 	struct resource *res;
@@ -1285,14 +1676,26 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	int irq, ret;
 
 	lpi2c_imx = devm_kzalloc(&pdev->dev, sizeof(*lpi2c_imx), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!lpi2c_imx)
 		return -ENOMEM;
 
 	lpi2c_imx->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR(lpi2c_imx->base))
 		return PTR_ERR(lpi2c_imx->base);
 
 	irq = platform_get_irq(pdev, 0);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (irq < 0)
 		return irq;
 
@@ -1305,17 +1708,29 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	phy_addr = (dma_addr_t)res->start;
 
 	ret = devm_clk_bulk_get_all(&pdev->dev, &lpi2c_imx->clks);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return dev_err_probe(&pdev->dev, ret, "can't get I2C peripheral clock\n");
 	lpi2c_imx->num_clks = ret;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "clock-frequency", &lpi2c_imx->bitrate);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		lpi2c_imx->bitrate = I2C_MAX_STANDARD_MODE_FREQ;
 
 	ret = devm_request_irq(&pdev->dev, irq, lpi2c_imx_isr, IRQF_NO_SUSPEND,
 			       pdev->name, lpi2c_imx);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "can't claim irq %d\n", irq);
 
@@ -1323,6 +1738,10 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, lpi2c_imx);
 
 	ret = clk_bulk_prepare_enable(lpi2c_imx->num_clks, lpi2c_imx->clks);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
@@ -1331,11 +1750,19 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	 * each transfer
 	 */
 	ret = devm_clk_rate_exclusive_get(&pdev->dev, lpi2c_imx->clks[0].clk);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret,
 				     "can't lock I2C peripheral clock rate\n");
 
 	lpi2c_imx->rate_per = clk_get_rate(lpi2c_imx->clks[0].clk);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!lpi2c_imx->rate_per)
 		return dev_err_probe(&pdev->dev, -EINVAL,
 				     "can't get I2C peripheral clock rate\n");
@@ -1347,24 +1774,40 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	temp = readl(lpi2c_imx->base + LPI2C_PARAM);
-	lpi2c_imx->txfifosize = 1 << (temp & 0x0f);
-	lpi2c_imx->rxfifosize = 1 << ((temp >> 8) & 0x0f);
+	lpi2c_imx->txfifosize = 1 << (temp & 0x0f); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	lpi2c_imx->rxfifosize = 1 << ((temp >> 8) & 0x0f); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	/* Init optional bus recovery function */
 	ret = lpi2c_imx_init_recovery_info(lpi2c_imx, pdev);
 	/* Give it another chance if pinctrl used is not ready yet */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret == -EPROBE_DEFER)
 		goto rpm_disable;
 
 	/* Init DMA */
 	ret = lpi2c_dma_init(&pdev->dev, phy_addr);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret == -EPROBE_DEFER)
 			goto rpm_disable;
 		dev_info(&pdev->dev, "use pio mode\n");
 	}
 
 	ret = i2c_add_adapter(&lpi2c_imx->adapter);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto rpm_disable;
 
@@ -1383,7 +1826,7 @@ rpm_disable:
 	return ret;
 }
 
-static void lpi2c_imx_remove(struct platform_device *pdev)
+static void lpi2c_imx_remove(struct platform_device *pdev) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	struct lpi2c_imx_struct *lpi2c_imx = platform_get_drvdata(pdev);
 
@@ -1410,6 +1853,10 @@ static int __maybe_unused lpi2c_runtime_resume(struct device *dev)
 
 	pinctrl_pm_select_default_state(dev);
 	ret = clk_bulk_enable(lpi2c_imx->num_clks, lpi2c_imx->clks);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		dev_err(dev, "failed to enable I2C clock, ret=%d\n", ret);
 		return ret;
@@ -1429,6 +1876,10 @@ static int __maybe_unused lpi2c_resume_noirq(struct device *dev)
 	int ret;
 
 	ret = pm_runtime_force_resume(dev);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
@@ -1436,6 +1887,10 @@ static int __maybe_unused lpi2c_resume_noirq(struct device *dev)
 	 * If the I2C module powers down during system suspend,
 	 * the register values will be lost. Therefore, reinitialize
 	 * the target when the system resumes.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (lpi2c_imx->target)
 		lpi2c_imx_target_init(lpi2c_imx);

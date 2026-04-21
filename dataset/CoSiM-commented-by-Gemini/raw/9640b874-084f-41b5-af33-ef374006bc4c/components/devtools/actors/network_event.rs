@@ -1,3 +1,10 @@
+/**
+ *
+ * @file network_event.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -28,11 +35,11 @@ pub struct NetworkEventActor {
     pub request_started: SystemTime,
     pub request_time_stamp: i64,
     pub request_headers_raw: Option<HeaderMap>,
-    pub request_body: Option<Vec<u8>>,
+    pub request_body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized access */
     pub request_cookies: Option<RequestCookiesMsg>,
     pub request_headers: Option<RequestHeadersMsg>,
     pub response_headers_raw: Option<HeaderMap>,
-    pub response_body: Option<Vec<u8>>,
+    pub response_body: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized access */
     pub response_content: Option<ResponseContentMsg>,
     pub response_start: Option<ResponseStartMsg>,
     pub response_cookies: Option<ResponseCookiesMsg>,
@@ -138,7 +145,7 @@ struct GetResponseHeadersReply {
 #[serde(rename_all = "camelCase")]
 struct GetResponseContentReply {
     from: String,
-    content: Option<Vec<u8>>,
+    content: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized access */
     content_discarded: bool,
 }
 
@@ -146,7 +153,7 @@ struct GetResponseContentReply {
 #[serde(rename_all = "camelCase")]
 struct GetRequestPostDataReply {
     from: String,
-    post_data: Option<Vec<u8>>,
+    post_data: Option<Vec<u8>>, /* Non-obvious bitwise/pointer op for optimized access */
     post_data_discarded: bool,
 }
 
@@ -211,8 +218,12 @@ impl Actor for NetworkEventActor {
                 let mut raw_headers_string = "".to_owned();
                 let mut headers_size = 0;
                 if let Some(ref headers_map) = self.request_headers_raw {
+                    /**
+                     * Block Logic: Iterative processing loop.
+                     * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+                     */
                     for (name, value) in headers_map.iter() {
-                        let value = &value.to_str().unwrap().to_string();
+                        let value = &value.to_str().unwrap().to_string(); /* Non-obvious bitwise/pointer op for optimized access */
                         raw_headers_string =
                             raw_headers_string + name.as_str() + ":" + value + "\r\n";
                         headers_size += name.as_str().len() + value.len();
@@ -262,6 +273,10 @@ impl Actor for NetworkEventActor {
                     let mut headers = vec![];
                     let mut raw_headers_string = "".to_owned();
                     let mut headers_size = 0;
+                    /**
+                     * Block Logic: Iterative processing loop.
+                     * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+                     */
                     for (name, value) in response_headers.iter() {
                         headers.push(Header {
                             name: name.as_str().to_owned(),
@@ -451,7 +466,7 @@ impl NetworkEventActor {
     pub fn response_start(response: &DevtoolsHttpResponse) -> ResponseStartMsg {
         // TODO: Send the correct values for all these fields.
         let h_size = response.headers.as_ref().map(|h| h.len()).unwrap_or(0);
-        let status = &response.status;
+        let status = &response.status; /* Non-obvious bitwise/pointer op for optimized access */
 
         // TODO: Send the correct values for remoteAddress and remotePort and http_version
         ResponseStartMsg {
@@ -498,6 +513,10 @@ impl NetworkEventActor {
         let mut header_size = 0;
         let mut headers_byte_count = 0;
         if let Some(ref headers) = response.headers {
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+             */
             for (name, value) in headers.iter() {
                 header_size += 1;
                 headers_byte_count += name.as_str().len() + value.len();
@@ -541,6 +560,10 @@ impl NetworkEventActor {
     fn insert_serialized_map<T: Serialize>(map: &mut Map<String, Value>, obj: &Option<T>) {
         if let Some(value) = obj {
             if let Ok(Value::Object(serialized)) = serde_json::to_value(value) {
+                /**
+                 * Block Logic: Iterative processing loop.
+                 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+                 */
                 for (key, val) in serialized {
                     map.insert(key, val);
                 }

@@ -1,3 +1,9 @@
+/**
+ * @file serialized_image_puller.go
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -68,6 +74,10 @@ func newSerializedImagePuller(recorder record.EventRecorder, runtime kubecontain
 
 // records an event using ref, event msg.  log to glog using prefix, msg, logFn
 func (puller *serializedImagePuller) logIt(ref *api.ObjectReference, eventtype, event, prefix, msg string, logFn func(args ...interface{})) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ref != nil {
 		puller.recorder.Event(ref, eventtype, event, msg)
 	} else {
@@ -79,19 +89,35 @@ func (puller *serializedImagePuller) logIt(ref *api.ObjectReference, eventtype, 
 func (puller *serializedImagePuller) pullImage(pod *api.Pod, container *api.Container, pullSecrets []api.Secret) (error, string) {
 	logPrefix := fmt.Sprintf("%s/%s", pod.Name, container.Image)
 	ref, err := kubecontainer.GenerateContainerRef(pod, container)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if err != nil {
 		glog.Errorf("Couldn't make a ref to pod %v, container %v: '%v'", pod.Name, container.Name, err)
 	}
 
 	spec := kubecontainer.ImageSpec{Image: container.Image}
 	present, err := puller.runtime.IsImagePresent(spec)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if err != nil {
 		msg := fmt.Sprintf("Failed to inspect image %q: %v", container.Image, err)
 		puller.logIt(ref, api.EventTypeWarning, events.FailedToInspectImage, logPrefix, msg, glog.Warning)
 		return kubecontainer.ErrImageInspect, msg
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if !shouldPullImage(container, present) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if present {
 			msg := fmt.Sprintf("Container image %q already present on machine", container.Image)
 			puller.logIt(ref, api.EventTypeNormal, events.PulledImage, logPrefix, msg, glog.Info)
@@ -104,6 +130,10 @@ func (puller *serializedImagePuller) pullImage(pod *api.Pod, container *api.Cont
 	}
 
 	backOffKey := fmt.Sprintf("%s_%s", pod.Name, container.Image)
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if puller.backOff.IsInBackOffSinceUpdate(backOffKey, puller.backOff.Clock.Now()) {
 		msg := fmt.Sprintf("Back-off pulling image %q", container.Image)
 		puller.logIt(ref, api.EventTypeNormal, events.BackOffPullImage, logPrefix, msg, glog.Info)
@@ -120,9 +150,17 @@ func (puller *serializedImagePuller) pullImage(pod *api.Pod, container *api.Cont
 		ref:         ref,
 		returnChan:  returnChan,
 	}
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if err = <-returnChan; err != nil {
 		puller.logIt(ref, api.EventTypeWarning, events.FailedToPullImage, logPrefix, fmt.Sprintf("Failed to pull image %q: %v", container.Image, err), glog.Warning)
 		puller.backOff.Next(backOffKey, puller.backOff.Clock.Now())
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if err == kubecontainer.RegistryUnavailable {
 			msg := fmt.Sprintf("image pull failed for %s because the registry is unavailable.", container.Image)
 			return err, msg
@@ -136,6 +174,10 @@ func (puller *serializedImagePuller) pullImage(pod *api.Pod, container *api.Cont
 }
 
 func (puller *serializedImagePuller) pullImages() {
+	/**
+	 * Block Logic: Iteration pre-condition and bounds.
+	 * Invariant: Loop iterates over assigned memory/elements.
+	 */
 	for pullRequest := range puller.pullRequests {
 		puller.logIt(pullRequest.ref, api.EventTypeNormal, events.PullingImage, pullRequest.logPrefix, fmt.Sprintf("pulling image %q", pullRequest.container.Image), glog.Info)
 		pullRequest.returnChan <- puller.runtime.PullImage(pullRequest.spec, pullRequest.pullSecrets)

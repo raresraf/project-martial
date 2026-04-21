@@ -1,11 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Copyright (c) 2021 Hisilicon Limited.
 
+/**
+ * @file hclge_ptp.c
+ * @brief Precision Time Protocol (PTP) support for the Hisilicon HNS3 Ethernet controller.
+ * 
+ * Functional Intent: Provides the core logic for high-accuracy time synchronization 
+ * between the hardware clock (PHC) and external references. Implements PTP clock 
+ * adjustment, time-of-day management, and hardware-assisted packet timestamping 
+ * for both RX and TX paths to minimize synchronization jitter in distributed systems.
+ * 
+ * Domain: Production Systems, Network Device Drivers, High-Precision Timing.
+ */
+
 #include <linux/skbuff.h>
 #include <linux/string_choices.h>
 #include "hclge_main.h"
 #include "hnae3.h"
 
+/**
+ * hclge_ptp_get_cycle - Retrieves the hardware clock cycle configuration.
+ * 
+ * Logic: Reads the quotient, numerator, and denominator from hardware registers 
+ * that define the granularity of the PTP clock increments.
+ */
 static int hclge_ptp_get_cycle(struct hclge_dev *hdev)
 {
 	struct hclge_ptp *ptp = hdev->ptp;
@@ -15,6 +33,7 @@ static int hclge_ptp_get_cycle(struct hclge_dev *hdev)
 	ptp->cycle.numer = readl(hdev->ptp->io_base + HCLGE_PTP_CYCLE_NUM_REG);
 	ptp->cycle.den = readl(hdev->ptp->io_base + HCLGE_PTP_CYCLE_DEN_REG);
 
+	// Pre-condition: Hardware must provide a non-zero denominator to avoid division errors.
 	if (ptp->cycle.den == 0) {
 		dev_err(&hdev->pdev->dev, "invalid ptp cycle denominator!\n");
 		return -EINVAL;
@@ -23,6 +42,13 @@ static int hclge_ptp_get_cycle(struct hclge_dev *hdev)
 	return 0;
 }
 
+/**
+ * hclge_ptp_adjfine - Adjusts the hardware clock frequency with fine granularity.
+ * 
+ * Algorithm: Proportional frequency adjustment using scaled PPM (parts per million).
+ * Logic: Calculates a new clock increment value (quo + numer/den) based on 
+ * the drift feedback, allowing the PHC to track the master clock's frequency.
+ */
 static int hclge_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 {
 	struct hclge_dev *hdev = hclge_ptp_get_hdev(ptp);
@@ -34,18 +60,21 @@ static int hclge_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	adj_base = (u64)cycle->quo * (u64)cycle->den + (u64)cycle->numer;
 	adj_val = adjust_by_scaled_ppm(adj_base, scaled_ppm);
 
-	/* This clock cycle is defined by three part: quotient, numerator
+	/* Block Logic: Fractional cycle decomposition.
+	 * This clock cycle is defined by three part: quotient, numerator
 	 * and denominator. For example, 2.5ns, the quotient is 2,
 	 * denominator is fixed to ptp->cycle.den, and numerator
 	 * is 0.5 * ptp->cycle.den.
 	 */
 	quo = div_u64_rem(adj_val, cycle->den, &numerator);
 
+	// Synchronization: Disables interrupts to ensure atomic register updates.
 	spin_lock_irqsave(&hdev->ptp->lock, flags);
 	writel(quo & HCLGE_PTP_CYCLE_QUO_MASK,
 	       hdev->ptp->io_base + HCLGE_PTP_CYCLE_QUO_REG);
 	writel(numerator, hdev->ptp->io_base + HCLGE_PTP_CYCLE_NUM_REG);
 	writel(cycle->den, hdev->ptp->io_base + HCLGE_PTP_CYCLE_DEN_REG);
+	// Functional Utility: Activates the hardware adjustment logic.
 	writel(HCLGE_PTP_CYCLE_ADJ_EN,
 	       hdev->ptp->io_base + HCLGE_PTP_CYCLE_CFG_REG);
 	spin_unlock_irqrestore(&hdev->ptp->lock, flags);
@@ -53,6 +82,12 @@ static int hclge_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	return 0;
 }
 
+/**
+ * hclge_ptp_set_tx_info - Prepares a packet for hardware TX timestamping.
+ * 
+ * Logic: Tags the socket buffer for PTP processing and sets the internal 
+ * handling state to prevent concurrent TX timestamp requests.
+ */
 bool hclge_ptp_set_tx_info(struct hnae3_handle *handle, struct sk_buff *skb)
 {
 	struct hclge_vport *vport = hclge_get_vport(handle);
@@ -62,6 +97,7 @@ bool hclge_ptp_set_tx_info(struct hnae3_handle *handle, struct sk_buff *skb)
 	if (!ptp)
 		return false;
 
+	// Optimization: Fast-path rejection if PTP TX is disabled or already in progress.
 	if (!test_bit(HCLGE_PTP_FLAG_TX_EN, &ptp->flags) ||
 	    test_and_set_bit(HCLGE_STATE_PTP_TX_HANDLING, &hdev->state)) {
 		ptp->tx_skipped++;
@@ -75,6 +111,12 @@ bool hclge_ptp_set_tx_info(struct hnae3_handle *handle, struct sk_buff *skb)
 	return true;
 }
 
+/**
+ * hclge_ptp_clean_tx_hwts - Retrieves and reports a hardware TX timestamp.
+ * 
+ * Logic: Reads the egress timestamp from hardware registers and notifies 
+ * the network stack via skb_tstamp_tx.
+ */
 void hclge_ptp_clean_tx_hwts(struct hclge_dev *hdev)
 {
 	struct sk_buff *skb = hdev->ptp->tx_skb;
@@ -82,6 +124,7 @@ void hclge_ptp_clean_tx_hwts(struct hclge_dev *hdev)
 	u32 hi, lo;
 	u64 ns;
 
+	// Block Logic: Hardware timestamp reconstruction.
 	ns = readl(hdev->ptp->io_base + HCLGE_PTP_TX_TS_NSEC_REG) &
 	     HCLGE_PTP_TX_TS_NSEC_MASK;
 	lo = readl(hdev->ptp->io_base + HCLGE_PTP_TX_TS_SEC_L_REG);
@@ -94,15 +137,20 @@ void hclge_ptp_clean_tx_hwts(struct hclge_dev *hdev)
 		hdev->ptp->tx_skb = NULL;
 		hdev->ptp->tx_cleaned++;
 
+		// Conversion: Translates multi-register time format into absolute nanoseconds.
 		ns += (((u64)hi) << 32 | lo) * NSEC_PER_SEC;
 		hwts.hwtstamp = ns_to_ktime(ns);
 		skb_tstamp_tx(skb, &hwts);
 		dev_kfree_skb_any(skb);
 	}
 
+	// Synchronization: Releases the PTP TX handling lock.
 	clear_bit(HCLGE_STATE_PTP_TX_HANDLING, &hdev->state);
 }
 
+/**
+ * hclge_ptp_get_rx_hwts - Attaches hardware timestamps to an incoming packet.
+ */
 void hclge_ptp_get_rx_hwts(struct hnae3_handle *handle, struct sk_buff *skb,
 			   u32 nsec, u32 sec)
 {
@@ -115,7 +163,8 @@ void hclge_ptp_get_rx_hwts(struct hnae3_handle *handle, struct sk_buff *skb,
 	if (!hdev->ptp || !test_bit(HCLGE_PTP_FLAG_RX_EN, &hdev->ptp->flags))
 		return;
 
-	/* Since the BD does not have enough space for the higher 16 bits of
+	/* Block Logic: High-bit seconds retrieval.
+	 * Since the BD does not have enough space for the higher 16 bits of
 	 * second, and this part will not change frequently, so read it
 	 * from register.
 	 */
@@ -129,6 +178,9 @@ void hclge_ptp_get_rx_hwts(struct hnae3_handle *handle, struct sk_buff *skb,
 	hdev->ptp->rx_cnt++;
 }
 
+/**
+ * hclge_ptp_gettimex - Atomically retrieves the current hardware clock time.
+ */
 static int hclge_ptp_gettimex(struct ptp_clock_info *ptp, struct timespec64 *ts,
 			      struct ptp_system_timestamp *sts)
 {
@@ -137,6 +189,7 @@ static int hclge_ptp_gettimex(struct ptp_clock_info *ptp, struct timespec64 *ts,
 	u32 hi, lo;
 	u64 ns;
 
+	// Synchronization: Snapshot PHC time registers to prevent inconsistent mixed reads.
 	spin_lock_irqsave(&hdev->ptp->lock, flags);
 	ns = readl(hdev->ptp->io_base + HCLGE_PTP_CUR_TIME_NSEC_REG);
 	hi = readl(hdev->ptp->io_base + HCLGE_PTP_CUR_TIME_SEC_H_REG);
@@ -149,6 +202,9 @@ static int hclge_ptp_gettimex(struct ptp_clock_info *ptp, struct timespec64 *ts,
 	return 0;
 }
 
+/**
+ * hclge_ptp_settime - Manually sets the hardware clock to a specific time.
+ */
 static int hclge_ptp_settime(struct ptp_clock_info *ptp,
 			     const struct timespec64 *ts)
 {
@@ -161,7 +217,7 @@ static int hclge_ptp_settime(struct ptp_clock_info *ptp,
 	       hdev->ptp->io_base + HCLGE_PTP_TIME_SEC_H_REG);
 	writel(ts->tv_sec & HCLGE_PTP_SEC_L_MASK,
 	       hdev->ptp->io_base + HCLGE_PTP_TIME_SEC_L_REG);
-	/* synchronize the time of phc */
+	/* Functional Utility: Forces a hardware time synchronization pulse. */
 	writel(HCLGE_PTP_TIME_SYNC_EN,
 	       hdev->ptp->io_base + HCLGE_PTP_TIME_SYNC_REG);
 	spin_unlock_irqrestore(&hdev->ptp->lock, flags);
@@ -169,6 +225,12 @@ static int hclge_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
+/**
+ * hclge_ptp_adjtime - Offsets the hardware clock by a specific delta.
+ * 
+ * Logic: Efficiently handles small nanosecond adjustments vs large multi-second shifts 
+ * by choosing between register-based offsets or full clock re-setting.
+ */
 static int hclge_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 {
 	struct hclge_dev *hdev = hclge_ptp_get_hdev(ptp);
@@ -182,6 +244,7 @@ static int hclge_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 		is_neg = true;
 	}
 
+	// Logic: If delta exceeds hardware register limits, fallback to manual get-adjust-set.
 	if (delta > HCLGE_PTP_TIME_NSEC_MASK) {
 		struct timespec64 ts;
 		s64 ns;
@@ -197,6 +260,7 @@ static int hclge_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 
 	spin_lock_irqsave(&hdev->ptp->lock, flags);
 	writel(adj_val, hdev->ptp->io_base + HCLGE_PTP_TIME_NSEC_REG);
+	// Functional Utility: Triggers the hardware nanosecond accumulator adjustment.
 	writel(HCLGE_PTP_TIME_ADJ_EN,
 	       hdev->ptp->io_base + HCLGE_PTP_TIME_ADJ_REG);
 	spin_unlock_irqrestore(&hdev->ptp->lock, flags);
@@ -213,6 +277,9 @@ int hclge_ptp_get_cfg(struct hclge_dev *hdev, struct ifreq *ifr)
 		sizeof(struct hwtstamp_config)) ? -EFAULT : 0;
 }
 
+/**
+ * hclge_ptp_int_en - Enables or disables hardware PTP-related interrupts.
+ */
 static int hclge_ptp_int_en(struct hclge_dev *hdev, bool en)
 {
 	struct hclge_ptp_int_cmd *req;
@@ -252,6 +319,9 @@ int hclge_ptp_cfg_qry(struct hclge_dev *hdev, u32 *cfg)
 	return 0;
 }
 
+/**
+ * hclge_ptp_cfg - Configures the hardware PTP operating mode.
+ */
 static int hclge_ptp_cfg(struct hclge_dev *hdev, u32 cfg)
 {
 	struct hclge_ptp_cfg_cmd *req;
@@ -331,6 +401,9 @@ static int hclge_ptp_set_rx_mode(struct hwtstamp_config *cfg,
 	return 0;
 }
 
+/**
+ * hclge_ptp_set_ts_mode - Reconfigures PHC based on kernel timestamping request.
+ */
 static int hclge_ptp_set_ts_mode(struct hclge_dev *hdev,
 				 struct hwtstamp_config *cfg)
 {
@@ -381,6 +454,9 @@ int hclge_ptp_set_cfg(struct hclge_dev *hdev, struct ifreq *ifr)
 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 }
 
+/**
+ * hclge_ptp_get_ts_info - Reports supported timestamping capabilities to ethtool.
+ */
 int hclge_ptp_get_ts_info(struct hnae3_handle *handle,
 			  struct kernel_ethtool_ts_info *info)
 {
@@ -419,6 +495,12 @@ int hclge_ptp_get_ts_info(struct hnae3_handle *handle,
 	return 0;
 }
 
+/**
+ * hclge_ptp_create_clock - Allocates and registers the Linux PTP hardware clock.
+ * 
+ * Functional Utility: Initializes the ptp_clock_info structure with driver 
+ * callbacks for frequency/time management and binds the PHC to the kernel infrastructure.
+ */
 static int hclge_ptp_create_clock(struct hclge_dev *hdev)
 {
 	struct hclge_ptp *ptp;
@@ -469,12 +551,19 @@ static void hclge_ptp_destroy_clock(struct hclge_dev *hdev)
 	hdev->ptp = NULL;
 }
 
+/**
+ * hclge_ptp_init - Entry point for PTP subsystem initialization during device probe.
+ * 
+ * Logic: Checks hardware capabilities, registers the PHC, enables interrupts, 
+ * and synchronizes the PHC with system real-time to provide a consistent baseline.
+ */
 int hclge_ptp_init(struct hclge_dev *hdev)
 {
 	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(hdev->pdev);
 	struct timespec64 ts;
 	int ret;
 
+	// Pre-condition: Device must report PTP support in its capability flags.
 	if (!test_bit(HNAE3_DEV_SUPPORT_PTP_B, ae_dev->caps))
 		return 0;
 
@@ -493,6 +582,7 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 		goto out;
 
 	set_bit(HCLGE_PTP_FLAG_EN, &hdev->ptp->flags);
+	// Logic: Resets frequency adjustment to baseline (0 PPM).
 	ret = hclge_ptp_adjfine(&hdev->ptp->info, 0);
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
@@ -507,6 +597,7 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 		goto out_clear_int;
 	}
 
+	// Initialization: Sets PHC to current system time to avoid large initial drifts.
 	ktime_get_real_ts64(&ts);
 	ret = hclge_ptp_settime(&hdev->ptp->info, &ts);
 	if (ret) {
@@ -529,6 +620,9 @@ out:
 	return ret;
 }
 
+/**
+ * hclge_ptp_uninit - Teardown logic for the PTP subsystem during device removal.
+ */
 void hclge_ptp_uninit(struct hclge_dev *hdev)
 {
 	struct hclge_ptp *ptp = hdev->ptp;
@@ -545,6 +639,7 @@ void hclge_ptp_uninit(struct hclge_dev *hdev)
 	if (hclge_ptp_set_ts_mode(hdev, &ptp->ts_cfg))
 		dev_err(&hdev->pdev->dev, "failed to disable phc\n");
 
+	// Cleanup: Releases any socket buffer currently pending a TX timestamp.
 	if (ptp->tx_skb) {
 		struct sk_buff *skb = ptp->tx_skb;
 

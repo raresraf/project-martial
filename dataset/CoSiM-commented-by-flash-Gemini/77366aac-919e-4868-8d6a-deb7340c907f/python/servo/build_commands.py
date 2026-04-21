@@ -1,3 +1,14 @@
+/**
+ * @77366aac-919e-4868-8d6a-deb7340c907f/python/servo/build_commands.py
+ * @brief Build system orchestration for the Servo web engine.
+ *
+ * Domain: Production Systems, Build Infrastructure.
+ * Architectural Intent: Implements the high-level `mach build` command suite, 
+ * abstracting complex cross-platform compilation logic for Rust (Cargo), 
+ * managing environment sanitizers, and handling post-build packaging and 
+ * resource distribution (DLLs, icons, etc.) across Windows, Linux, and macOS.
+ */
+
 # Copyright 2013 The Servo Project Developers. See the COPYRIGHT
 # file at the top-level directory of this distribution.
 #
@@ -83,6 +94,13 @@ def get_rustc_llvm_version() -> Optional[List[int]]:
 
 @CommandProvider
 class MachCommands(CommandBase):
+    """
+    @class MachCommands
+    @brief Orchestrator for Servo's build and maintenance operations.
+    Functional Utility: Provides the primary developer interface for building, 
+    cleaning, and configuring the Servo project.
+    """
+
     @Command("build", description="Build Servo", category="build")
     @CommandArgument("--jobs", "-j", default=None, help="Number of jobs to run in parallel")
     @CommandArgument(
@@ -104,6 +122,15 @@ class MachCommands(CommandBase):
         flavor=None,
         **kwargs,
     ):
+        """
+        @brief Primary build workflow.
+        Logic:
+        1. Normalizes Cargo options (release/profile/jobs).
+        2. Configures environment sanitizers if requested.
+        3. Enforces platform-specific constraints (e.g. Windows cross-compilation guards).
+        4. Triggers `cargo build` with specialized timings.
+        5. Handles post-build packaging and dependency bundling (DLLs, icons).
+        """
         opts = params or []
 
         if build_type.is_release():
@@ -203,6 +230,10 @@ class MachCommands(CommandBase):
     @CommandArgument("--verbose", "-v", action="store_true", help="Print verbose output")
     @CommandArgument("params", nargs="...", help="Command-line arguments to be passed through to Cargo")
     def clean(self, manifest_path=None, params=[], verbose=False):
+        """
+        @brief Reclaims disk space by purging build artifacts.
+        Functional Utility: Removes the Cargo `target` directory and the Python virtual environment.
+        """
         self.ensure_bootstrapped()
 
         virtualenv_path = path.join(self.get_top_dir(), ".venv")
@@ -219,6 +250,13 @@ class MachCommands(CommandBase):
     def build_sanitizer_env(
         self, env: Dict, opts: List[str], kwargs, target_triple, sanitizer: SanitizerKind = SanitizerKind.NONE
     ):
+        """
+        @brief Injects memory and thread safety instrumentation into the compiler environment.
+        Logic: 
+        1. Synchronizes Clang and LLVM versions to ensure sanitizer runtime compatibility.
+        2. Configures `RUSTC_BOOTSTRAP` to allow unstable `-Zsanitizer` flags.
+        3. Appends appropriate CFLAGS and RUSTFLAGS for the target sanitizer (ASAN/TSAN).
+        """
         if sanitizer.is_none():
             return
         # do not use crown (clashes with different rust version)
@@ -287,11 +325,9 @@ class MachCommands(CommandBase):
             env["TARGET_CXXFLAGS"] += " -fsanitize=thread"
 
     def notify(self, title: str, message: str):
-        """Generate desktop notification when build is complete and the
-        elapsed build time was longer than 30 seconds.
-
-        If notify-command is set in the [tools] section of the configuration,
-        that is used instead."""
+        """Generate desktop notification when build is complete.
+        Functional Utility: Dispatches transient OS-level notifications to signal build completion status.
+        """
         notify_command = self.config["tools"].get("notify-command")
 
         # notifypy does not know how to send transient notifications, so we use a custom
@@ -338,6 +374,11 @@ class MachCommands(CommandBase):
 
 
 def copy_windows_dlls_to_build_directory(servo_binary: str, target: BuildTarget) -> bool:
+    """
+    @brief Bundles runtime shared libraries for Windows distributions.
+    Functional Utility: Harvests ANGLE (GLES implementation), GStreamer, and MSVC 
+    redistributables into the target binary directory to ensure portable execution.
+    """
     servo_exe_dir = os.path.dirname(servo_binary)
     assert os.path.exists(servo_exe_dir)
 
@@ -369,6 +410,9 @@ def copy_windows_dlls_to_build_directory(servo_binary: str, target: BuildTarget)
 
 
 def package_gstreamer_dlls(servo_exe_dir: str, target: BuildTarget):
+    """
+    @brief Specialized collector for GStreamer media framework components.
+    """
     gst_root = servo.platform.get().gstreamer_root(target)
     if not gst_root:
         print("Could not find GStreamer installation directory.")
@@ -408,6 +452,10 @@ def package_gstreamer_dlls(servo_exe_dir: str, target: BuildTarget):
 
 
 def package_msvc_dlls(servo_exe_dir: str, target: BuildTarget):
+    """
+    @brief Locates and bundles standard Microsoft C++ Runtime libraries.
+    Logic: Scans common Visual Studio redistributable paths for target architecture (x64/x86/ARM64).
+    """
     def copy_file(dll_path: Optional[str]) -> bool:
         if not dll_path or not os.path.exists(dll_path):
             print(f"WARNING: Could not find DLL at {dll_path}", file=sys.stderr)

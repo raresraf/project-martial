@@ -3,6 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file blame.ts
+ * @brief Logic for Git Blame integration within the VS Code text editor.
+ *
+ * This module implements the Git Blame controller, which orchestrates the retrieval, 
+ * caching, and display of commit metadata (blame information) directly within 
+ * the editor's UI via decorations and the status bar.
+ */
+
 import { DecorationOptions, l10n, Position, Range, TextEditor, TextEditorChange, TextEditorDecorationType, TextEditorChangeKind, ThemeColor, Uri, window, workspace, EventEmitter, ConfigurationChangeEvent, StatusBarItem, StatusBarAlignment, Command, MarkdownString, languages, HoverProvider, CancellationToken, Hover, TextDocument } from 'vscode';
 import { Model } from './model';
 import { dispose, fromNow, IDisposable } from './util';
@@ -13,14 +22,24 @@ import { fromGitUri, isGitUri } from './uri';
 import { emojify, ensureEmojis } from './emoji';
 import { getWorkingTreeAndIndexDiffInformation, getWorkingTreeDiffInformation } from './staging';
 
+/**
+ * Checks if a specific line is within any of the provided editor changes.
+ */
 function lineRangesContainLine(changes: readonly TextEditorChange[], lineNumber: number): boolean {
 	return changes.some(c => c.modified.startLineNumber <= lineNumber && lineNumber < c.modified.endLineNumberExclusive);
 }
 
+/**
+ * Calculates the number of lines in a given range.
+ */
 function lineRangeLength(startLineNumber: number, endLineNumberExclusive: number): number {
 	return endLineNumberExclusive - startLineNumber;
 }
 
+/**
+ * Maps a line number from the current (modified) document back to its original position
+ * by accounting for all active diffs (additions, deletions, and modifications).
+ */
 function mapModifiedLineNumberToOriginalLineNumber(lineNumber: number, changes: readonly TextEditorChange[]): number {
 	if (changes.length === 0) {
 		return lineNumber;
@@ -55,15 +74,24 @@ function mapModifiedLineNumberToOriginalLineNumber(lineNumber: number, changes: 
 	return lineNumber;
 }
 
+/**
+ * Generates a range at the very end of a specific line, used for editor decorations.
+ */
 function getEditorDecorationRange(lineNumber: number): Range {
 	const position = new Position(lineNumber, Number.MAX_SAFE_INTEGER);
 	return new Range(position, position);
 }
 
+/**
+ * Type guard to check if an object satisfies the BlameInformation interface.
+ */
 function isBlameInformation(object: any): object is BlameInformation {
 	return Array.isArray((object as BlameInformation).ranges);
 }
 
+/**
+ * Filters for supported resource schemes.
+ */
 function isResourceSchemeSupported(uri: Uri): boolean {
 	return uri.scheme === 'file' || isGitUri(uri);
 }
@@ -99,6 +127,12 @@ interface LineBlameInformation {
 	readonly blameInformation: BlameInformation | string;
 }
 
+/**
+ * @class GitBlameInformationCache
+ * @brief Manages caching of git blame data to minimize expensive git CLI calls.
+ * 
+ * Data is indexed by repository, resource scheme, and commit hash.
+ */
 class GitBlameInformationCache {
 	private readonly _cache = new Map<Repository, RepositoryBlameInformation>();
 
@@ -123,7 +157,7 @@ class GitBlameInformationCache {
 			return this._cache.delete(repository);
 		}
 
-		return this._cache.get(repository)?.blameInformation.delete(scheme) === true;
+		return this._cache.get(repository)?.blameInformation.get(scheme)?.clear() === true || this._cache.get(repository)?.blameInformation.delete(scheme) === true;
 	}
 
 	getBlameInformation(repository: Repository, resource: Uri, commit: string): BlameInformation[] | undefined {
@@ -157,6 +191,13 @@ class GitBlameInformationCache {
 	}
 }
 
+/**
+ * @class GitBlameController
+ * @brief Main controller for Git Blame functionality.
+ * 
+ * Handles configuration changes, repository lifecycle, and orchestrates blame data
+ * retrieval and UI updates.
+ */
 export class GitBlameController {
 	private readonly _subjectMaxLength = 50;
 
@@ -186,6 +227,9 @@ export class GitBlameController {
 		this._onDidChangeConfiguration();
 	}
 
+	/**
+	 * Formats a template string using commit metadata.
+	 */
 	formatBlameInformationMessage(template: string, blameInformation: BlameInformation): string {
 		const subject = blameInformation.subject && blameInformation.subject.length > this._subjectMaxLength
 			? `${blameInformation.subject.substring(0, this._subjectMaxLength)}\u2026`
@@ -206,6 +250,9 @@ export class GitBlameController {
 		});
 	}
 
+	/**
+	 * Generates a detailed Markdown hover for a specific commit.
+	 */
 	async getBlameInformationDetailedHover(documentUri: Uri, blameInformation: BlameInformation): Promise<MarkdownString | undefined> {
 		const repository = this._model.getRepository(documentUri);
 		if (!repository) {
@@ -220,6 +267,9 @@ export class GitBlameController {
 		}
 	}
 
+	/**
+	 * Builds the Markdown hover content including author, date, and commit message.
+	 */
 	getBlameInformationHover(documentUri: Uri, blameInformationOrCommit: BlameInformation | Commit): MarkdownString {
 		const markdownString = new MarkdownString();
 		markdownString.isTrusted = true;
@@ -373,6 +423,12 @@ export class GitBlameController {
 		return blameInformation;
 	}
 
+	/**
+	 * Core logic for calculating and updating blame information for the active editor.
+	 * 
+	 * @param textEditor The editor to process.
+	 * @param showBlameInformationForPositionZero Whether to force show for line 0, char 0.
+	 */
 	@throttle
 	private async _updateTextEditorBlameInformation(textEditor: TextEditor | undefined, showBlameInformationForPositionZero = false): Promise<void> {
 		if (textEditor) {
@@ -515,6 +571,10 @@ export class GitBlameController {
 	}
 }
 
+/**
+ * @class GitBlameEditorDecoration
+ * @brief Manages editor-level decorations for showing blame info inline.
+ */
 class GitBlameEditorDecoration implements HoverProvider {
 	private _decoration: TextEditorDecorationType;
 
@@ -536,6 +596,9 @@ class GitBlameEditorDecoration implements HoverProvider {
 		this._onDidChangeConfiguration();
 	}
 
+	/**
+	 * Provides hover information when the mouse is over the blame decoration.
+	 */
 	async provideHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
 		if (token.isCancellationRequested) {
 			return undefined;
@@ -647,6 +710,10 @@ class GitBlameEditorDecoration implements HoverProvider {
 	}
 }
 
+/**
+ * @class GitBlameStatusBarItem
+ * @brief Displays blame info for the current selection in the status bar.
+ */
 class GitBlameStatusBarItem {
 	private _statusBarItem: StatusBarItem;
 	private _disposables: IDisposable[] = [];

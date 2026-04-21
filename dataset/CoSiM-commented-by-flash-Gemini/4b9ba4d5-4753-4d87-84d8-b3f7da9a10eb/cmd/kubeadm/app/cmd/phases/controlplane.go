@@ -14,6 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file controlplane.go
+ * @brief Command definitions for the kubeadm control-plane bootstrap phase.
+ * 
+ * Functional Intent: Provides the CLI entry points for generating Kubernetes 
+ * static pod manifests. It decomposes the control-plane initialization into 
+ * individual components (API Server, Controller Manager, Scheduler), allowing 
+ * for both monolithic ('all') and granular manifest generation. It manages 
+ * flag binding to master configuration objects and delegates the actual 
+ * serialization logic to specialized phase implementation packages.
+ * 
+ * Domain: Production Systems, Cluster Orchestration (Kubernetes), Kubeadm Phases.
+ */
+
 package phases
 
 import (
@@ -26,7 +40,9 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 )
 
-// NewCmdControlplane return main command for Controlplane phase
+/**
+ * NewCmdControlplane - Entry point for the 'kubeadm alpha phase controlplane' command.
+ */
 func NewCmdControlplane() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "controlplane",
@@ -35,15 +51,22 @@ func NewCmdControlplane() *cobra.Command {
 	}
 
 	manifestPath := kubeadmconstants.GetStaticPodDirectory()
+	// Logic: Dynamically builds subcommands for each control plane component.
 	cmd.AddCommand(getControlPlaneSubCommands(manifestPath)...)
 	return cmd
 }
 
-// getControlPlaneSubCommands returns sub commands for Controlplane phase
+/**
+ * getControlPlaneSubCommands - Factory for component-specific manifest generation commands.
+ * 
+ * Algorithm: Declarative command mapping.
+ * Logic: Iterates through a property list to instantiate Cobra commands with 
+ * appropriate help text and implementation functions from the controlplanephase package.
+ */
 func getControlPlaneSubCommands(outDir string) []*cobra.Command {
 
 	cfg := &kubeadmapiext.MasterConfiguration{}
-	// Default values for the cobra help text
+	// Pre-condition: Initialize configuration with default values for accurate help-text rendering.
 	api.Scheme.Default(cfg)
 
 	var cfgPath string
@@ -77,23 +100,25 @@ func getControlPlaneSubCommands(outDir string) []*cobra.Command {
 	}
 
 	for _, properties := range subCmdProperties {
-		// Creates the UX Command
+		// Logic: Creation of the component-specific UX Command.
 		cmd := &cobra.Command{
 			Use:   properties.use,
 			Short: properties.short,
 			Run:   runCmdPhase(properties.cmdFunc, &outDir, &cfgPath, cfg),
 		}
 
-		// Add flags to the command
+		// Block Logic: Common flag binding.
 		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, `The path where certificates are stored`)
 		cmd.Flags().StringVar(&cfg.KubernetesVersion, "kubernetes-version", cfg.KubernetesVersion, `Choose a specific Kubernetes version for the control plane`)
 
+		// Block Logic: APIServer-specific network configuration flags.
 		if properties.use == "all" || properties.use == "apiserver" {
 			cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address the API Server will advertise it's listening on. 0.0.0.0 means the default network interface's address.")
 			cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "Port for the API Server to bind to")
 			cmd.Flags().StringVar(&cfg.Networking.ServiceSubnet, "service-cidr", cfg.Networking.ServiceSubnet, "Use alternative range of IP address for service VIPs")
 		}
 
+		// Block Logic: ControllerManager-specific networking flags.
 		if properties.use == "all" || properties.use == "controller-manager" {
 			cmd.Flags().StringVar(&cfg.Networking.PodSubnet, "pod-network-cidr", cfg.Networking.PodSubnet, "Specify range of IP addresses for the pod network; if set, the control plane will automatically allocate CIDRs for every node")
 		}

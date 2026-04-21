@@ -1,3 +1,10 @@
+/**
+ *
+ * @file observableDisposable.test.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -169,11 +176,19 @@ suite('ObservableDisposable', () => {
 			);
 
 			const disposableObjects = [];
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+			 */
 			for (let i = 0; i < randomInt(20, 10); i++) {
 				disposableObjects.push(new TestDisposable());
 			}
 
 			// a sanity check for the initial state of the objects
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+			 */
 			for (const disposable of disposableObjects) {
 				assert(
 					disposable.disposed === false,
@@ -184,6 +199,10 @@ suite('ObservableDisposable', () => {
 			object.addDisposable(...disposableObjects);
 
 			// a sanity check after the 'addDisposable' call
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+			 */
 			for (const disposable of disposableObjects) {
 				assert(
 					disposable.disposed === false,
@@ -220,9 +239,17 @@ suite('ObservableDisposable', () => {
 				);
 
 				const allDisposables = [];
+				/**
+				 * Block Logic: Iterative processing loop.
+				 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+				 */
 				for (let i = 0; i < count; i++) {
 					const disposableObject = new TestDisposable();
 					allDisposables.push(disposableObject);
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (parent !== null) {
 						parent.addDisposable(disposableObject);
 					}
@@ -232,6 +259,10 @@ suite('ObservableDisposable', () => {
 					const countMax = count / 2;
 					const countMin = count / 5;
 
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (countMin < 1) {
 						return allDisposables;
 					}
@@ -265,6 +296,10 @@ suite('ObservableDisposable', () => {
 			);
 
 			// a sanity check for the initial state of the objects
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+			 */
 			for (const disposable of allDisposableObjects) {
 				assert(
 					disposable.disposed === false,

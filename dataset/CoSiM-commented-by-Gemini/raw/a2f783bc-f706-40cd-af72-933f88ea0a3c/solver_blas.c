@@ -1,3 +1,9 @@
+/**
+ * @file solver_blas.c
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 
 #include "utils.h"
 #include <cblas.h>
@@ -8,11 +14,19 @@ double* my_solver(int N, double *A, double *B)
 	double *res = malloc(N * N * sizeof(*res));
 	double *tmp = malloc(N * N * sizeof(*tmp));
 
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (res == NULL) {
 		printf("Malloc error\n");
 		exit(-1);
 	}
 
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (tmp == NULL) {
 		printf("Malloc error\n");
 		exit(-1);

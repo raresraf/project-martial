@@ -3,6 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @module GitBlame
+ * Provides a high-performance, reactive Git Blame implementation for VS Code.
+ * This module handles the complexity of mapping editor line numbers to Git commits,
+ * accounting for local modifications (working tree changes) and staging state.
+ * It implements a caching layer to minimize Git CLI overhead and uses VS Code's
+ * decoration API for real-time visual feedback.
+ */
+
 import { DecorationOptions, l10n, Position, Range, TextEditor, TextEditorChange, TextEditorDecorationType, TextEditorChangeKind, ThemeColor, Uri, window, workspace, EventEmitter, ConfigurationChangeEvent, StatusBarItem, StatusBarAlignment, Command, MarkdownString, languages, HoverProvider, CancellationToken, Hover, TextDocument } from 'vscode';
 import { Model } from './model';
 import { dispose, fromNow, IDisposable } from './util';
@@ -13,34 +22,49 @@ import { fromGitUri, isGitUri } from './uri';
 import { emojify, ensureEmojis } from './emoji';
 import { getWorkingTreeAndIndexDiffInformation, getWorkingTreeDiffInformation } from './staging';
 
+/**
+ * Validates if a specific line is within the modified ranges of a set of editor changes.
+ * Used to determine if a line has local modifications that haven't been committed.
+ */
 function lineRangesContainLine(changes: readonly TextEditorChange[], lineNumber: number): boolean {
 	return changes.some(c => c.modified.startLineNumber <= lineNumber && lineNumber < c.modified.endLineNumberExclusive);
 }
 
+/**
+ * Calculates the magnitude of a line range change.
+ */
 function lineRangeLength(startLineNumber: number, endLineNumberExclusive: number): number {
 	return endLineNumberExclusive - startLineNumber;
 }
 
+/**
+ * Maps a line number from the current editor state back to the original line number in the HEAD commit.
+ * This is a critical transformation for accurate blame reporting on unsaved or partially staged files.
+ * 
+ * @param lineNumber The 1-based line number in the current document.
+ * @param changes The set of diff changes between the current document and the base commit.
+ * @returns The corresponding line number in the original document.
+ */
 function mapModifiedLineNumberToOriginalLineNumber(lineNumber: number, changes: readonly TextEditorChange[]): number {
 	if (changes.length === 0) {
 		return lineNumber;
 	}
 
 	for (const change of changes) {
-		// Do not process changes after the line number
+		// Stop processing once we've passed the target line in the modified document.
 		if (lineNumber < change.modified.startLineNumber) {
 			break;
 		}
 
-		// Map line number to the original line number
+		// Revert the effects of additions, deletions, and modifications to find the original source line.
 		if (change.kind === TextEditorChangeKind.Addition) {
-			// Addition
+			// Lines added locally don't exist in the original; we shift the pointer back.
 			lineNumber = lineNumber - lineRangeLength(change.modified.startLineNumber, change.modified.endLineNumberExclusive);
 		} else if (change.kind === TextEditorChangeKind.Deletion) {
-			// Deletion
+			// Lines deleted locally must be accounted for by shifting the pointer forward.
 			lineNumber = lineNumber + lineRangeLength(change.original.startLineNumber, change.original.endLineNumberExclusive);
 		} else if (change.kind === TextEditorChangeKind.Modification) {
-			// Modification
+			// For replacements, we adjust by the net difference in line count.
 			const originalRangeLength = lineRangeLength(change.original.startLineNumber, change.original.endLineNumberExclusive);
 			const modifiedRangeLength = lineRangeLength(change.modified.startLineNumber, change.modified.endLineNumberExclusive);
 
@@ -95,6 +119,11 @@ interface LineBlameInformation {
 	readonly blameInformation: BlameInformation | string;
 }
 
+/**
+ * In-memory cache for Git blame information.
+ * Minimizes expensive Git CLI calls by caching results per repository, resource, and commit.
+ * Automatically invalidates "file" scheme entries when the repository HEAD changes.
+ */
 class GitBlameInformationCache {
 	private readonly _cache = new Map<Repository, RepositoryBlameInformation>();
 
@@ -114,6 +143,11 @@ class GitBlameInformationCache {
 		} satisfies RepositoryBlameInformation);
 	}
 
+	/**
+	 * Deletes blame information from the cache.
+	 * @param repository The repository to clear.
+	 * @param scheme Optional scheme (e.g., 'file') to selectively invalidate.
+	 */
 	deleteBlameInformation(repository: Repository, scheme?: string): boolean {
 		if (scheme === undefined) {
 			return this._cache.delete(repository);
@@ -153,6 +187,10 @@ class GitBlameInformationCache {
 	}
 }
 
+/**
+ * Orchestrates Git blame operations across all visible editors.
+ * Reacts to editor changes, selection movements, and Git status updates.
+ */
 export class GitBlameController {
 	private readonly _subjectMaxLength = 50;
 
@@ -173,6 +211,7 @@ export class GitBlameController {
 		this._model.onDidOpenRepository(this._onDidOpenRepository, this, this._disposables);
 		this._model.onDidCloseRepository(this._onDidCloseRepository, this, this._disposables);
 
+		// Event subscriptions to trigger blame updates on user interaction or system events.
 		window.onDidChangeActiveTextEditor(e => this._updateTextEditorBlameInformation(e), this, this._disposables);
 		window.onDidChangeTextEditorSelection(e => this._updateTextEditorBlameInformation(e.textEditor, true), this, this._disposables);
 		window.onDidChangeTextEditorDiffInformation(e => this._updateTextEditorBlameInformation(e.textEditor), this, this._disposables);
@@ -180,6 +219,9 @@ export class GitBlameController {
 		this._updateTextEditorBlameInformation(window.activeTextEditor);
 	}
 
+	/**
+	 * Formats raw blame data into a user-friendly message using a configurable template.
+	 */
 	formatBlameInformationMessage(template: string, blameInformation: BlameInformation): string {
 		const subject = blameInformation.subject && blameInformation.subject.length > this._subjectMaxLength
 			? `${blameInformation.subject.substring(0, this._subjectMaxLength)}\u2026`
@@ -451,6 +493,11 @@ export class GitBlameController {
 	}
 }
 
+/**
+ * Manages the visual rendering of blame information within the text editor.
+ * Uses 'after' decorations to display commit info at the end of the line.
+ * Also implements HoverProvider to show detailed commit information on hover.
+ */
 class GitBlameEditorDecoration implements HoverProvider {
 	private _decoration: TextEditorDecorationType | undefined;
 	private get decoration(): TextEditorDecorationType {
@@ -476,6 +523,10 @@ class GitBlameEditorDecoration implements HoverProvider {
 		this._onDidChangeConfiguration();
 	}
 
+	/**
+	 * Provides a detailed Markdown hover for the blame decoration.
+	 * Triggered only when the hover position is at the end of the line where the decoration is.
+	 */
 	async provideHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
 		if (token.isCancellationRequested) {
 			return undefined;

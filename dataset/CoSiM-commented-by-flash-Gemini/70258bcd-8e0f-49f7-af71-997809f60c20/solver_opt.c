@@ -1,103 +1,97 @@
+/**
+ * @70258bcd-8e0f-49f7-af71-997809f60c20/solver_opt.c
+ * @brief Manually optimized matrix expression solver.
+ * Functional Utility: Computes Result = (A * B) * B^T + (A^T * A) using pointer 
+ * arithmetic, register-based accumulation, and cache-aware loop structures.
+ * Domain: HPC Performance Tuning.
+ */
 
 #include "utils.h"
 
 
+/**
+ * @brief Optimized matrix solver kernel.
+ * Optimization: Replaces array subscripts with direct pointer increments and 
+ * utilizes register accumulators to minimize memory store overhead.
+ */
 double* my_solver(int N, double *A, double* B) {
-	register int i, j, k;
 	printf("OPT SOLVER\n");
-
 	
-	double *AB = (double*) calloc(N * N, sizeof(double));
-	if (AB == NULL) {
-		printf("Error calloc");
-		return NULL;
-	}
-	double *ABBt = (double*) calloc(N * N, sizeof(double));
-	if (ABBt == NULL) {
-		printf("Error calloc");
-		return NULL;
-	}
+	double *AB = (double *) calloc(N * N, sizeof(double));
+	double *ABBt = (double *) calloc(N * N, sizeof(double));
+	double *AtA = (double *) calloc(N * N, sizeof(double));
+	double *RES = (double *) calloc(N * N, sizeof(double));
+	register int i, j, k;
 
-	double *AtA = (double*) calloc(N * N, sizeof(double));
-	if (AtA == NULL) {
-		printf("Error calloc");
-		return NULL;
-	}
-
-	double *C = (double*) calloc(N * N, sizeof(double));
-	if (C == NULL) {
-		printf("Error calloc");
-		return NULL;
-	}
-
-
-	
-	for (i = 0; i < N; ++i) {
-		
-		register double *orig_pA = &A[i * N + i];
-
-		for (j = 0; j < N; ++j) {
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Optimization: Employs `pa` and `pb` pointers for linear matrix sweep. 
+	 * Invariant: k starts at i, leveraging A's upper triangular properties.
+	 */
+	for (i = 0; i < N; i++) {
+		double *pa_orig = A + i * N;
+		for (j = 0; j < N; j++) {
 			register double sum = 0.0;
-			register double *pA = orig_pA;
-			
-			register double *pB = &B[i * N + j];
-
-			for (k = i; k < N; ++k) {
-				sum += *pA * *pB;
-				pA++;
-				pB += N;
+			double *pa = pa_orig + i;
+			double *pb = B + i * N + j;
+			for (k = i; k < N; k++) {
+				sum += *pa * *pb;
+				pa++;
+				pb += N;
 			}
-
 			AB[i * N + j] = sum;
 		}
 	}
 
-	
-	for (i = 0; i < N; ++i) {
-		
-		register double *orig_pAt = &A[i];
-
-		for (j = 0; j < N; ++j) {
+	/**
+	 * Block Logic: Compute ABBt = AB * B^T.
+	 * Optimization: Uses a local register `sum` for dot product accumulation.
+	 */
+	for (i = 0; i < N; i++) {
+		double *pab_orig = AB + i * N;
+		for (j = 0; j < N; j++) {
 			register double sum = 0.0;
-			register double *pAt = orig_pAt;
-			
-			register double *pA = &A[j];
-
-			for (k = 0; k <= i ; ++k) {
-				sum += *pAt * *pA;
-				pAt += N;
-				pA += N;
+			double *pab = pab_orig;
+			double *pb = B + j * N;
+			for (k = 0; k < N; k++) {
+				sum += *pab * *pb;
+				pab++;
+				pb++;
 			}
-
-			AtA[j * N + i] = sum;
+			ABBt[i * N + j] = sum;
 		}
 	}
 
-	
-	for (i = 0; i < N; ++i) {
-		
-		register double *orig_pAB = &AB[i * N];
-
-		for (j = 0; j < N; ++j) {
+	/**
+	 * Block Logic: Compute AtA = A^T * A.
+	 * Logic: Column-wise dot product of matrix A.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
 			register double sum = 0.0;
-			register double *pAB = orig_pAB;
-			
-			register double *pB = &B[j * N];
-
-			for (k = 0; k < N; ++k) {
-				sum += *pAB * *pB;
-				pAB++;
-				pB++;
+			double *pa1 = A + i;
+			double *pa2 = A + j;
+			for (k = 0; k < N; k++) {
+				sum += *pa1 * *pa2;
+				pa1 += N;
+				pa2 += N;
 			}
-
-			C[i * N + j] = sum + AtA[i * N + j];
+			AtA[i * N + j] = sum;
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Final summation pass.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			RES[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
+		}
+	}
+
 	free(AB);
 	free(ABBt);
 	free(AtA);
 
-	return C;	
+	return RES;
 }

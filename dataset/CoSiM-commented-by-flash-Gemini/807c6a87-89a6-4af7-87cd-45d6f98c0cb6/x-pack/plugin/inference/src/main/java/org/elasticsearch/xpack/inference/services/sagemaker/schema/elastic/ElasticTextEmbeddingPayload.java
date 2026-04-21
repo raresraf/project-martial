@@ -47,15 +47,16 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractReq
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractSimilarity;
 
 /**
- * TextEmbedding needs to differentiate between Bit, Byte, and Float types. Users must specify the
- * {@link org.elasticsearch.index.mapper.vectors.DenseVectorFieldMapper.ElementType} in the Service Settings,
- * and Elastic will use that to parse the request/response. {@link SimilarityMeasure} and Dimensions are also needed, though Dimensions can
- * be guessed and set during the validation call.
- * At the very least, Service Settings must look like:
- * {
- *     "element_type": "bit|byte|float",
- *     "similarity": "cosine|dot_product|l2_norm"
- * }
+ * @file ElasticTextEmbeddingPayload.java
+ * @brief Schema handler for Amazon SageMaker text embedding results with multi-precision support.
+ * 
+ * Functional Intent: Manages the bidirectional mapping between Elasticsearch 
+ * inference results and Amazon SageMaker endpoint responses. It distinguishes 
+ * between Bit (binary), Byte (int8), and Float (fp32) embedding formats, 
+ * using the configured 'element_type' to select the appropriate parser. 
+ * Orchestrates the extraction of similarity metrics and vector dimensions.
+ * 
+ * Domain: Production Systems, Machine Learning Inference, Cloud Integration.
  */
 public class ElasticTextEmbeddingPayload implements ElasticPayload {
     private static final EnumSet<TaskType> SUPPORTED_TASKS = EnumSet.of(TaskType.TEXT_EMBEDDING);
@@ -90,6 +91,13 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         );
     }
 
+    /**
+     * responseBody - Polymorphic parser for inference results.
+     * 
+     * Algorithm: Type-aware JSON unmarshalling.
+     * Logic: Inspects the 'elementType' setting of the model to determine the expected 
+     * precision and selects the corresponding inner class parser to handle the response stream.
+     */
     @Override
     public TextEmbeddingResults<?> responseBody(SageMakerModel model, InvokeEndpointResponse response) throws Exception {
         try (var p = jsonXContent.createParser(XContentParserConfiguration.EMPTY, response.body().asInputStream())) {
@@ -102,21 +110,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads binary format (it says bytes, but the lengths are different)
-     * {
-     *     "text_embedding_bits": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingBinary
+     * @brief Parser for packed binary (bit) embeddings.
      */
     private static class TextEmbeddingBinary {
         private static final ParseField TEXT_EMBEDDING_BITS = new ParseField(TextEmbeddingBitResults.TEXT_EMBEDDING_BITS);
@@ -128,26 +123,14 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         );
 
         static {
+            // Logic: Delegates individual embedding parsing to the Byte parser (bits are often represented as signed bytes).
             PARSER.declareObjectArray(constructorArg(), TextEmbeddingBytes.BYTE_PARSER::apply, TEXT_EMBEDDING_BITS);
         }
     }
 
     /**
-     * Reads byte format from
-     * {
-     *     "text_embedding_bytes": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingBytes
+     * @brief Parser for signed 8-bit integer (byte) embeddings.
      */
     private static class TextEmbeddingBytes {
         private static final ParseField TEXT_EMBEDDING_BYTES = new ParseField("text_embedding_bytes");
@@ -167,6 +150,7 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             );
 
         static {
+            // Block Logic: Bounds-checked byte extraction.
             BYTE_PARSER.declareObjectArray(constructorArg(), (p, c) -> {
                 var byteVal = p.shortValue();
                 if (byteVal < Byte.MIN_VALUE || byteVal > Byte.MAX_VALUE) {
@@ -179,21 +163,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads float format from
-     * {
-     *     "text_embedding": [
-     *         {
-     *             "embedding": [
-     *                 0.1
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 0.2
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingFloat
+     * @brief Parser for standard 32-bit floating point embeddings.
      */
     private static class TextEmbeddingFloat {
         private static final ParseField TEXT_EMBEDDING_FLOAT = new ParseField("text_embedding");
@@ -219,7 +190,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Element Type is required. It is used to disambiguate between binary embeddings and byte embeddings.
+     * @class ApiServiceSettings
+     * @brief Immutable record defining the service-specific configuration for SageMaker embeddings.
      */
     record ApiServiceSettings(
         @Nullable Integer dimensions,
@@ -279,6 +251,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             return new ApiServiceSettings(dimensions, false, similarity, elementType);
         }
 
+        /**
+         * fromMap - Factory for instantiating settings from a raw map (JSON-parsed).
+         */
         static ApiServiceSettings fromMap(Map<String, Object> serviceSettings, ValidationException validationException) {
             var dimensions = extractOptionalPositiveInteger(
                 serviceSettings,
@@ -288,6 +263,7 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             );
             var dimensionsSetByUser = extractOptionalBoolean(serviceSettings, DIMENSIONS_SET_BY_USER_FIELD, validationException);
             var similarity = extractSimilarity(serviceSettings, ModelConfigurations.SERVICE_SETTINGS, validationException);
+            // Pre-condition: 'element_type' must be explicitly provided to disambiguate the response format.
             var elementType = extractRequiredEnum(
                 serviceSettings,
                 ELEMENT_TYPE_FIELD,

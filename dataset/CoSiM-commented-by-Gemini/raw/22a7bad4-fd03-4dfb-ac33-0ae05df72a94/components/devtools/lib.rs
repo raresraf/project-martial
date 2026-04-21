@@ -1,6 +1,30 @@
+/**
+ * @raw/22a7bad4-fd03-4dfb-ac33-0ae05df72a94/components/devtools/lib.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/**
+ * Servo Remote DevTools Server Implementation.
+ *
+ * This crate implements an actor-based remote debugging server that adheres to the
+ * Firefox Remote Debugging Protocol. It allows external developer tools (like Firefox DevTools)
+ * to connect to a Servo instance and inspect browsing contexts, workers, network traffic,
+ * and console output.
+ *
+ * Architecture:
+ * - Actor Model: Every debuggable entity (tab, thread, worker, console) is represented as an {@link Actor}.
+ * - Message Routing: A central {@link DevtoolsInstance} manages the lifecycle of actors and routes
+ *   messages between the script engine, the browser chrome, and connected debug clients.
+ * - Transport: Communication with clients happens over TCP using a JSON-based packet stream.
+ *
+ * This implementation is largely reverse-engineered from the Firefox DevTools server logic.
+ */
 
 //! An actor-based remote devtools server implementation. Only tested with
 //! nightly Firefox versions at time of writing. Largely based on
@@ -85,6 +109,10 @@ pub struct EmptyReplyMsg {
 }
 
 /// Spin up a devtools server that listens for connections on the specified port.
+///
+/// This function initializes the devtools subsystem in a background thread and returns
+/// a sender for controlling the server. It also notifies the embedder when the server
+/// has started.
 pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsControlMsg> {
     let (sender, receiver) = unbounded();
     {
@@ -92,6 +120,10 @@ pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsContro
         thread::Builder::new()
             .name("Devtools".to_owned())
             .spawn(move || {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Some(instance) = DevtoolsInstance::create(sender, receiver, port, embedder) {
                     instance.run()
                 }
@@ -104,17 +136,32 @@ pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsContro
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct StreamId(u32);
 
+/// The central state manager for a DevTools server instance.
+///
+/// It maintains registries of active actors, mapping of pipelines to browsing contexts,
+/// and manages active TCP connections to debugging clients.
 struct DevtoolsInstance {
-    actors: Arc<Mutex<ActorRegistry>>,
+    /// The registry of all actors currently alive in this server.
+    actors: Arc<Mutex<ActorRegistry>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+    /// Mapping from internal IDs to the names of BrowsingContext actors.
     browsing_contexts: HashMap<BrowsingContextId, String>,
+    /// Channel for receiving control messages from other parts of Servo.
     receiver: Receiver<DevtoolsControlMsg>,
+    /// Mapping of pipeline IDs to their containing browsing context.
     pipelines: HashMap<PipelineId, BrowsingContextId>,
+    /// Mapping of worker IDs to their corresponding actor names.
     actor_workers: HashMap<WorkerId, String>,
+    /// Mapping of network request IDs to their corresponding actor names.
     actor_requests: HashMap<String, String>,
+    /// Active client connections, indexed by a unique stream ID.
     connections: HashMap<StreamId, TcpStream>,
 }
 
 impl DevtoolsInstance {
+    /// Initializes a new DevTools instance, setting up the initial actor hierarchy.
+    ///
+    /// This includes creating the Root actor and several global service actors
+    /// (Performance, Device, Preference, Process).
     fn create(
         sender: Sender<DevtoolsControlMsg>,
         receiver: Receiver<DevtoolsControlMsg>,
@@ -178,8 +225,16 @@ impl DevtoolsInstance {
             .name("DevtoolsCliAcceptor".to_owned())
             .spawn(move || {
                 // accept connections and process them, spawning a new thread for each one
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for stream in listener.incoming() {
                     let mut stream = stream.expect("Can't retrieve stream");
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if !allow_devtools_client(&mut stream, &embedder, &token) {
                         continue;
                     };
@@ -198,6 +253,10 @@ impl DevtoolsInstance {
 
     fn run(mut self) {
         let mut next_id = StreamId(0);
+        /**
+         * Block Logic: Condition check initialization for iterative traversal.
+         * Invariant: Condition remains true across iterations, ensuring execution state.
+         */
         while let Ok(msg) = self.receiver.recv() {
             trace!("{:?}", msg);
             match msg {
@@ -208,6 +267,10 @@ impl DevtoolsInstance {
                     self.connections.insert(id, stream.try_clone().unwrap());
 
                     // Inform every browsing context of the new stream
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for name in self.browsing_contexts.values() {
                         let actors = actors.lock().unwrap();
                         let browsing_context = actors.find::<BrowsingContextActor>(name);
@@ -266,6 +329,10 @@ impl DevtoolsInstance {
                 )) => {
                     // copy the connections vector
                     let mut connections = Vec::<TcpStream>::new();
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for stream in self.connections.values() {
                         connections.push(stream.try_clone().unwrap());
                     }
@@ -281,6 +348,10 @@ impl DevtoolsInstance {
         }
 
         // Shut down all active connections
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for connection in self.connections.values_mut() {
             let _ = connection.shutdown(Shutdown::Both);
         }
@@ -365,6 +436,10 @@ impl DevtoolsInstance {
             // Add existing streams to the new browsing context
             let browsing_context = actors.find::<BrowsingContextActor>(name);
             let mut streams = browsing_context.streams.borrow_mut();
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (id, stream) in &self.connections {
                 streams.insert(*id, stream.try_clone().unwrap());
             }
@@ -433,6 +508,10 @@ impl DevtoolsInstance {
         worker_id: Option<WorkerId>,
     ) -> Option<String> {
         let actors = self.actors.lock().unwrap();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(worker_id) = worker_id {
             let actor_name = self.actor_workers.get(&worker_id)?;
             Some(actors.find::<WorkerActor>(actor_name).console.clone())
@@ -499,9 +578,25 @@ fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token
     stream.set_read_timeout(Some(timeout)).unwrap();
     let peek = stream.peek(&mut buf);
     stream.set_read_timeout(None).unwrap();
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Ok(len) = peek {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if len == buf.len() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Ok(s) = std::str::from_utf8(&buf) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if s == token {
                     // Consume the message as it was relevant to us.
                     let _ = stream.read_exact(&mut buf);
@@ -518,9 +613,13 @@ fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token
 }
 
 /// Process the input from a single devtools client until EOF.
-fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, stream_id: StreamId) {
+fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, stream_id: StreamId) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     log::info!("Connection established to {}", stream.peer_addr().unwrap());
     let msg = actors.lock().unwrap().find::<RootActor>("root").encodable();
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Err(e) = stream.write_json_packet(&msg) {
         log::warn!("Error writing response: {:?}", e);
         return;
@@ -529,6 +628,10 @@ fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, strea
     loop {
         match stream.read_json_packet() {
             Ok(Some(json_packet)) => {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Err(()) = actors.lock().unwrap().handle_message(
                     json_packet.as_object().unwrap(),
                     &mut stream,

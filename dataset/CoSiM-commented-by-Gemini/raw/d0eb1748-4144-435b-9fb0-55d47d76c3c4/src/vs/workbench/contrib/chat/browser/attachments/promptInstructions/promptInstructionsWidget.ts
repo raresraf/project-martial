@@ -1,3 +1,10 @@
+/**
+ * @raw/d0eb1748-4144-435b-9fb0-55d47d76c3c4/src/vs/workbench/contrib/chat/browser/attachments/promptInstructions/promptInstructionsWidget.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -123,6 +130,10 @@ export class InstructionsAttachmentWidget extends Disposable {
 		// attachment references (including all the nested child references),
 		// add the issue details in the hover title for the attachment, one
 		// error/warning at a time because there is a limited space available
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (topError) {
 			const { errorSubject: subject } = topError;
 			const isError = (subject === 'root');

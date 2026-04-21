@@ -1,3 +1,10 @@
+/**
+ * @raw/9020c670-79a4-462c-bc71-13e0071c8621/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/rank/textsimilarity/TextSimilarityRankBuilder.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -83,12 +90,20 @@ public class TextSimilarityRankBuilder extends RankBuilder {
         this.inferenceText = in.readString();
         this.field = in.readString();
         this.minScore = in.readOptionalFloat();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().isPatchFrom(TransportVersions.RERANKER_FAILURES_ALLOWED_8_19)
             || in.getTransportVersion().onOrAfter(TransportVersions.RERANKER_FAILURES_ALLOWED)) {
             this.failuresAllowed = in.readBoolean();
         } else {
             this.failuresAllowed = false;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (in.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             this.snippets = in.readOptionalWriteable(RerankSnippetInput::new);
         } else {
@@ -113,10 +128,18 @@ public class TextSimilarityRankBuilder extends RankBuilder {
         out.writeString(inferenceText);
         out.writeString(field);
         out.writeOptionalFloat(minScore);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (out.getTransportVersion().isPatchFrom(TransportVersions.RERANKER_FAILURES_ALLOWED_8_19)
             || out.getTransportVersion().onOrAfter(TransportVersions.RERANKER_FAILURES_ALLOWED)) {
             out.writeBoolean(failuresAllowed);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (out.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             out.writeOptionalWriteable(snippets);
         }
@@ -129,12 +152,24 @@ public class TextSimilarityRankBuilder extends RankBuilder {
         builder.field(INFERENCE_ID_FIELD.getPreferredName(), inferenceId);
         builder.field(INFERENCE_TEXT_FIELD.getPreferredName(), inferenceText);
         builder.field(FIELD_FIELD.getPreferredName(), field);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (minScore != null) {
             builder.field(MIN_SCORE_FIELD.getPreferredName(), minScore);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (failuresAllowed) {
             builder.field(FAILURES_ALLOWED_FIELD.getPreferredName(), true);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (snippets != null) {
             builder.field(SNIPPETS_FIELD.getPreferredName(), snippets);
         }
@@ -147,9 +182,17 @@ public class TextSimilarityRankBuilder extends RankBuilder {
 
     @Override
     public Explanation explainHit(Explanation baseExplanation, RankDoc scoreDoc, List<String> queryNames) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (scoreDoc == null) {
             return baseExplanation;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (false == baseExplanation.isMatch()) {
             return baseExplanation;
         }

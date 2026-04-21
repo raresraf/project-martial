@@ -1,8 +1,22 @@
+/**
+ * @6f75e09e-c2d5-4dd8-97c3-f9f9255da243/sol_device.cl
+ * @brief GPU-accelerated block-based texture compression implementation.
+ * Functional Utility: Implements a parallel compression pipeline (ETC/BC style) 
+ * for 4x4 texel blocks using OpenCL. Employs discrete search for optimal luminance 
+ * modulators and partition-based color quantization.
+ * Domain: HPC Graphics, GPGPU Algorithms.
+ */
 
+/**
+ * Functional Utility: Safe numerical clamping for uchar components.
+ */
 inline uchar my_clamp(uchar val, uchar min, uchar max) {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * Functional Utility: Precision reduction for lossy color bit-depth conversion.
+ */
 inline uchar round_to_5_bits(float val) {
 	return my_clamp(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
@@ -10,6 +24,10 @@ inline uchar round_to_4_bits(float val) {
 	return my_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
+/**
+ * @union Color
+ * @brief Multi-modal pixel representation for aligned memory access in OpenCL.
+ */
 union Color {
 	struct BgraColorType {
 		uchar b;
@@ -22,6 +40,10 @@ union Color {
 };
 
 
+/**
+ * @constant g_codeword_tables
+ * @brief Precomputed modulation constants for sub-block luminance adjustment.
+ */
 __attribute__((aligned(16))) static constant short g_codeword_tables[8][4] = {
 	{-8, -2, 2, 8},
 	{-17, -5, 5, 17},
@@ -35,6 +57,10 @@ __attribute__((aligned(16))) static constant short g_codeword_tables[8][4] = {
 
 static constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
+/**
+ * @constant g_idx_to_num
+ * @brief Coordinate mapping for translating block-local indices to global texture indices.
+ */
 static constant uchar g_idx_to_num[4][8] = {
 	{0, 4, 1, 5, 2, 6, 3, 7},        
 	{8, 12, 9, 13, 10, 14, 11, 15},  
@@ -43,8 +69,9 @@ static constant uchar g_idx_to_num[4][8] = {
 };
 
 
-
-
+/**
+ * @brief Adjusts a base color using a luminance modulator.
+ */
 inline union Color makeColor( union Color* base, short lum) {
 	int b = (int)(base->channels.b) + lum;
 	int g = (int)(base->channels.g) + lum;
@@ -56,6 +83,9 @@ inline union Color makeColor( union Color* base, short lum) {
 	return color;
 }
 
+/**
+ * @brief Computes numerical difference (MSE) between two pixel representations.
+ */
 inline uint getColorError( union Color* u,  union Color* v) {
 	int delta_b = (int)(u->channels.b) - v->channels.b;
 	int delta_g = (int)(u->channels.g) - v->channels.g;
@@ -64,6 +94,9 @@ inline uint getColorError( union Color* u,  union Color* v) {
 
 }
 
+/**
+ * @brief Serializes 444-format colors into the compressed bitstream block.
+ */
 inline void WriteColors444(uchar* block,
 						    union Color* color0,
 						    union Color* color1) {
@@ -73,6 +106,9 @@ inline void WriteColors444(uchar* block,
 	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
 }
 
+/**
+ * @brief Serializes 555-format colors using differential header encoding.
+ */
 inline void WriteColors555(uchar* block,
 						    union Color* color0,
 
@@ -130,6 +166,10 @@ inline void WriteDiff(uchar* block, uchar diff) {
 	block[3] &= ~0x02;
 	block[3] |= (diff) << 1;
 }
+
+/**
+ * Functional Utility: Fast memory copy for OpenCL private buffers.
+ */
 void my_memcpy(void *dest, void *src, uint n)
 {
    char *csrc = (char *)src;
@@ -141,6 +181,9 @@ void my_memcpy(void *dest, void *src, uint n)
 }
 
 
+/**
+ * @brief Extracts a 4x4 texel block from global image memory.
+ */
 inline void ExtractBlock(uchar* dst, uchar* src, int width) {
 	int j;
 	for (j = 0; j < 4; ++j) {
@@ -180,6 +223,9 @@ inline union Color makeColor555(float* bgr) {
 	return bgr555;
 }
 
+/**
+ * @brief Computes centroid color for an image tile.
+ */
 void getAverageColor(union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -196,7 +242,10 @@ void getAverageColor(union Color* src, float* avg_color)
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
 
-	
+/**
+ * @brief Search logic for optimal luminance modulators.
+ * Algorithm: Discrete minimization of Squared Error across modulator codeword space.
+ */
 unsigned long computeLuminance(uchar* block,
 						    union Color* src,
 						    union Color* base,
@@ -208,8 +257,6 @@ unsigned long computeLuminance(uchar* block,
 	uchar best_tbl_idx = 0;
 	uchar best_mod_idx[8][8];  
 
-	
-	
 	uint tbl_idx = 0;
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
@@ -225,8 +272,6 @@ unsigned long computeLuminance(uchar* block,
 		uint tbl_err = 0;
 		uint i;
 		for (i = 0; i < 8; ++i) {
-			
-			
 			
 			uint best_mod_err = threshold;
 			uint mod_idx;
@@ -279,6 +324,9 @@ unsigned long computeLuminance(uchar* block,
 	return best_tbl_err;
 }
 
+/**
+ * Functional Utility: Fast memory initialization for OpenCL work-item memory.
+ */
 void* my_memset(void* pointer, int c, int size) {
     if ( pointer != NULL && size > 0 ) {
         uchar* pChar =  pointer;
@@ -292,8 +340,9 @@ void* my_memset(void* pointer, int c, int size) {
 }
 
 
-
-
+/**
+ * @brief Optimized fast-path for uniform color blocks.
+ */
 uchar tryCompressSolidBlock(uchar* dst,
 						    union Color* src,
 						   unsigned long* error)
@@ -322,11 +371,8 @@ uchar tryCompressSolidBlock(uchar* dst,
 	uchar best_mod_idx = 0;
 	uint best_mod_err = UINT_MAX; 
 	
-	
-	
 	uint tbl_idx;
 	for (tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
-		
 		
 		uint mod_idx;
 
@@ -374,7 +420,9 @@ uchar tryCompressSolidBlock(uchar* dst,
 }
 
 
-
+/**
+ * @brief Decision logic for sub-block partitioning and quantization modes.
+ */
 unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 									union Color* hor_src,
 									unsigned long threshold)
@@ -408,7 +456,7 @@ unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
-			if (component_diff  3) {
+			if (component_diff < -4 || component_diff > 3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
 				sub_block_avg[j] = makeColor444(avg_color_1);
@@ -418,8 +466,6 @@ unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 			}
 		}
 	}
-	
-	
 	
 	
 	uint sub_block_err[4] = {0};
@@ -478,6 +524,12 @@ unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 	return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @kernel compress
+ * @brief OpenCL entry point for parallel image tile compression.
+ * Memory Strategy: Maps work-items to 4x4 pixel image blocks. Uses work-group 
+ * execution to distribute independent tile processing tasks.
+ */
 __kernel void
 compress(__global uchar* matSRC,
 		__global uchar* matDST,
@@ -540,10 +592,6 @@ compress(__global uchar* matSRC,
 #include "compress.hpp"
 
 using namespace std;
-
-
-
-
 
 #define DIE(assertion, call_description)                    \
 do {                                                        \
@@ -652,6 +700,12 @@ static int CL_ERR(int cl_ret)
 
 
 
+/**
+ * @class TextureCompressor
+ * @brief Host-side manager for the texture compression OpenCL lifecycle.
+ * Functional Utility: Discovers GPU hardware, allocates device buffers, and 
+ * orchestrates asynchronous execution of the compression kernel.
+ */
 TextureCompressor::TextureCompressor() {
 
 	cl_platform_id platform;
@@ -736,6 +790,9 @@ static void read_kernel(string file_name, string &str_kernel)
 }
 
 
+/**
+ * @brief Executes the texture compression pipeline on the GPU.
+ */
 unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,

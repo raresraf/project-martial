@@ -1,3 +1,7 @@
+// @raw/fe313be8-c73f-4688-a698-a75a2cb03fbb/pkg/proxy/proxier.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 Google Inc. All rights reserved.
 
@@ -54,6 +58,8 @@ func copyBytes(in, out *net.TCPConn) {
 	glog.Infof("Copying from %v <-> %v <-> %v <-> %v",
 		in.RemoteAddr(), in.LocalAddr(), out.LocalAddr(), out.RemoteAddr())
 	_, err := io.Copy(in, out)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		glog.Errorf("I/O error: %v", err)
 	}
@@ -75,6 +81,8 @@ func proxyConnection(in, out *net.TCPConn) {
 func (proxier *Proxier) StopProxy(service string) error {
 	// TODO: delete from map here?
 	info, found := proxier.getServiceInfo(service)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !found {
 		return fmt.Errorf("unknown service: %s", service)
 	}
@@ -106,18 +114,26 @@ func (proxier *Proxier) setServiceInfo(service string, info *serviceInfo) {
 // It never returns.
 func (proxier *Proxier) AcceptHandler(service string, listener net.Listener) {
 	info, found := proxier.getServiceInfo(service)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !found {
 		glog.Errorf("Failed to find service: %s", service)
 		return
 	}
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for {
 		info.lock.Lock()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !info.active {
 			info.lock.Unlock()
 			break
 		}
 		info.lock.Unlock()
 		inConn, err := listener.Accept()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			glog.Errorf("Accept failed: %v", err)
 			continue
@@ -126,6 +142,8 @@ func (proxier *Proxier) AcceptHandler(service string, listener net.Listener) {
 
 		// Figure out where this request should go.
 		endpoint, err := proxier.loadBalancer.LoadBalance(service, inConn.RemoteAddr())
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			glog.Errorf("Couldn't find an endpoint for %s %v", service, err)
 			inConn.Close()
@@ -136,6 +154,8 @@ func (proxier *Proxier) AcceptHandler(service string, listener net.Listener) {
 		outConn, err := net.DialTimeout("tcp", endpoint, time.Duration(5)*time.Second)
 		// We basically need to take everything from inConn and send to outConn
 		// and anything coming from outConn needs to be sent to inConn.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			glog.Errorf("Dial failed: %v", err)
 			inConn.Close()
@@ -149,6 +169,8 @@ func (proxier *Proxier) AcceptHandler(service string, listener net.Listener) {
 func (proxier *Proxier) addService(service string, port int) (net.Listener, error) {
 	// Make sure we can start listening on the port before saying all's well.
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
@@ -166,14 +188,20 @@ func (proxier *Proxier) addServiceOnUnusedPort(service string) (string, error) {
 	defer unusedPortLock.Unlock()
 	// Make sure we can start listening on the port before saying all's well.
 	l, err := net.Listen("tcp", ":0")
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return "", err
 	}
 	_, port, err := net.SplitHostPort(l.Addr().String())
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return "", err
 	}
 	portNum, err := strconv.Atoi(port)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return "", err
 	}
@@ -198,18 +226,26 @@ func (proxier *Proxier) OnUpdate(services []api.Service) {
 	glog.Infof("Received update notice: %+v", services)
 	serviceNames := util.StringSet{}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, service := range services {
 		serviceNames.Insert(service.ID)
 		info, exists := proxier.getServiceInfo(service.ID)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if exists && info.port == service.Port {
 			continue
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if exists {
 			// Stop the old proxier.
 			proxier.StopProxy(service.ID)
 		}
 		glog.Infof("Adding a new service %s on port %d", service.ID, service.Port)
 		listener, err := proxier.addService(service.ID, service.Port)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			glog.Infof("Failed to start listening for %s on %d", service.ID, service.Port)
 			continue
@@ -223,8 +259,12 @@ func (proxier *Proxier) OnUpdate(services []api.Service) {
 
 	proxier.serviceLock.Lock()
 	defer proxier.serviceLock.Unlock()
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for name, info := range proxier.serviceMap {
 		info.lock.Lock()
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !serviceNames.Has(name) && info.active {
 			glog.Infof("Removing service: %s", name)
 			proxier.stopProxyInternal(info)

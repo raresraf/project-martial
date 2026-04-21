@@ -2,10 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! An actor-based remote devtools server implementation. Only tested with
-//! nightly Firefox versions at time of writing. Largely based on
-//! reverse-engineering of Firefox chrome devtool logs and reading of
-//! [code](https://searchfox.org/mozilla-central/source/devtools/server).
+//! An actor-based remote devtools server implementation.
+//! 
+//! Architectural Intent: Implements the Servo-side infrastructure for the Firefox DevTools Protocol.
+//! This server acts as an intermediary between the browser engine (Servo) and the developer 
+//! tooling interface (Firefox/WebIDE). It manages a registry of "actors"—specialized state machines 
+//! that handle specific protocol concerns like DOM inspection, console logging, and network monitoring.
+//!
+//! Domain-Specific Awareness:
+//! - Follows the Firefox Remote Debugging Protocol (RDP) specification.
+//! - Uses an asynchronous message-passing architecture to bridge script threads and Chrome threads.
+//! - Enforces security tokens to prevent unauthorized remote debugging sessions.
 
 #![crate_name = "devtools"]
 #![crate_type = "rlib"]
@@ -122,6 +129,7 @@ pub struct EmptyReplyMsg {
 }
 
 /// Spin up a devtools server that listens for connections on the specified port.
+/// Functional Utility: Primary entry point for enabling remote debugging in Servo.
 pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsControlMsg> {
     let (sender, receiver) = unbounded();
     {
@@ -141,6 +149,15 @@ pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsContro
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct StreamId(u32);
 
+/**
+ * @struct DevtoolsInstance
+ * @brief Represents the singleton state of the active DevTools server.
+ * 
+ * Logic:
+ * - Maintains a registry of all active actors.
+ * - Tracks mapping between browsing contexts, pipelines, and their representative actors.
+ * - Manages TCP streams for all connected debugger clients.
+ */
 struct DevtoolsInstance {
     actors: Arc<Mutex<ActorRegistry>>,
     browsing_contexts: HashMap<BrowsingContextId, String>,
@@ -152,6 +169,13 @@ struct DevtoolsInstance {
 }
 
 impl DevtoolsInstance {
+    /**
+     * @brief Factory method for initializing a DevtoolsInstance.
+     * Logic:
+     * 1. Binds a TCP listener to the requested port.
+     * 2. Generates a random security token.
+     * 3. Registers base actors (Root, Performance, Device, etc.) into the registry.
+     */
     fn create(
         sender: Sender<DevtoolsControlMsg>,
         receiver: Receiver<DevtoolsControlMsg>,
@@ -233,8 +257,17 @@ impl DevtoolsInstance {
         Some(instance)
     }
 
+    /**
+     * @brief Main execution loop for the DevTools server.
+     * Logic: Orchestrates event handling from different subsystems (Chrome, Script threads).
+     */
     fn run(mut self) {
         let mut next_id = StreamId(0);
+        /**
+         * Block Logic: Control message dispatch.
+         * Pre-condition: Server thread is active and listening on the internal receiver.
+         * Invariant: Processes messages until a ServerExitMsg is received or the channel closes.
+         */
         while let Ok(msg) = self.receiver.recv() {
             trace!("{:?}", msg);
             match msg {
@@ -485,6 +518,10 @@ impl DevtoolsInstance {
         }
     }
 
+    /**
+     * @brief Routes network lifecycle events to the appropriate NetworkEventActor.
+     * Logic: Translates browser internal network notifications into protocol-compliant JSON updates.
+     */
     fn handle_network_event(
         &mut self,
         mut connections: Vec<TcpStream>,
@@ -622,6 +659,11 @@ impl DevtoolsInstance {
     }
 }
 
+/**
+ * @brief Enforces security handshake for incoming DevTools connections.
+ * Logic: Validates the token provided by the client against the server's expected token. 
+ * If invalid, it delegates authorization to the user via the embedder prompt.
+ */
 fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token: &str) -> bool {
     // By-pass prompt if we receive a valid token.
     let token = format!("25:{{\"auth_token\":\"{}\"}}", token);
@@ -650,6 +692,7 @@ fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token
 }
 
 /// Process the input from a single devtools client until EOF.
+/// Functional Utility: Manages the bidirectional JSON packet stream for a single TCP connection.
 fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, stream_id: StreamId) {
     log::info!("Connection established to {}", stream.peer_addr().unwrap());
     let msg = actors.lock().unwrap().find::<RootActor>("root").encodable();

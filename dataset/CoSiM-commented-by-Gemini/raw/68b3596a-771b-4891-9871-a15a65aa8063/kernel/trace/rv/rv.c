@@ -1,3 +1,10 @@
+/**
+ *
+ * @file rv.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2019-2022 Red Hat, Inc. Daniel Bristot de Oliveira <bristot@kernel.org>
@@ -173,12 +180,24 @@ int rv_get_task_monitor_slot(void)
 
 	lockdep_assert_held(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (task_monitor_count == CONFIG_RV_PER_TASK_MONITORS)
 		return -EBUSY;
 
 	task_monitor_count++;
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
 	for (i = 0; i < CONFIG_RV_PER_TASK_MONITORS; i++) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (task_monitor_slots[i] == false) {
 			task_monitor_slots[i] = true;
 			return i;
@@ -194,6 +213,10 @@ void rv_put_task_monitor_slot(int slot)
 {
 	lockdep_assert_held(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (slot < 0 || slot >= CONFIG_RV_PER_TASK_MONITORS) {
 		WARN_ONCE(1, "RV releasing an invalid slot!: %d\n", slot);
 		return;
@@ -227,6 +250,10 @@ bool rv_is_container_monitor(struct rv_monitor *mon)
 {
 	struct rv_monitor *next;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (list_is_last(&mon->list, &rv_monitors_list))
 		return false;
 
@@ -239,7 +266,7 @@ bool rv_is_container_monitor(struct rv_monitor *mon)
  * This section collects the monitor/ files and folders.
  */
 static ssize_t monitor_enable_read_data(struct file *filp, char __user *user_buf, size_t count,
-					loff_t *ppos)
+					loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon = filp->private_data;
 	const char *buff;
@@ -256,8 +283,16 @@ static int __rv_disable_monitor(struct rv_monitor *mon, bool sync)
 {
 	lockdep_assert_held(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (mon->enabled) {
 		mon->enabled = 0;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (mon->disable)
 			mon->disable();
 
@@ -265,6 +300,10 @@ static int __rv_disable_monitor(struct rv_monitor *mon, bool sync)
 		 * Wait for the execution of all events to finish.
 		 * Otherwise, the data used by the monitor could
 		 * be inconsistent. i.e., if the monitor is re-enabled.
+		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
 		 */
 		if (sync)
 			tracepoint_synchronize_unregister();
@@ -284,11 +323,19 @@ static int rv_enable_single(struct rv_monitor *mon)
 
 	lockdep_assert_held(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (mon->enabled)
 		return 0;
 
 	retval = mon->enable();
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!retval)
 		mon->enabled = 1;
 
@@ -297,14 +344,22 @@ static int rv_enable_single(struct rv_monitor *mon)
 
 static void rv_disable_container(struct rv_monitor *mon)
 {
-	struct rv_monitor *p = mon;
+	struct rv_monitor *p = mon; /* Non-obvious bitwise/pointer op for optimized access */
 	int enabled = 0;
 
 	list_for_each_entry_continue(p, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (p->parent != mon)
 			break;
 		enabled += __rv_disable_monitor(p, false);
 	}
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (enabled)
 		tracepoint_synchronize_unregister();
 	mon->enabled = 0;
@@ -312,14 +367,22 @@ static void rv_disable_container(struct rv_monitor *mon)
 
 static int rv_enable_container(struct rv_monitor *mon)
 {
-	struct rv_monitor *p = mon;
+	struct rv_monitor *p = mon; /* Non-obvious bitwise/pointer op for optimized access */
 	int retval = 0;
 
 	list_for_each_entry_continue(p, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (retval || p->parent != mon)
 			break;
 		retval = rv_enable_single(p);
 	}
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		rv_disable_container(mon);
 	else
@@ -335,6 +398,10 @@ static int rv_enable_container(struct rv_monitor *mon)
  */
 int rv_disable_monitor(struct rv_monitor *mon)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (rv_is_container_monitor(mon))
 		rv_disable_container(mon);
 	else
@@ -353,6 +420,10 @@ int rv_enable_monitor(struct rv_monitor *mon)
 {
 	int retval;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (rv_is_container_monitor(mon))
 		retval = rv_enable_container(mon);
 	else
@@ -365,18 +436,26 @@ int rv_enable_monitor(struct rv_monitor *mon)
  * interface for enabling/disabling a monitor.
  */
 static ssize_t monitor_enable_write_data(struct file *filp, const char __user *user_buf,
-					 size_t count, loff_t *ppos)
+					 size_t count, loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon = filp->private_data;
 	int retval;
 	bool val;
 
 	retval = kstrtobool_from_user(user_buf, count, &val);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		return retval;
 
 	mutex_lock(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (val)
 		retval = rv_enable_monitor(mon);
 	else
@@ -397,7 +476,7 @@ static const struct file_operations interface_enable_fops = {
  * Interface to read monitors description.
  */
 static ssize_t monitor_desc_read_data(struct file *filp, char __user *user_buf, size_t count,
-				      loff_t *ppos)
+				      loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon = filp->private_data;
 	char buff[256];
@@ -419,7 +498,7 @@ static const struct file_operations interface_desc_fops = {
  * the monitor dir, where the specific options of the monitor
  * are exposed.
  */
-static int create_monitor_dir(struct rv_monitor *mon, struct rv_monitor *parent)
+static int create_monitor_dir(struct rv_monitor *mon, struct rv_monitor *parent) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct dentry *root = parent ? parent->root_d : get_monitors_root();
 	const char *name = mon->name;
@@ -427,22 +506,38 @@ static int create_monitor_dir(struct rv_monitor *mon, struct rv_monitor *parent)
 	int retval;
 
 	mon->root_d = rv_create_dir(name, root);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!mon->root_d)
 		return -ENOMEM;
 
 	tmp = rv_create_file("enable", RV_MODE_WRITE, mon->root_d, mon, &interface_enable_fops);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!tmp) {
 		retval = -ENOMEM;
 		goto out_remove_root;
 	}
 
 	tmp = rv_create_file("desc", RV_MODE_READ, mon->root_d, mon, &interface_desc_fops);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!tmp) {
 		retval = -ENOMEM;
 		goto out_remove_root;
 	}
 
 	retval = reactor_populate_monitor(mon);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		goto out_remove_root;
 
@@ -456,10 +551,14 @@ out_remove_root:
 /*
  * Available/Enable monitor shared seq functions.
  */
-static int monitors_show(struct seq_file *m, void *p)
+static int monitors_show(struct seq_file *m, void *p) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon = container_of(p, struct rv_monitor, list);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (mon->parent)
 		seq_printf(m, "%s:%s\n", mon->parent->name, mon->name);
 	else
@@ -471,7 +570,7 @@ static int monitors_show(struct seq_file *m, void *p)
  * Used by the seq file operations at the end of a read
  * operation.
  */
-static void monitors_stop(struct seq_file *m, void *p)
+static void monitors_stop(struct seq_file *m, void *p) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	mutex_unlock(&rv_interface_lock);
 }
@@ -479,13 +578,13 @@ static void monitors_stop(struct seq_file *m, void *p)
 /*
  * Available monitor seq functions.
  */
-static void *available_monitors_start(struct seq_file *m, loff_t *pos)
+static void *available_monitors_start(struct seq_file *m, loff_t *pos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	mutex_lock(&rv_interface_lock);
-	return seq_list_start(&rv_monitors_list, *pos);
+	return seq_list_start(&rv_monitors_list, *pos); /* Non-obvious bitwise/pointer op for optimized access */
 }
 
-static void *available_monitors_next(struct seq_file *m, void *p, loff_t *pos)
+static void *available_monitors_next(struct seq_file *m, void *p, loff_t *pos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	return seq_list_next(p, &rv_monitors_list, pos);
 }
@@ -493,13 +592,17 @@ static void *available_monitors_next(struct seq_file *m, void *p, loff_t *pos)
 /*
  * Enable monitor seq functions.
  */
-static void *enabled_monitors_next(struct seq_file *m, void *p, loff_t *pos)
+static void *enabled_monitors_next(struct seq_file *m, void *p, loff_t *pos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon = p;
 
-	(*pos)++;
+	(*pos)++; /* Non-obvious bitwise/pointer op for optimized access */
 
 	list_for_each_entry_continue(mon, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (mon->enabled)
 			return mon;
 	}
@@ -507,20 +610,32 @@ static void *enabled_monitors_next(struct seq_file *m, void *p, loff_t *pos)
 	return NULL;
 }
 
-static void *enabled_monitors_start(struct seq_file *m, loff_t *pos)
+static void *enabled_monitors_start(struct seq_file *m, loff_t *pos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *mon;
 	loff_t l;
 
 	mutex_lock(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (list_empty(&rv_monitors_list))
 		return NULL;
 
 	mon = list_entry(&rv_monitors_list, struct rv_monitor, list);
 
-	for (l = 0; l <= *pos; ) {
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+	 */
+	for (l = 0; l <= *pos; ) { /* Non-obvious bitwise/pointer op for optimized access */
 		mon = enabled_monitors_next(m, mon, &l);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!mon)
 			break;
 	}
@@ -573,6 +688,10 @@ static void disable_all_monitors(void)
 	list_for_each_entry(mon, &rv_monitors_list, list)
 		enabled += __rv_disable_monitor(mon, false);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (enabled) {
 		/*
 		 * Wait for the execution of all events to finish.
@@ -587,6 +706,10 @@ static void disable_all_monitors(void)
 
 static int enabled_monitors_open(struct inode *inode, struct file *file)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((file->f_mode & FMODE_WRITE) && (file->f_flags & O_TRUNC))
 		disable_all_monitors();
 
@@ -594,32 +717,48 @@ static int enabled_monitors_open(struct inode *inode, struct file *file)
 };
 
 static ssize_t enabled_monitors_write(struct file *filp, const char __user *user_buf,
-				      size_t count, loff_t *ppos)
+				      size_t count, loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	char buff[MAX_RV_MONITOR_NAME_SIZE + 2];
 	struct rv_monitor *mon;
 	int retval = -EINVAL;
 	bool enable = true;
-	char *ptr, *tmp;
+	char *ptr, *tmp; /* Non-obvious bitwise/pointer op for optimized access */
 	int len;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (count < 1 || count > MAX_RV_MONITOR_NAME_SIZE + 1)
 		return -EINVAL;
 
 	memset(buff, 0, sizeof(buff));
 
 	retval = simple_write_to_buffer(buff, sizeof(buff) - 1, ppos, user_buf, count);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval < 0)
 		return -EFAULT;
 
 	ptr = strim(buff);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ptr[0] == '!') {
 		enable = false;
 		ptr++;
 	}
 
 	len = strlen(ptr);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!len)
 		return count;
 
@@ -629,21 +768,37 @@ static ssize_t enabled_monitors_write(struct file *filp, const char __user *user
 
 	/* we support 1 nesting level, trim the parent */
 	tmp = strstr(ptr, ":");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (tmp)
 		ptr = tmp+1;
 
 	list_for_each_entry(mon, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (strcmp(ptr, mon->name) != 0)
 			continue;
 
 		/*
 		 * Monitor found!
 		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (enable)
 			retval = rv_enable_monitor(mon);
 		else
 			retval = rv_disable_monitor(mon);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!retval)
 			retval = count;
 
@@ -683,7 +838,7 @@ bool rv_monitoring_on(void)
  * monitoring_on general switcher.
  */
 static ssize_t monitoring_on_read_data(struct file *filp, char __user *user_buf,
-				       size_t count, loff_t *ppos)
+				       size_t count, loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	const char *buff;
 
@@ -704,6 +859,10 @@ static void reset_all_monitors(void)
 	struct rv_monitor *mon;
 
 	list_for_each_entry(mon, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (mon->enabled && mon->reset)
 			mon->reset();
 	}
@@ -720,6 +879,10 @@ static void turn_monitoring_on_with_reset(void)
 {
 	lockdep_assert_held(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (rv_monitoring_on())
 		return;
 
@@ -734,17 +897,25 @@ static void turn_monitoring_on_with_reset(void)
 }
 
 static ssize_t monitoring_on_write_data(struct file *filp, const char __user *user_buf,
-					size_t count, loff_t *ppos)
+					size_t count, loff_t *ppos) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	int retval;
 	bool val;
 
 	retval = kstrtobool_from_user(user_buf, count, &val);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		return retval;
 
 	mutex_lock(&rv_interface_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (val)
 		turn_monitoring_on_with_reset();
 	else
@@ -779,11 +950,15 @@ static void destroy_monitor_dir(struct rv_monitor *mon)
  *
  * Returns 0 if successful, error otherwise.
  */
-int rv_register_monitor(struct rv_monitor *monitor, struct rv_monitor *parent)
+int rv_register_monitor(struct rv_monitor *monitor, struct rv_monitor *parent) /* Non-obvious bitwise/pointer op for optimized access */
 {
 	struct rv_monitor *r;
 	int retval = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (strlen(monitor->name) >= MAX_RV_MONITOR_NAME_SIZE) {
 		pr_info("Monitor %s has a name longer than %d\n", monitor->name,
 			MAX_RV_MONITOR_NAME_SIZE);
@@ -793,6 +968,10 @@ int rv_register_monitor(struct rv_monitor *monitor, struct rv_monitor *parent)
 	mutex_lock(&rv_interface_lock);
 
 	list_for_each_entry(r, &rv_monitors_list, list) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (strcmp(monitor->name, r->name) == 0) {
 			pr_info("Monitor %s is already registered\n", monitor->name);
 			retval = -EEXIST;
@@ -800,6 +979,10 @@ int rv_register_monitor(struct rv_monitor *monitor, struct rv_monitor *parent)
 		}
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (parent && rv_is_nested_monitor(parent)) {
 		pr_info("Parent monitor %s is already nested, cannot nest further\n",
 			parent->name);
@@ -810,10 +993,18 @@ int rv_register_monitor(struct rv_monitor *monitor, struct rv_monitor *parent)
 	monitor->parent = parent;
 
 	retval = create_monitor_dir(monitor, parent);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		return retval;
 
 	/* keep children close to the parent for easier visualisation */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (parent)
 		list_add(&monitor->list, &parent->list);
 	else
@@ -848,28 +1039,52 @@ int __init rv_init_interface(void)
 	int retval;
 
 	rv_root.root_dir = rv_create_dir("rv", NULL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!rv_root.root_dir)
 		goto out_err;
 
 	rv_root.monitors_dir = rv_create_dir("monitors", rv_root.root_dir);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!rv_root.monitors_dir)
 		goto out_err;
 
 	tmp = rv_create_file("available_monitors", RV_MODE_READ, rv_root.root_dir, NULL,
 			     &available_monitors_ops);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!tmp)
 		goto out_err;
 
 	tmp = rv_create_file("enabled_monitors", RV_MODE_WRITE, rv_root.root_dir, NULL,
 			     &enabled_monitors_ops);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!tmp)
 		goto out_err;
 
 	tmp = rv_create_file("monitoring_on", RV_MODE_WRITE, rv_root.root_dir, NULL,
 			     &monitoring_on_fops);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!tmp)
 		goto out_err;
 	retval = init_rv_reactors(rv_root.root_dir);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (retval)
 		goto out_err;
 

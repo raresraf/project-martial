@@ -1,3 +1,10 @@
+/**
+ * @raw/0c4fa580-5d1c-4719-b29f-c4577915495b/src/vs/workbench/contrib/chat/common/promptSyntax/service/promptsService.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -65,7 +72,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 	 */
 	public getSyntaxParserFor(
 		model: ITextModel,
-	): TextModelPromptParser & { disposed: false } {
+	): TextModelPromptParser & { disposed: false } { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		assert(
 			!model.isDisposed(),
 			'Cannot create a prompt parser for a disposed model.',

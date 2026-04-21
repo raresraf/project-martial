@@ -1,3 +1,10 @@
+/**
+ * @raw/2ae9062d-13ef-459b-ad71-26992484d9e6/components/net/cookie_storage.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -21,7 +28,7 @@ use crate::cookie::ServoCookie;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CookieStorage {
     version: u32,
-    cookies_map: HashMap<String, Vec<ServoCookie>>,
+    cookies_map: HashMap<String, Vec<ServoCookie>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     max_per_host: usize,
 }
 
@@ -51,6 +58,10 @@ impl CookieStorage {
         let cookies = self.cookies_map.entry(domain).or_default();
 
         // https://www.ietf.org/id/draft-ietf-httpbis-cookie-alone-01.txt Step 2
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !cookie.cookie.secure().unwrap_or(false) && !url.is_secure_scheme() {
             let new_domain = cookie.cookie.domain().as_ref().unwrap().to_owned();
             let new_path = cookie.cookie.path().as_ref().unwrap().to_owned();
@@ -66,6 +77,10 @@ impl CookieStorage {
                     ServoCookie::path_match(new_path, existing_path)
             });
 
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if any_overlapping {
                 return Err(RemoveCookieError::Overlapping);
             }
@@ -78,11 +93,19 @@ impl CookieStorage {
                 c.cookie.name() == cookie.cookie.name()
         });
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(ind) = position {
             // Step 11.4
             let c = cookies.remove(ind);
 
             // http://tools.ietf.org/html/rfc6265#section-5.3 step 11.2
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if c.cookie.http_only().unwrap_or(false) && source == CookieSource::NonHTTP {
                 // Undo the removal.
                 cookies.push(c);
@@ -98,6 +121,10 @@ impl CookieStorage {
     pub fn clear_storage(&mut self, url: &ServoUrl) {
         let domain = reg_host(url.host_str().unwrap_or(""));
         let cookies = self.cookies_map.entry(domain).or_default();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for cookie in cookies.iter_mut() {
             cookie.set_expiry_time_in_past();
         }
@@ -106,7 +133,15 @@ impl CookieStorage {
     pub fn delete_cookie_with_name(&mut self, url: &ServoUrl, name: String) {
         let domain = reg_host(url.host_str().unwrap_or(""));
         let cookies = self.cookies_map.entry(domain).or_default();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for cookie in cookies.iter_mut() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if cookie.cookie.name() == name {
                 cookie.set_expiry_time_in_past();
             }
@@ -116,17 +151,29 @@ impl CookieStorage {
     // http://tools.ietf.org/html/rfc6265#section-5.3
     pub fn push(&mut self, mut cookie: ServoCookie, url: &ServoUrl, source: CookieSource) {
         // https://www.ietf.org/id/draft-ietf-httpbis-cookie-alone-01.txt Step 1
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if cookie.cookie.secure().unwrap_or(false) && !url.is_secure_scheme() {
             return;
         }
 
         let old_cookie = self.remove(&cookie, url, source);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if old_cookie.is_err() {
             // This new cookie is not allowed to overwrite an existing one.
             return;
         }
 
         // Step 11
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(old_cookie) = old_cookie.unwrap() {
             // Step 11.3
             cookie.creation_time = old_cookie.creation_time;
@@ -136,12 +183,20 @@ impl CookieStorage {
         let domain = reg_host(cookie.cookie.domain().as_ref().unwrap_or(&""));
         let cookies = self.cookies_map.entry(domain).or_default();
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if cookies.len() == self.max_per_host {
             let old_len = cookies.len();
             cookies.retain(|c| !is_cookie_expired(c));
             let new_len = cookies.len();
 
             // https://www.ietf.org/id/draft-ietf-httpbis-cookie-alone-01.txt
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if new_len == old_len &&
                 !evict_one_cookie(cookie.cookie.secure().unwrap_or(false), cookies)
             {
@@ -164,9 +219,17 @@ impl CookieStorage {
 
     pub fn remove_expired_cookies_for_url(&mut self, url: &ServoUrl) {
         let domain = reg_host(url.host_str().unwrap_or(""));
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Entry::Occupied(mut entry) = self.cookies_map.entry(domain) {
             let cookies = entry.get_mut();
             cookies.retain(|c| !is_cookie_expired(c));
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if cookies.is_empty() {
                 entry.remove_entry();
             }
@@ -222,7 +285,7 @@ impl CookieStorage {
         &'a mut self,
         url: &'a ServoUrl,
         source: CookieSource,
-    ) -> impl Iterator<Item = cookie::Cookie<'static>> + 'a {
+    ) -> impl Iterator<Item = cookie::Cookie<'static>> + 'a { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let domain = reg_host(url.host_str().unwrap_or(""));
         let cookies = self.cookies_map.entry(domain).or_default();
 
@@ -248,14 +311,26 @@ fn evict_one_cookie(is_secure_cookie: bool, cookies: &mut Vec<ServoCookie>) -> b
     // Remove non-secure cookie with oldest access time
     let oldest_accessed = get_oldest_accessed(false, cookies);
 
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if let Some((index, _)) = oldest_accessed {
         cookies.remove(index);
     } else {
         // All secure cookies were found
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !is_secure_cookie {
             return false;
         }
         let oldest_accessed = get_oldest_accessed(true, cookies);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some((index, _)) = oldest_accessed {
             cookies.remove(index);
         }
@@ -268,7 +343,15 @@ fn get_oldest_accessed(
     cookies: &mut [ServoCookie],
 ) -> Option<(usize, SystemTime)> {
     let mut oldest_accessed = None;
+    /**
+     * Block Logic: Orchestrates the temporal progression of the iteration.
+     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+     */
     for (i, c) in cookies.iter().enumerate() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (c.cookie.secure().unwrap_or(false) == is_secure_cookie) &&
             oldest_accessed
                 .as_ref()

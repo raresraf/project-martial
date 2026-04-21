@@ -1,3 +1,10 @@
+/**
+ * @raw/f54e0af9-c53f-48a2-b254-ff945c9538a5/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/InferencePlugin.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -271,6 +278,10 @@ public class InferencePlugin extends Plugin
         modelRegistry.set(new ModelRegistry(services.clusterService(), services.client()));
         services.clusterService().addListener(modelRegistry.get());
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (inferenceServiceExtensions == null) {
             inferenceServiceExtensions = new ArrayList<>();
         }
@@ -339,6 +350,10 @@ public class InferencePlugin extends Plugin
         // reference correctly
         var serviceRegistry = new InferenceServiceRegistry(inferenceServices, factoryContext);
         serviceRegistry.init(services.client());
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (var service : serviceRegistry.getServices().values()) {
             service.defaultConfigIds().forEach(modelRegistry.get()::addDefaultIds);
         }
@@ -366,6 +381,10 @@ public class InferencePlugin extends Plugin
         // Only add InferenceServiceNodeLocalRateLimitCalculator (which is a ClusterStateListener) for cluster aware rate limiting,
         // if the rate limiting feature flags are enabled, otherwise provide noop implementation
         InferenceServiceRateLimitCalculator calculator;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (INFERENCE_API_CLUSTER_AWARE_RATE_LIMITING_FEATURE_FLAG) {
             calculator = new InferenceServiceNodeLocalRateLimitCalculator(services.clusterService(), serviceRegistry);
         } else {
@@ -470,7 +489,7 @@ public class InferencePlugin extends Plugin
     }
 
     @Override
-    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settingsToUse) {
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settingsToUse) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         return List.of(inferenceUtilityExecutor(settings));
     }
 
@@ -486,8 +505,8 @@ public class InferencePlugin extends Plugin
     }
 
     @Override
-    public List<Setting<?>> getSettings() {
-        ArrayList<Setting<?>> settings = new ArrayList<>();
+    public List<Setting<?>> getSettings() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+        ArrayList<Setting<?>> settings = new ArrayList<>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         settings.addAll(HttpSettings.getSettingsDefinitions());
         settings.addAll(HttpClientManager.getSettingsDefinitions());
         settings.addAll(ThrottlerManager.getSettingsDefinitions());
@@ -544,7 +563,7 @@ public class InferencePlugin extends Plugin
         return singletonList(shardBulkInferenceActionFilter.get());
     }
 
-    public List<QuerySpec<?>> getQueries() {
+    public List<QuerySpec<?>> getQueries() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         return List.of(new QuerySpec<>(SemanticQueryBuilder.NAME, SemanticQueryBuilder::new, SemanticQueryBuilder::fromXContent));
     }
 
@@ -558,7 +577,7 @@ public class InferencePlugin extends Plugin
     }
 
     @Override
-    public List<RetrieverSpec<?>> getRetrievers() {
+    public List<RetrieverSpec<?>> getRetrievers() { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         return List.of(
             new RetrieverSpec<>(
                 new ParseField(TextSimilarityRankBuilder.NAME),
@@ -577,6 +596,10 @@ public class InferencePlugin extends Plugin
     public void onNodeStarted() {
         var registry = inferenceServiceRegistry.get();
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (registry != null) {
             registry.onNodeStarted();
         }

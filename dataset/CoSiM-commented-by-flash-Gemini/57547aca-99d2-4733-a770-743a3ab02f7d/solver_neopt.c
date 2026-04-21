@@ -1,13 +1,31 @@
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized (naive) reference implementation of the matrix expression solver.
+ *
+ * Computes: Result = (A * B) * B^T + (A^T * A)
+ * where A is an upper triangular matrix.
+ *
+ * Algorithm: Standard triple-nested loop matrix multiplications.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ to store multiple intermediate matrices.
+ *
+ * Domain: HPC, Linear Algebra, Reference Implementation.
+ */
 
 #include "utils.h"
 
-
+/**
+ * my_solver - Naive implementation using standard C nested loops.
+ */
 double* my_solver(int N, double *A, double* B) {
 	int i = 0;
 	int j = 0;
 	int k = 0;
 
-	
+	/**
+	 * Pre-condition: Explicit transposition of input matrices to simplify
+	 * subsequent row-major products.
+	 */
 	double *At = malloc(N * N * sizeof(double));
 	double *Bt = malloc(N * N * sizeof(double));
 
@@ -21,8 +39,11 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Optimization: Exploits A's upper triangularity by starting k from i.
+	 */
 	double *AB = malloc(N * N * sizeof(double));
-	
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = i; k < N; k++) {
@@ -31,10 +52,13 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Compute AtA = A^T * A and ABBt = AB * B^T.
+	 * Logic: Computes two matrix products in a single loop structure for 
+	 * workspace efficiency.
+	 */
 	double *AtA = malloc(N * N * sizeof(double));
 	double *ABBt = malloc(N * N * sizeof(double));
-
 
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
@@ -45,6 +69,9 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Final summation into result matrix.
+	 */
 	double *res = malloc(N * N * sizeof(double));
 
 	for (i = 0; i < N; i++) {

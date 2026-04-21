@@ -1,3 +1,10 @@
+/**
+ * @raw/abfb50ef-5ae3-4279-beef-63ffb53c0e97/components/layout/positioned.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -111,6 +118,10 @@ impl PositioningContext {
         style: &ComputedValues,
         flags: &FragmentFlags,
     ) -> Option<Self> {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if style.establishes_containing_block_for_absolute_descendants(*flags) {
             Some(Self::default())
         } else {
@@ -181,6 +192,10 @@ impl PositioningContext {
         let establishes_containing_block_for_absolutes = base
             .style
             .establishes_containing_block_for_absolute_descendants(base.base_fragment_info.flags);
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !establishes_containing_block_for_absolutes {
             return fragment_layout_fn(self);
         }
@@ -193,6 +208,10 @@ impl PositioningContext {
         new_context.layout_collected_children(layout_context, &mut new_fragment);
         self.append(new_context);
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if base.style.clone_position() == Position::Relative {
             new_fragment.content_rect.origin += relative_adjustement(&base.style, containing_block)
                 .to_physical_vector(containing_block.style.writing_mode)
@@ -213,6 +232,10 @@ impl PositioningContext {
                 .establishes_containing_block_for_absolute_descendants(new_fragment.base.flags)
         );
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if new_fragment
             .style
             .establishes_containing_block_for_all_descendants(new_fragment.base.flags)
@@ -237,6 +260,10 @@ impl PositioningContext {
         layout_context: &LayoutContext,
         new_fragment: &mut BoxFragment,
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.absolutes.is_empty() {
             return;
         }
@@ -249,6 +276,10 @@ impl PositioningContext {
         // Handling this case here, when the PositioningContext is completely ineffectual other than
         // as a temporary container for hoisted boxes, means that callers can execute less conditional
         // code.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !new_fragment
             .style
             .establishes_containing_block_for_absolute_descendants(new_fragment.base.flags)
@@ -282,6 +313,10 @@ impl PositioningContext {
         // collecting in `self.absolutes`. We need to loop here in order to keep either laying them
         // out or putting them into `fixed_position_boxes_to_hoist`. We know there aren't any more
         // when `self.absolutes` is empty.
+        /**
+         * Block Logic: Condition check initialization for iterative traversal.
+         * Invariant: Condition remains true across iterations, ensuring execution state.
+         */
         while !boxes_to_layout.is_empty() {
             HoistedAbsolutelyPositionedBox::layout_many(
                 layout_context,
@@ -314,9 +349,17 @@ impl PositioningContext {
     }
 
     pub(crate) fn append(&mut self, mut other: Self) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if other.absolutes.is_empty() {
             return;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.absolutes.is_empty() {
             self.absolutes = other.absolutes;
         } else {
@@ -334,6 +377,10 @@ impl PositioningContext {
         // `position: absolute` descendants) can result in more `position: fixed` descendants
         // collecting in `self.absolutes`. We need to loop here in order to keep laying them out. We
         // know there aren't any more when `self.absolutes` is empty.
+        /**
+         * Block Logic: Condition check initialization for iterative traversal.
+         * Invariant: Condition remains true across iterations, ensuring execution state.
+         */
         while !self.absolutes.is_empty() {
             HoistedAbsolutelyPositionedBox::layout_many(
                 layout_context,
@@ -393,6 +440,10 @@ impl HoistedAbsolutelyPositionedBox {
         containing_block: &DefiniteContainingBlock,
         containing_block_padding: PhysicalSides<Au>,
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if layout_context.use_rayon {
             let mut new_fragments = Vec::new();
             let mut new_hoisted_boxes = Vec::new();
@@ -511,6 +562,10 @@ impl HoistedAbsolutelyPositionedBox {
             is_table,
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let IndependentFormattingContextContents::Replaced(replaced) = &context.contents {
             // https://drafts.csswg.org/css2/visudet.html#abs-replaced-width
             // https://drafts.csswg.org/css2/visudet.html#abs-replaced-height
@@ -519,6 +574,10 @@ impl HoistedAbsolutelyPositionedBox {
                 block: block_axis_solver.inset_sum(),
             };
             let automatic_size = |alignment: AlignFlags, offsets: &LogicalSides1D<_>| {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if alignment.value() == AlignFlags::STRETCH && !offsets.either_auto() {
                     Size::Stretch
                 } else {
@@ -729,7 +788,7 @@ struct AbsoluteAxisSolver<'a> {
     computed_margin_end: AuOrAuto,
     computed_sizes: Sizes,
     avoid_negative_margin_start: bool,
-    box_offsets: LogicalSides1D<LengthPercentageOrAuto<'a>>,
+    box_offsets: LogicalSides1D<LengthPercentageOrAuto<'a>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     static_position_rect_axis: RectAxis,
     alignment: AlignFlags,
     flip_anchor: bool,
@@ -747,6 +806,10 @@ impl AbsoluteAxisSolver<'_> {
             self.box_offsets.end.non_auto(),
         ) {
             (None, None) => {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if self.flip_anchor {
                     self.containing_size -
                         self.static_position_rect_axis.origin -
@@ -777,6 +840,10 @@ impl AbsoluteAxisSolver<'_> {
     fn solve(&self, get_content_size: Option<impl FnOnce() -> ContentSizes>) -> AxisResult {
         let solve_size = |initial_behavior, stretch_size: Au| -> SizeConstraint {
             let stretch_size = stretch_size.max(Au::zero());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(get_content_size) = get_content_size {
                 SizeConstraint::Definite(self.computed_sizes.resolve(
                     self.axis,
@@ -794,6 +861,10 @@ impl AbsoluteAxisSolver<'_> {
                 )
             }
         };
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.box_offsets.either_auto() {
             let margin_start = self.computed_margin_start.auto_is(Au::zero);
             let margin_end = self.computed_margin_end.auto_is(Au::zero);
@@ -819,6 +890,10 @@ impl AbsoluteAxisSolver<'_> {
                 _ => Size::FitContent,
             };
             let size = solve_size(initial_behavior, stretch_size);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(used_size) = size.to_definite() {
                 free_space -= used_size;
             } else {
@@ -827,6 +902,10 @@ impl AbsoluteAxisSolver<'_> {
             let (margin_start, margin_end) =
                 match (self.computed_margin_start, self.computed_margin_end) {
                     (AuOrAuto::Auto, AuOrAuto::Auto) => {
+                        /**
+                         * Block Logic: Conditional evaluation for divergent control flow.
+                         * Invariant: Taken branch maintains control flow invariants.
+                         */
                         if self.avoid_negative_margin_start && free_space < Au::zero() {
                             (Au::zero(), free_space)
                         } else {
@@ -968,6 +1047,10 @@ impl AbsoluteAxisSolver<'_> {
             AlignFlags::END => alignment_container.origin + free_space,
             _ => unreachable!(),
         };
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if matches!(flags, AlignFlags::SAFE | AlignFlags::UNSAFE) ||
             matches!(
                 self.alignment,

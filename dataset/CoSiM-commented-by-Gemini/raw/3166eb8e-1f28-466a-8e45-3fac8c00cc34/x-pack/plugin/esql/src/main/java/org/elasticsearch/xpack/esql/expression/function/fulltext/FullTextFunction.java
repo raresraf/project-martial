@@ -1,3 +1,10 @@
+/**
+ * @raw/3166eb8e-1f28-466a-8e45-3fac8c00cc34/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/fulltext/FullTextFunction.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -93,6 +100,10 @@ public abstract class FullTextFunction extends Function
 
     @Override
     protected final TypeResolution resolveType() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (childrenResolved() == false) {
             return new TypeResolution("Unresolved children");
         }
@@ -153,6 +164,10 @@ public abstract class FullTextFunction extends Function
 
     @Override
     public boolean equals(Object obj) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (false == super.equals(obj)) {
             return false;
         }
@@ -191,6 +206,10 @@ public abstract class FullTextFunction extends Function
      * @param failures failures found
      */
     private static void checkFullTextQueryFunctions(LogicalPlan plan, Failures failures) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (plan instanceof Filter f) {
             Expression condition = f.condition();
 
@@ -227,6 +246,10 @@ public abstract class FullTextFunction extends Function
     private static void checkFullTextFunctionsInAggs(Aggregate agg, Failures failures) {
         agg.groupings().forEach(exp -> {
             exp.forEachDown(e -> {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (e instanceof FullTextFunction ftf) {
                     failures.add(
                         fail(ftf, "[{}] {} is only supported in WHERE and STATS commands", ftf.functionName(), ftf.functionType())
@@ -257,6 +280,10 @@ public abstract class FullTextFunction extends Function
     ) {
         condition.forEachDown(typeToken, exp -> {
             plan.forEachDown(LogicalPlan.class, lp -> {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (commandCheck.test(lp) == false) {
                     failures.add(
                         fail(
@@ -278,6 +305,10 @@ public abstract class FullTextFunction extends Function
      */
     private static void checkFullTextFunctionsParents(Expression condition, Failures failures) {
         forEachFullTextFunctionParent(condition, (ftf, parent) -> {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if ((parent instanceof FullTextFunction == false)
                 && (parent instanceof BinaryLogic == false)
                 && (parent instanceof Not == false)) {
@@ -301,11 +332,23 @@ public abstract class FullTextFunction extends Function
      * @param action the action to execute for each parent of a FullTextFunction
      */
     private static FullTextFunction forEachFullTextFunctionParent(Expression condition, BiConsumer<FullTextFunction, Expression> action) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (condition instanceof FullTextFunction ftf) {
             return ftf;
         }
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Expression child : condition.children()) {
             FullTextFunction foundMatchingChild = forEachFullTextFunctionParent(child, action);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (foundMatchingChild != null) {
                 action.accept(foundMatchingChild, condition);
                 return foundMatchingChild;
@@ -319,6 +362,10 @@ public abstract class FullTextFunction extends Function
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toEvaluator.shardContexts();
         ShardConfig[] shardConfigs = new ShardConfig[shardContexts.size()];
         int i = 0;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
             shardConfigs[i++] = new ShardConfig(shardContext.toQuery(queryBuilder()), shardContext.searcher());
         }
@@ -330,6 +377,10 @@ public abstract class FullTextFunction extends Function
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toScorer.shardContexts();
         ShardConfig[] shardConfigs = new ShardConfig[shardContexts.size()];
         int i = 0;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
             shardConfigs[i++] = new ShardConfig(shardContext.toQuery(queryBuilder()), shardContext.searcher());
         }
@@ -343,12 +394,20 @@ public abstract class FullTextFunction extends Function
         final String sourceText,
         final Map<String, DataType> allowedOptions
     ) throws InvalidArgumentException {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (EntryExpression entry : options.entryExpressions()) {
             Expression optionExpr = entry.key();
             Expression valueExpr = entry.value();
             TypeResolution resolution = isFoldable(optionExpr, sourceText, paramOrdinal).and(
                 isFoldable(valueExpr, sourceText, paramOrdinal)
             );
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (resolution.unresolved()) {
                 throw new InvalidArgumentException(resolution.message());
             }
@@ -358,6 +417,10 @@ public abstract class FullTextFunction extends Function
             String optionValue = valueExprLiteral instanceof BytesRef br ? br.utf8ToString() : valueExprLiteral.toString();
             // validate the optionExpr is supported
             DataType dataType = allowedOptions.get(optionName);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (dataType == null) {
                 throw new InvalidArgumentException(
                     format(null, "Invalid option [{}] in [{}], expected one of {}", optionName, sourceText, allowedOptions.keySet())
@@ -372,13 +435,25 @@ public abstract class FullTextFunction extends Function
     }
 
     protected TypeResolution resolveOptions(Expression options, TypeResolutions.ParamOrdinal paramOrdinal) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (options != null) {
             TypeResolution resolution = isNotNull(options, sourceText(), paramOrdinal);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (resolution.unresolved()) {
                 return resolution;
             }
             // MapExpression does not have a DataType associated with it
             resolution = isMapExpression(options, sourceText(), paramOrdinal);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (resolution.unresolved()) {
                 return resolution;
             }
@@ -398,6 +473,10 @@ public abstract class FullTextFunction extends Function
 
     public static String getNameFromFieldAttribute(FieldAttribute fieldAttribute) {
         String fieldName = fieldAttribute.name();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (fieldAttribute.field() instanceof MultiTypeEsField multiTypeEsField) {
             // If we have multiple field types, we allow the query to be done, but getting the underlying field name
             fieldName = multiTypeEsField.getName();
@@ -408,6 +487,10 @@ public abstract class FullTextFunction extends Function
     public static FieldAttribute fieldAsFieldAttribute(Expression field) {
         Expression fieldExpression = field;
         // Field may be converted to other data type (field_name :: data_type), so we need to check the original field
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (fieldExpression instanceof AbstractConvertFunction convertFunction) {
             fieldExpression = convertFunction.field();
         }

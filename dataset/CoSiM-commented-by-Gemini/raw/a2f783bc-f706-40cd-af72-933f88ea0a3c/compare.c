@@ -1,3 +1,9 @@
+/**
+ * @file compare.c
+ * @brief Source code module.
+ * Intent: Maximize functional utility and performance.
+ * Domain-Awareness: Manages execution flow, memory hierarchies, and concurrency. Inferred roles for components based on contextual ambiguity.
+ */
 
 
 #include <stdlib.h>
@@ -20,9 +26,13 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	fd1 = open(file_path1, O_RDONLY, (mode_t)0600);
 	fd2 = open(file_path2, O_RDONLY, (mode_t)0600);
 
-	fstat(fd1, &fileInfo1);
-	fstat(fd2, &fileInfo2);
+	fstat(fd1, &fileInfo1); /* Non-obvious bitwise/pointer op for optimized memory access */
+	fstat(fd2, &fileInfo2); /* Non-obvious bitwise/pointer op for optimized memory access */
 
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if(fileInfo1.st_size != fileInfo2.st_size) {
 		printf("Files length differ\n");
 		close(fd1);
@@ -31,6 +41,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	}
 
 	mat1 = (double*) mmap(0, fileInfo1.st_size, PROT_READ, MAP_SHARED, fd1, 0);
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (mat1 == MAP_FAILED)
 	{
 		close(fd1);
@@ -40,6 +54,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	}
 
 	mat2 = (double*) mmap(0, fileInfo2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if (mat2 == MAP_FAILED)
 	{
 		munmap(mat1, fileInfo1.st_size);
@@ -51,9 +69,21 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/**
+	 * Block Logic: Iterative loop over elements or bounded range.
+	 * Invariant: Loop state and bounds are preserved and advance monotonically.
+	 */
 	for (i = 0; i < N; i++ ) {
+		/**
+		 * Block Logic: Iterative loop over elements or bounded range.
+		 * Invariant: Loop state and bounds are preserved and advance monotonically.
+		 */
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 
+			/**
+			 * Block Logic: Conditional branch evaluation.
+			 * Invariant: Selected branch executed while avoiding invalid states.
+			 */
 			if (ret != 0) {
 				printf("Matrixes differ on index [%d, %d]. Expected %.8lf got %.8lf\n",
 						i, j, mat1[i * N + j], mat2[i * N + j]);
@@ -77,12 +107,16 @@ int main(int argc, const char **argv)
 	double precision;
 	int ret = 0;
 
+	/**
+	 * Block Logic: Conditional branch evaluation.
+	 * Invariant: Selected branch executed while avoiding invalid states.
+	 */
 	if(argc < 4) {
 		printf("Usage: %s mat1 mat2 tolerance\n",argv[0]);
 		exit(-1);
 	}
 
-	sscanf(argv[3], "%lf", &precision);
+	sscanf(argv[3], "%lf", &precision); /* Non-obvious bitwise/pointer op for optimized memory access */
 
 	ret = cmp_files(argv[1],argv[2],precision);
 	

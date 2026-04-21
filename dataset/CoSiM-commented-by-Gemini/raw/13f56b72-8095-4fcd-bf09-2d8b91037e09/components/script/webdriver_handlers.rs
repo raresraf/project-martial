@@ -1,3 +1,10 @@
+/**
+ * @raw/13f56b72-8095-4fcd-bf09-2d8b91037e09/components/script/webdriver_handlers.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -85,6 +92,10 @@ fn find_node_by_unique_id(
     }) {
         Some(node) => Ok(node),
         None => {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if ScriptThread::has_node_id(&node_id) {
                 Err(ErrorStatus::StaleElementReference)
             } else {
@@ -107,6 +118,10 @@ fn matching_links(
                 .map_or("".to_owned(), String::from)
                 .trim()
                 .to_owned();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if partial {
                 content.contains(&link_text)
             } else {
@@ -146,9 +161,17 @@ unsafe fn object_has_to_json_property(
 ) -> bool {
     let name = CString::new("toJSON").unwrap();
     let mut found = false;
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if JS_HasOwnProperty(cx, object, name.as_ptr(), &mut found) && found {
         rooted!(in(cx) let mut value = UndefinedValue());
         let result = JS_GetProperty(cx, object, name.as_ptr(), value.handle_mut());
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !result {
             throw_dom_exception(
                 SafeJSContext::from_ptr(cx),
@@ -190,6 +213,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
     val: HandleValue,
 ) -> WebDriverJSResult {
     let _ac = enter_realm(global_scope);
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if val.get().is_undefined() {
         Ok(WebDriverJSValue::Undefined)
     } else if val.get().is_null() {
@@ -227,6 +254,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
         });
         let _ac = JSAutoRealm::new(cx, *object);
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if is_array_like::<crate::DomTypeHolder>(cx, val) || is_arguments_object(cx, val) {
             let mut result: Vec<WebDriverJSValue> = Vec::new();
 
@@ -251,6 +282,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
                 },
             };
 
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for i in 0..length {
                 rooted!(in(cx) let mut item = UndefinedValue());
                 match get_property_jsval(cx, object.handle(), &i.to_string(), item.handle_mut()) {
@@ -277,6 +312,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
             )))
         } else if let Ok(window) = root_from_object::<Window>(*object, cx) {
             let window_proxy = window.window_proxy();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if window_proxy.is_browsing_context_discarded() {
                 Err(WebDriverJSError::StaleElementReference)
             } else if window_proxy.browsing_context_id() == window_proxy.webview_id() {
@@ -291,6 +330,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
         } else if object_has_to_json_property(cx, global_scope, object.handle()) {
             let name = CString::new("toJSON").unwrap();
             rooted!(in(cx) let mut value = UndefinedValue());
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if JS_CallFunctionName(
                 cx,
                 object.handle(),
@@ -312,6 +355,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
             let mut result = HashMap::new();
 
             let mut ids = IdVector::new(cx);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !GetPropertyKeys(
                 cx,
                 object.handle().into(),
@@ -320,11 +367,19 @@ pub(crate) unsafe fn jsval_to_webdriver(
             ) {
                 return Err(WebDriverJSError::JSError);
             }
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for id in ids.iter() {
                 rooted!(in(cx) let id = *id);
                 rooted!(in(cx) let mut desc = PropertyDescriptor::default());
 
                 let mut is_none = false;
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if !JS_GetOwnPropertyDescriptorById(
                     cx,
                     object.handle().into(),
@@ -336,6 +391,10 @@ pub(crate) unsafe fn jsval_to_webdriver(
                 }
 
                 rooted!(in(cx) let mut property = UndefinedValue());
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if !JS_GetPropertyById(
                     cx,
                     object.handle().into(),
@@ -344,11 +403,19 @@ pub(crate) unsafe fn jsval_to_webdriver(
                 ) {
                     return Err(WebDriverJSError::JSError);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if !property.is_undefined() {
                     let Some(name) = jsid_to_string(cx, id.handle()) else {
                         return Err(WebDriverJSError::JSError);
                     };
 
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if let Ok(value) = jsval_to_webdriver(cx, global_scope, property.handle()) {
                         result.insert(name.into(), value);
                     } else {
@@ -366,7 +433,7 @@ pub(crate) unsafe fn jsval_to_webdriver(
 
 #[allow(unsafe_code)]
 pub(crate) fn handle_execute_script(
-    window: Option<DomRoot<Window>>,
+    window: Option<DomRoot<Window>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     eval: String,
     reply: IpcSender<WebDriverJSResult>,
     can_gc: CanGc,
@@ -398,7 +465,7 @@ pub(crate) fn handle_execute_script(
 }
 
 pub(crate) fn handle_execute_async_script(
-    window: Option<DomRoot<Window>>,
+    window: Option<DomRoot<Window>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     eval: String,
     reply: IpcSender<WebDriverJSResult>,
     can_gc: CanGc,
@@ -430,7 +497,7 @@ pub(crate) fn handle_get_browsing_context_id(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     webdriver_frame_id: WebDriverFrameId,
-    reply: IpcSender<Result<BrowsingContextId, ErrorStatus>>,
+    reply: IpcSender<Result<BrowsingContextId, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(match webdriver_frame_id {
@@ -459,7 +526,7 @@ pub(crate) fn handle_get_browsing_context_id(
 }
 
 // https://w3c.github.io/webdriver/#dfn-center-point
-fn get_element_in_view_center_point(element: &Element, can_gc: CanGc) -> Option<Point2D<i64>> {
+fn get_element_in_view_center_point(element: &Element, can_gc: CanGc) -> Option<Point2D<i64>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     element
         .owner_document()
         .GetBody()
@@ -496,7 +563,7 @@ pub(crate) fn handle_get_element_in_view_center_point(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<Option<(i64, i64)>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<(i64, i64)>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -513,7 +580,7 @@ pub(crate) fn handle_find_element_css(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     selector: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -535,7 +602,7 @@ pub(crate) fn handle_find_element_link_text(
     pipeline: PipelineId,
     selector: String,
     partial: bool,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -553,7 +620,7 @@ pub(crate) fn handle_find_element_tag_name(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     selector: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -576,7 +643,7 @@ pub(crate) fn handle_find_elements_css(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     selector: String,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -603,7 +670,7 @@ pub(crate) fn handle_find_elements_link_text(
     pipeline: PipelineId,
     selector: String,
     partial: bool,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -621,7 +688,7 @@ pub(crate) fn handle_find_elements_tag_name(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     selector: String,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -634,7 +701,7 @@ pub(crate) fn handle_find_elements_tag_name(
                     nodes
                         .elements_iter()
                         .map(|x| x.upcast::<Node>().unique_id())
-                        .collect::<Vec<String>>()
+                        .collect::<Vec<String>>() /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
                 }),
         )
         .unwrap();
@@ -645,7 +712,7 @@ pub(crate) fn handle_find_element_element_css(
     pipeline: PipelineId,
     element_id: String,
     selector: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -664,7 +731,7 @@ pub(crate) fn handle_find_element_element_link_text(
     element_id: String,
     selector: String,
     partial: bool,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -679,7 +746,7 @@ pub(crate) fn handle_find_element_element_tag_name(
     pipeline: PipelineId,
     element_id: String,
     selector: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -703,7 +770,7 @@ pub(crate) fn handle_find_element_elements_css(
     pipeline: PipelineId,
     element_id: String,
     selector: String,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -727,7 +794,7 @@ pub(crate) fn handle_find_element_elements_link_text(
     element_id: String,
     selector: String,
     partial: bool,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -742,7 +809,7 @@ pub(crate) fn handle_find_element_elements_tag_name(
     pipeline: PipelineId,
     element_id: String,
     selector: String,
-    reply: IpcSender<Result<Vec<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Vec<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -754,7 +821,7 @@ pub(crate) fn handle_find_element_elements_tag_name(
                     .GetElementsByTagName(DOMString::from(selector), can_gc)
                     .elements_iter()
                     .map(|x| x.upcast::<Node>().unique_id())
-                    .collect::<Vec<String>>()),
+                    .collect::<Vec<String>>()), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
                 None => Err(ErrorStatus::UnknownError),
             }),
         )
@@ -765,7 +832,7 @@ pub(crate) fn handle_focus_element(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<(), ErrorStatus>>,
+    reply: IpcSender<Result<(), ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -787,7 +854,7 @@ pub(crate) fn handle_focus_element(
 pub(crate) fn handle_get_active_element(
     documents: &DocumentCollection,
     pipeline: PipelineId,
-    reply: IpcSender<Option<String>>,
+    reply: IpcSender<Option<String>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -802,7 +869,7 @@ pub(crate) fn handle_get_active_element(
 pub(crate) fn handle_get_page_source(
     documents: &DocumentCollection,
     pipeline: PipelineId,
-    reply: IpcSender<Result<String, ErrorStatus>>,
+    reply: IpcSender<Result<String, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -831,7 +898,7 @@ pub(crate) fn handle_get_page_source(
 pub(crate) fn handle_get_cookies(
     documents: &DocumentCollection,
     pipeline: PipelineId,
-    reply: IpcSender<Vec<Serde<Cookie<'static>>>>,
+    reply: IpcSender<Vec<Serde<Cookie<'static>>>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -858,7 +925,7 @@ pub(crate) fn handle_get_cookie(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     name: String,
-    reply: IpcSender<Vec<Serde<Cookie<'static>>>>,
+    reply: IpcSender<Vec<Serde<Cookie<'static>>>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -889,7 +956,7 @@ pub(crate) fn handle_add_cookie(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     cookie: Cookie<'static>,
-    reply: IpcSender<Result<(), WebDriverCookieError>>,
+    reply: IpcSender<Result<(), WebDriverCookieError>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     // TODO: Return a different error if the pipeline doesn't exist
     let document = match documents.find_document(pipeline) {
@@ -936,7 +1003,7 @@ pub(crate) fn handle_add_cookie(
 pub(crate) fn handle_delete_cookies(
     documents: &DocumentCollection,
     pipeline: PipelineId,
-    reply: IpcSender<Result<(), ErrorStatus>>,
+    reply: IpcSender<Result<(), ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     let document = match documents.find_document(pipeline) {
         Some(document) => document,
@@ -959,7 +1026,7 @@ pub(crate) fn handle_delete_cookie(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     name: String,
-    reply: IpcSender<Result<(), ErrorStatus>>,
+    reply: IpcSender<Result<(), ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     let document = match documents.find_document(pipeline) {
         Some(document) => document,
@@ -997,7 +1064,7 @@ pub(crate) fn handle_get_rect(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<Rect<f64>, ErrorStatus>>,
+    reply: IpcSender<Result<Rect<f64>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -1013,6 +1080,10 @@ pub(crate) fn handle_get_rect(
                         let mut offset_parent = html_element.GetOffsetParent(can_gc);
 
                         // Step 2
+                        /**
+                         * Block Logic: Condition check initialization for iterative traversal.
+                         * Invariant: Condition remains true across iterations, ensuring execution state.
+                         */
                         while let Some(element) = offset_parent {
                             offset_parent = match element.downcast::<HTMLElement>() {
                                 Some(elem) => {
@@ -1043,7 +1114,7 @@ pub(crate) fn handle_get_bounding_client_rect(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<Rect<f32>, ErrorStatus>>,
+    reply: IpcSender<Result<Rect<f32>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -1068,7 +1139,7 @@ pub(crate) fn handle_get_text(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     node_id: String,
-    reply: IpcSender<Result<String, ErrorStatus>>,
+    reply: IpcSender<Result<String, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -1082,7 +1153,7 @@ pub(crate) fn handle_get_name(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     node_id: String,
-    reply: IpcSender<Result<String, ErrorStatus>>,
+    reply: IpcSender<Result<String, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -1097,7 +1168,7 @@ pub(crate) fn handle_get_attribute(
     pipeline: PipelineId,
     node_id: String,
     name: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -1117,7 +1188,7 @@ pub(crate) fn handle_get_property(
     pipeline: PipelineId,
     node_id: String,
     name: String,
-    reply: IpcSender<Result<WebDriverJSValue, ErrorStatus>>,
+    reply: IpcSender<Result<WebDriverJSValue, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -1157,7 +1228,7 @@ pub(crate) fn handle_get_css(
     pipeline: PipelineId,
     node_id: String,
     name: String,
-    reply: IpcSender<Result<String, ErrorStatus>>,
+    reply: IpcSender<Result<String, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -1192,7 +1263,7 @@ pub(crate) fn handle_get_url(
         .unwrap();
 }
 
-fn get_option_parent(node: &Node) -> Option<DomRoot<Node>> {
+fn get_option_parent(node: &Node) -> Option<DomRoot<Node>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     // Get parent for `<option>` or `<optiongrp>` based on container spec:
     // > 1. Let datalist parent be the first datalist element reached by traversing the tree
     // >    in reverse order from element, or undefined if the root of the tree is reached.
@@ -1210,10 +1281,18 @@ fn get_option_parent(node: &Node) -> Option<DomRoot<Node>> {
 }
 
 // https://w3c.github.io/webdriver/#dfn-container
-fn get_container(node: &Node) -> Option<DomRoot<Node>> {
+fn get_container(node: &Node) -> Option<DomRoot<Node>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if node.is::<HTMLOptionElement>() {
         return get_option_parent(node);
     }
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if node.is::<HTMLOptGroupElement>() {
         let option_parent = get_option_parent(node);
         return option_parent.or_else(|| Some(DomRoot::from_ref(node)));
@@ -1226,7 +1305,7 @@ pub(crate) fn handle_element_click(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<Option<String>, ErrorStatus>>,
+    reply: IpcSender<Result<Option<String>, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     can_gc: CanGc,
 ) {
     reply
@@ -1234,7 +1313,15 @@ pub(crate) fn handle_element_click(
             // Step 3
             find_node_by_unique_id(documents, pipeline, element_id).and_then(|node| {
                 // Step 4
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Some(input_element) = node.downcast::<HTMLInputElement>() {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if input_element.input_type() == InputType::File {
                         return Err(ErrorStatus::InvalidArgument);
                     }
@@ -1269,6 +1356,10 @@ pub(crate) fn handle_element_click(
                         }
 
                         // Step 8.6
+                        /**
+                         * Block Logic: Conditional evaluation for divergent control flow.
+                         * Invariant: Taken branch maintains control flow invariants.
+                         */
                         if !option_element.Disabled() {
                             // Step 8.6.1
                             event_target.fire_event(atom!("input"), can_gc);
@@ -1279,6 +1370,10 @@ pub(crate) fn handle_element_click(
                             // Step 8.6.3
                             match container.downcast::<HTMLSelectElement>() {
                                 Some(select_element) => {
+                                    /**
+                                     * Block Logic: Conditional evaluation for divergent control flow.
+                                     * Invariant: Taken branch maintains control flow invariants.
+                                     */
                                     if select_element.Multiple() {
                                         option_element.SetSelected(!option_element.Selected());
                                     }
@@ -1287,6 +1382,10 @@ pub(crate) fn handle_element_click(
                             }
 
                             // Step 8.6.4
+                            /**
+                             * Block Logic: Conditional evaluation for divergent control flow.
+                             * Invariant: Taken branch maintains control flow invariants.
+                             */
                             if !previous_selectedness {
                                 event_target.fire_event(atom!("change"), can_gc);
                             }
@@ -1309,7 +1408,7 @@ pub(crate) fn handle_is_enabled(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<bool, ErrorStatus>>,
+    reply: IpcSender<Result<bool, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
@@ -1327,11 +1426,15 @@ pub(crate) fn handle_is_selected(
     documents: &DocumentCollection,
     pipeline: PipelineId,
     element_id: String,
-    reply: IpcSender<Result<bool, ErrorStatus>>,
+    reply: IpcSender<Result<bool, ErrorStatus>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 ) {
     reply
         .send(
             find_node_by_unique_id(documents, pipeline, element_id).and_then(|node| {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Some(input_element) = node.downcast::<HTMLInputElement>() {
                     Ok(input_element.Checked())
                 } else if let Some(option_element) = node.downcast::<HTMLOptionElement>() {

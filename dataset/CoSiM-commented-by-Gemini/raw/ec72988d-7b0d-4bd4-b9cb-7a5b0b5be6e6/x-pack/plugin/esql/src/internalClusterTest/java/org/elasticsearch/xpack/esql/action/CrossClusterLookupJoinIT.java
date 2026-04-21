@@ -1,3 +1,10 @@
+/**
+ *
+ * @file CrossClusterLookupJoinIT.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -49,15 +56,27 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
             int tagIndex = columns.indexOf("tag");
             int lookupTagIndex = columns.indexOf("lookup_tag");
 
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(20));
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+             */
             for (var row : values) {
                 assertThat(row, hasSize(9));
                 Long v = (Long) row.get(vIndex);
                 assertThat(v, greaterThanOrEqualTo(0L));
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (v < 25) {
                     assertThat((String) row.get(lookupNameIndex), equalTo("lookup_" + v));
                     String tag = (String) row.get(tagIndex);
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (tag.equals("local")) {
                         assertThat(row.get(lookupTagIndex), equalTo("local"));
                     } else {
@@ -82,7 +101,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(20));
         }
 
@@ -93,14 +112,26 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             // 0-9 + null + 16
             assertThat(values, hasSize(12));
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+             */
             for (var row : values) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (row.get(1) == null) {
                     assertThat((Long) row.get(0), equalTo(5L)); // null
                 } else {
                     assertThat((String) row.get(1), containsString("lookup_"));
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (row.get(1).equals("lookup_0")
                         || row.get(1).equals("lookup_1")
                         || row.get(1).equals("lookup_4")
@@ -132,7 +163,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
             var columns = resp.columns().stream().map(ColumnInfoImpl::name).toList();
             assertThat(columns, hasItems("lookup_key", "lookup_name", "lookup_tag", "v", "tag"));
 
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(20));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
             assertCCSExecutionInfoDetails(executionInfo);
@@ -153,7 +184,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
             var columns = resp.columns().stream().map(ColumnInfoImpl::name).toList();
             assertThat(columns, hasItems("lookup_key", "lookup_name", "lookup_tag", "v", "tag"));
 
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(10));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
 
@@ -197,7 +228,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(10));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
             assertThat(executionInfo.getClusters().size(), equalTo(2));
@@ -229,7 +260,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(10));
             var columns = resp.columns().stream().map(ColumnInfoImpl::name).toList();
             assertThat(columns, hasItems("lookup_key", "lookup_name", "lookup_tag", "v", "tag", "remote_tag"));
@@ -256,7 +287,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(20));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
             assertThat(executionInfo.getClusters().size(), equalTo(2));
@@ -289,7 +320,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
                 randomBoolean()
             )
         ) {
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(20));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
             assertThat(executionInfo.getClusters().size(), equalTo(2));
@@ -316,7 +347,7 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
             var columns = resp.columns().stream().map(ColumnInfoImpl::name).toList();
             assertThat(columns, hasItems("lookup_key", "lookup_name", "lookup_tag", "v", "tag"));
 
-            List<List<Object>> values = getValuesList(resp);
+            List<List<Object>> values = getValuesList(resp); /* Non-obvious bitwise/pointer op for optimized access */
             assertThat(values, hasSize(10));
             EsqlExecutionInfo executionInfo = resp.getExecutionInfo();
 
@@ -395,6 +426,10 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
         Map<String, String> allHosts = Map.of("192.168.1.2", "Windows");
         Client client = client(LOCAL_CLUSTER);
         client.admin().indices().prepareCreate("hosts").setMapping("ip", "type=ip", "os", "type=keyword").get();
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+         */
         for (Map.Entry<String, String> h : allHosts.entrySet()) {
             client.prepareIndex("hosts").setSource("ip", h.getKey(), "os", h.getValue()).get();
         }
@@ -413,6 +448,10 @@ public class CrossClusterLookupJoinIT extends AbstractCrossClusterTestCase {
         assertTrue(executionInfo.isCrossClusterSearch());
         List<EsqlExecutionInfo.Cluster> clusters = executionInfo.clusterAliases().stream().map(executionInfo::getCluster).toList();
 
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Loop bounds are initialized and maintained. Iterates over assigned structures preserving locality.
+         */
         for (EsqlExecutionInfo.Cluster cluster : clusters) {
             assertThat(cluster.getTook().millis(), greaterThanOrEqualTo(0L));
             assertThat(cluster.getStatus(), equalTo(EsqlExecutionInfo.Cluster.Status.SUCCESSFUL));

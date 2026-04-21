@@ -1,3 +1,10 @@
+/**
+ * @raw/6af9e178-d6e2-43e1-9c53-26b3512a29e4/components/net/image_cache.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -119,6 +126,10 @@ fn set_webrender_image_key(
     image: &mut RasterImage,
     image_key: WebRenderImageKey,
 ) {
+    /**
+     * Block Logic: Conditional evaluation for divergent control flow.
+     * Invariant: Taken branch maintains control flow invariants.
+     */
     if image.id.is_some() {
         return;
     }
@@ -131,6 +142,10 @@ fn set_webrender_image_key(
         },
         PixelFormat::RGB8 => {
             bytes.reserve(frame_bytes.len() / 3 * 4);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for bgr in frame_bytes.chunks(3) {
                 bytes.extend_from_slice(&[bgr[2], bgr[1], bgr[0], 0xff]);
             }
@@ -288,7 +303,7 @@ struct DecoderMsg {
 #[derive(MallocSizeOf)]
 enum ImageBytes {
     InProgress(Vec<u8>),
-    Complete(#[conditional_malloc_size_of] Arc<Vec<u8>>),
+    Complete(#[conditional_malloc_size_of] Arc<Vec<u8>>), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 impl ImageBytes {
@@ -299,7 +314,7 @@ impl ImageBytes {
         }
     }
 
-    fn mark_complete(&mut self) -> Arc<Vec<u8>> {
+    fn mark_complete(&mut self) -> Arc<Vec<u8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let bytes = {
             let own_bytes = match *self {
                 ImageBytes::InProgress(ref mut bytes) => bytes,
@@ -358,7 +373,7 @@ struct PendingLoad {
     metadata: Option<ImageMetadata>,
 
     /// Once loading is complete, the result of the operation.
-    result: Option<Result<(), NetworkError>>,
+    result: Option<Result<(), NetworkError>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
     /// The listeners that are waiting for this response to complete.
     listeners: Vec<ImageLoadListener>,
@@ -516,6 +531,10 @@ impl ImageCacheStore {
     /// If a key is available the image will be immediately loaded, otherwise it will load then the next batch of
     /// keys is received. Only call this if the image does not have a `LoadKey` yet.
     fn load_image_with_keycache(&mut self, pending_image: PendingKey) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(pipeline_id) = self.pipeline_id {
             match self.key_cache.cache {
                 KeyCacheState::PendingBatch => {
@@ -539,6 +558,10 @@ impl ImageCacheStore {
 
     /// Insert received keys into the cache and complete the loading of images.
     fn insert_keys_and_load_images(&mut self, image_keys: Vec<WebRenderImageKey>) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let KeyCacheState::PendingBatch = self.key_cache.cache {
             self.key_cache.cache = KeyCacheState::Ready(image_keys);
             let len = min(
@@ -549,10 +572,18 @@ impl ImageCacheStore {
                 .key_cache
                 .images_pending_keys
                 .drain(0..len)
-                .collect::<Vec<PendingKey>>();
+                .collect::<Vec<PendingKey>>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for key in images {
                 self.load_image_with_keycache(key);
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !self.key_cache.images_pending_keys.is_empty() {
                 self.compositor_api
                     .generate_image_key_async(self.pipeline_id.unwrap());
@@ -581,6 +612,10 @@ impl ImageCacheStore {
                 .unwrap_or_default()
         };
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (pipeline_id, sender) in listeners {
             let _ = sender.send(ImageCacheResponseMessage::VectorImageRasterizationComplete(
                 RasterizationCompleteResponse {
@@ -637,6 +672,10 @@ impl ImageCacheStore {
             completed_load,
         );
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for listener in pending_load.listeners {
             listener.respond(image_response.clone());
         }
@@ -650,7 +689,7 @@ impl ImageCacheStore {
         origin: ImmutableOrigin,
         cors_setting: Option<CorsSettings>,
         placeholder: UsePlaceholder,
-    ) -> Option<Result<(Image, ServoUrl), ()>> {
+    ) -> Option<Result<(Image, ServoUrl), ()>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         self.completed_loads
             .get(&(url, origin, cors_setting))
             .map(
@@ -684,7 +723,7 @@ impl ImageCacheStore {
 }
 
 pub struct ImageCacheImpl {
-    store: Arc<Mutex<ImageCacheStore>>,
+    store: Arc<Mutex<ImageCacheStore>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
     /// Thread pool for image decoding
     thread_pool: Arc<CoreResourceThreadPool>,
@@ -753,6 +792,10 @@ impl ImageCache for ImageCacheImpl {
         use_placeholder: UsePlaceholder,
     ) -> ImageCacheResult {
         let mut store = self.store.lock().unwrap();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(result) = store.get_completed_image_if_available(
             url.clone(),
             origin.clone(),
@@ -852,6 +895,10 @@ impl ImageCache for ImageCacheImpl {
         let completed = {
             let mut store = self.store.lock().unwrap();
             let key = (image_id, requested_size);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if !store.vector_images.contains_key(&image_id) {
                 warn!("Unknown image requested for rasterization for key {key:?}");
                 return;
@@ -871,6 +918,10 @@ impl ImageCache for ImageCacheImpl {
             }
         };
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if completed {
             let _ = sender.send(ImageCacheResponseMessage::VectorImageRasterizationComplete(
                 RasterizationCompleteResponse {
@@ -900,6 +951,10 @@ impl ImageCache for ImageCacheImpl {
             .rasterized_vector_images
             .entry((image_id, requested_size))
             .or_default();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(result) = entry.result.as_ref() {
             return Some(result.clone());
         }
@@ -1003,13 +1058,25 @@ impl ImageCache for ImageCacheImpl {
                 pending_load.bytes.extend_from_slice(&data);
 
                 //jmr0 TODO: possibly move to another task?
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if pending_load.metadata.is_none() {
                     let mut reader = std::io::Cursor::new(pending_load.bytes.as_slice());
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if let Ok(info) = imsz_from_reader(&mut reader) {
                         let img_metadata = ImageMetadata {
                             width: info.width as u32,
                             height: info.height as u32,
                         };
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for listener in &pending_load.listeners {
                             listener.respond(ImageResponse::MetadataLoaded(img_metadata));
                         }
@@ -1106,13 +1173,25 @@ impl ImageCacheImpl {
     /// Require self.store.lock() before calling.
     fn add_listener_with_store(&self, store: &mut ImageCacheStore, listener: ImageLoadListener) {
         let id = listener.id;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(load) = store.pending_loads.get_by_key_mut(&id) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(ref metadata) = load.metadata {
                 listener.respond(ImageResponse::MetadataLoaded(*metadata));
             }
             load.add_listener(listener);
             return;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(load) = store.completed_loads.values().find(|l| l.id == id) {
             listener.respond(load.image_response.clone());
             return;

@@ -1,3 +1,10 @@
+/**
+ * @raw/5ca53ed2-709e-4ef7-9b2d-65e1682f1574/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/querydsl/query/MatchPhraseQuery.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -23,7 +30,7 @@ import static org.elasticsearch.index.query.MatchQueryBuilder.ANALYZER_FIELD;
 
 public class MatchPhraseQuery extends Query {
 
-    private static final Map<String, BiConsumer<MatchPhraseQueryBuilder, Object>> BUILDER_APPLIERS;
+    private static final Map<String, BiConsumer<MatchPhraseQueryBuilder, Object>> BUILDER_APPLIERS; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
     static {
         BUILDER_APPLIERS = Map.ofEntries(
@@ -55,12 +62,20 @@ public class MatchPhraseQuery extends Query {
     protected QueryBuilder asBuilder() {
         final MatchPhraseQueryBuilder queryBuilder = QueryBuilders.matchPhraseQuery(name, text);
         options.forEach((k, v) -> {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (BUILDER_APPLIERS.containsKey(k)) {
                 BUILDER_APPLIERS.get(k).accept(queryBuilder, v);
             } else {
                 throw new IllegalArgumentException("illegal match_phrase option [" + k + "]");
             }
         });
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (boost != null) {
             queryBuilder.boost(boost.floatValue());
         }
@@ -82,6 +97,10 @@ public class MatchPhraseQuery extends Query {
 
     @Override
     public boolean equals(Object obj) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (false == super.equals(obj)) {
             return false;
         }

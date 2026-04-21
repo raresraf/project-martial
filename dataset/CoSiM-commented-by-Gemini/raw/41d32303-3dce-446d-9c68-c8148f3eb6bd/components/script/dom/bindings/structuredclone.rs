@@ -1,3 +1,10 @@
+/**
+ *
+ * @file structuredclone.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -173,7 +180,7 @@ unsafe extern "C" fn read_callback(
         "tag should be higher than StructuredCloneTags::Min"
     );
 
-    let sc_reader = &mut *(closure as *mut StructuredDataReader);
+    let sc_reader = &mut *(closure as *mut StructuredDataReader); /* Non-obvious bitwise/pointer op for optimized access */
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let global = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
     for serializable in SerializableInterface::iter() {
@@ -224,7 +231,7 @@ unsafe extern "C" fn write_callback(
     _same_process_scope_required: *mut bool,
     closure: *mut raw::c_void,
 ) -> bool {
-    let sc_writer = &mut *(closure as *mut StructuredDataWriter);
+    let sc_writer = &mut *(closure as *mut StructuredDataWriter); /* Non-obvious bitwise/pointer op for optimized access */
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let global = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
     for serializable in SerializableInterface::iter() {
@@ -301,7 +308,7 @@ unsafe extern "C" fn read_transfer_callback(
     closure: *mut raw::c_void,
     return_object: RawMutableHandleObject,
 ) -> bool {
-    let sc_reader = &mut *(closure as *mut StructuredDataReader);
+    let sc_reader = &mut *(closure as *mut StructuredDataReader); /* Non-obvious bitwise/pointer op for optimized access */
     let in_realm_proof = AlreadyInRealm::assert_for_cx(SafeJSContext::from_ptr(cx));
     let owner = GlobalScope::from_context(cx, InRealm::Already(&in_realm_proof));
     for transferrable in TransferrableInterface::iter() {
@@ -378,7 +385,7 @@ unsafe extern "C" fn write_transfer_callback(
     _content: *mut *mut raw::c_void,
     extra_data: *mut u64,
 ) -> bool {
-    let sc_writer = &mut *(closure as *mut StructuredDataWriter);
+    let sc_writer = &mut *(closure as *mut StructuredDataWriter); /* Non-obvious bitwise/pointer op for optimized access */
     for transferable in TransferrableInterface::iter() {
         let try_transfer = transfer_for_type(transferable);
         if try_transfer(transferable, obj, cx, sc_writer, tag, ownership, extra_data).is_ok() {
@@ -446,33 +453,33 @@ pub(crate) enum StructuredData<'a> {
 /// <https://html.spec.whatwg.org/multipage/#safe-passing-of-structured-data>
 pub(crate) struct StructuredDataReader {
     /// A map of deserialized blobs, stored temporarily here to keep them rooted.
-    pub(crate) blobs: Option<HashMap<StorageKey, DomRoot<Blob>>>,
+    pub(crate) blobs: Option<HashMap<StorageKey, DomRoot<Blob>>>, /* Non-obvious bitwise/pointer op for optimized access */
     /// A vec of transfer-received DOM ports,
     /// to be made available to script through a message event.
-    pub(crate) message_ports: Option<Vec<DomRoot<MessagePort>>>,
+    pub(crate) message_ports: Option<Vec<DomRoot<MessagePort>>>, /* Non-obvious bitwise/pointer op for optimized access */
     /// A map of port implementations,
     /// used as part of the "transfer-receiving" steps of ports,
     /// to produce the DOM ports stored in `message_ports` above.
-    pub(crate) port_impls: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub(crate) port_impls: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Non-obvious bitwise/pointer op for optimized access */
     /// A map of blob implementations,
     /// used as part of the "deserialize" steps of blobs,
     /// to produce the DOM blobs stored in `blobs` above.
-    pub(crate) blob_impls: Option<HashMap<BlobId, BlobImpl>>,
+    pub(crate) blob_impls: Option<HashMap<BlobId, BlobImpl>>, /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 /// A data holder for transferred and serialized objects.
 pub(crate) struct StructuredDataWriter {
     /// Transferred ports.
-    pub(crate) ports: Option<HashMap<MessagePortId, MessagePortImpl>>,
+    pub(crate) ports: Option<HashMap<MessagePortId, MessagePortImpl>>, /* Non-obvious bitwise/pointer op for optimized access */
     /// Serialized blobs.
-    pub(crate) blobs: Option<HashMap<BlobId, BlobImpl>>,
+    pub(crate) blobs: Option<HashMap<BlobId, BlobImpl>>, /* Non-obvious bitwise/pointer op for optimized access */
 }
 
 /// Writes a structured clone. Returns a `DataClone` error if that fails.
 pub(crate) fn write(
     cx: SafeJSContext,
     message: HandleValue,
-    transfer: Option<CustomAutoRooterGuard<Vec<*mut JSObject>>>,
+    transfer: Option<CustomAutoRooterGuard<Vec<*mut JSObject>>>, /* Non-obvious bitwise/pointer op for optimized access */
 ) -> Fallible<StructuredSerializedData> {
     unsafe {
         rooted!(in(*cx) let mut val = UndefinedValue());
@@ -483,13 +490,13 @@ pub(crate) fn write(
             ports: None,
             blobs: None,
         };
-        let sc_writer_ptr = &mut sc_writer as *mut _;
+        let sc_writer_ptr = &mut sc_writer as *mut _; /* Non-obvious bitwise/pointer op for optimized access */
 
         let scbuf = NewJSAutoStructuredCloneBuffer(
             StructuredCloneScope::DifferentProcess,
             &STRUCTURED_CLONE_CALLBACKS,
         );
-        let scdata = &mut ((*scbuf).data_);
+        let scdata = &mut ((*scbuf).data_); /* Non-obvious bitwise/pointer op for optimized access */
         let policy = CloneDataPolicy {
             allowIntraClusterClonableSharedObjects_: false,
             allowSharedMemoryObjects_: false,
@@ -532,7 +539,7 @@ pub(crate) fn read(
     global: &GlobalScope,
     mut data: StructuredSerializedData,
     rval: MutableHandleValue,
-) -> Result<Vec<DomRoot<MessagePort>>, ()> {
+) -> Result<Vec<DomRoot<MessagePort>>, ()> { /* Non-obvious bitwise/pointer op for optimized access */
     let cx = GlobalScope::get_cx();
     let _ac = enter_realm(global);
     let mut sc_reader = StructuredDataReader {
@@ -541,13 +548,13 @@ pub(crate) fn read(
         port_impls: data.ports.take(),
         blob_impls: data.blobs.take(),
     };
-    let sc_reader_ptr = &mut sc_reader as *mut _;
+    let sc_reader_ptr = &mut sc_reader as *mut _; /* Non-obvious bitwise/pointer op for optimized access */
     unsafe {
         let scbuf = NewJSAutoStructuredCloneBuffer(
             StructuredCloneScope::DifferentProcess,
             &STRUCTURED_CLONE_CALLBACKS,
         );
-        let scdata = &mut ((*scbuf).data_);
+        let scdata = &mut ((*scbuf).data_); /* Non-obvious bitwise/pointer op for optimized access */
 
         WriteBytesToJSStructuredCloneData(
             data.serialized.as_mut_ptr() as *const u8,

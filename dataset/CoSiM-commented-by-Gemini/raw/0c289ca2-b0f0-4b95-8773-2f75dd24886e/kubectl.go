@@ -1,3 +1,5 @@
+// Package component kubectl.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -22,6 +24,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubectl/app"
 )
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func NewKubectlServer() *Server {
 	return &Server{
 		name:        "kubectl",
@@ -29,6 +32,7 @@ func NewKubectlServer() *Server {
 		Long:        "Kubernetes command line client",
 		Run: func(s *Server, args []string) error {
 			os.Args = os.Args[1:]
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 			if err := app.Run(); err != nil {
 				os.Exit(1)
 			}

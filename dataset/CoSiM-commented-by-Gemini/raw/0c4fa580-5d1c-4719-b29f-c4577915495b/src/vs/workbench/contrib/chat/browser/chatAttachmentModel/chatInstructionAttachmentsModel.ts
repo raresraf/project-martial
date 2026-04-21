@@ -1,3 +1,10 @@
+/**
+ * @raw/0c4fa580-5d1c-4719-b29f-c4577915495b/src/vs/workbench/contrib/chat/browser/chatAttachmentModel/chatInstructionAttachmentsModel.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -36,10 +43,18 @@ export const toChatVariable = (
 	let id = `${uri}`;
 
 	// for prompt files, we add a prefix to the `id`
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (isPromptSnippet) {
 		// the default prefix that is used for all prompt files
 		let prefix = 'vscode.prompt.instructions';
 		// if the reference is the root object, add the `.root` suffix
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (isRoot) {
 			prefix += '.root';
 		}
@@ -83,6 +98,10 @@ export class ChatInstructionAttachmentsModel extends Disposable {
 	public get references(): readonly URI[] {
 		const result = [];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const child of this.attachments.values()) {
 			result.push(...child.references);
 		}
@@ -98,6 +117,10 @@ export class ChatInstructionAttachmentsModel extends Disposable {
 		const result = [];
 		const attachments = [...this.attachments.values()];
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const attachment of attachments) {
 			const { reference } = attachment;
 
@@ -180,6 +203,10 @@ export class ChatInstructionAttachmentsModel extends Disposable {
 	 */
 	public add(uri: URI): this {
 		// if already exists, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.attachments.has(uri.path)) {
 			return this;
 		}
@@ -208,6 +235,10 @@ export class ChatInstructionAttachmentsModel extends Disposable {
 	 */
 	public remove(uri: URI): this {
 		// if does not exist, nothing to do
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.attachments.has(uri.path)) {
 			return this;
 		}

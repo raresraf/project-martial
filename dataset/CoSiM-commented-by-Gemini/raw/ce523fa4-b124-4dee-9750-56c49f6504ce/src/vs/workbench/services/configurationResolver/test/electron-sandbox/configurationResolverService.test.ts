@@ -1,3 +1,10 @@
+/**
+ * @raw/ce523fa4-b124-4dee-9750-56c49f6504ce/src/vs/workbench/services/configurationResolver/test/electron-sandbox/configurationResolverService.test.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -94,6 +101,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('substitute one', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, 'abc ${workspaceFolder} xyz'), 'abc \\VSCode\\workspaceLocation xyz');
 		} else {
@@ -125,6 +136,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('workspace folder with argument', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, 'abc ${workspaceFolder:workspaceLocation} xyz'), 'abc \\VSCode\\workspaceLocation xyz');
 		} else {
@@ -141,6 +156,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('workspace folder with argument and undefined workspace folder', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(undefined, 'abc ${workspaceFolder:workspaceLocation} xyz'), 'abc \\VSCode\\workspaceLocation xyz');
 		} else {
@@ -173,6 +192,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('relative file with undefined workspace folder', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(undefined, 'abc ${relativeFile} xyz'), 'abc \\VSCode\\workspaceLocation\\file xyz');
 		} else {
@@ -189,6 +212,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('substitute many', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, '${workspaceFolder} - ${workspaceFolder}'), '\\VSCode\\workspaceLocation - \\VSCode\\workspaceLocation');
 		} else {
@@ -197,6 +224,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('substitute one env variable', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, 'abc ${workspaceFolder} ${env:key1} xyz'), 'abc \\VSCode\\workspaceLocation Value for key1 xyz');
 		} else {
@@ -205,6 +236,10 @@ suite('Configuration Resolver Service', () => {
 	});
 
 	test('substitute many env variable', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, '${workspaceFolder} - ${workspaceFolder} ${env:key1} - ${env:key2}'), '\\VSCode\\workspaceLocation - \\VSCode\\workspaceLocation Value for key1 - Value for key2');
 		} else {
@@ -236,6 +271,10 @@ suite('Configuration Resolver Service', () => {
 
 
 	test('substitute one env variable using platform case sensitivity', async () => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await configurationResolverService!.resolveAsync(workspace, '${env:key1} - ${env:Key1}'), 'Value for key1 - Value for key1');
 		} else {
@@ -310,6 +349,10 @@ suite('Configuration Resolver Service', () => {
 		});
 
 		const service = new TestConfigurationResolverService(nullContext, Promise.resolve(envVariables), disposables.add(new TestEditorServiceWithActiveEditor()), configurationService, mockCommandService, new TestContextService(), quickInputService, labelService, pathService, extensionService, disposables.add(new TestStorageService()));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await service.resolveAsync(workspace, 'abc ${config:editor.fontFamily} ${workspaceFolder} ${env:key1} xyz'), 'abc foo \\VSCode\\workspaceLocation Value for key1 xyz');
 		} else {
@@ -330,6 +373,10 @@ suite('Configuration Resolver Service', () => {
 		});
 
 		const service = new TestConfigurationResolverService(nullContext, Promise.resolve(envVariables), disposables.add(new TestEditorServiceWithActiveEditor()), configurationService, mockCommandService, new TestContextService(), quickInputService, labelService, pathService, extensionService, disposables.add(new TestStorageService()));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (platform.isWindows) {
 			assert.strictEqual(await service.resolveAsync(workspace, '${config:editor.fontFamily} ${config:terminal.integrated.fontFamily} ${workspaceFolder} - ${workspaceFolder} ${env:key1} - ${env:key2}'), 'foo bar \\VSCode\\workspaceLocation - \\VSCode\\workspaceLocation Value for key1 - Value for key2');
 		} else {
@@ -483,6 +530,10 @@ suite('Configuration Resolver Service', () => {
 			assert.deepStrictEqual(Object.keys(result), Object.keys(expected));
 			Object.keys(result).forEach(property => {
 				const expectedProperty = (<any>expected)[property];
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (isObject(result[property])) {
 					assert.deepStrictEqual({ ...result[property] }, expectedProperty);
 				} else {
@@ -698,6 +749,10 @@ suite('Configuration Resolver Service', () => {
 
 		return configurationResolverService!.resolveWithInteractionReplace(workspace, configuration, 'tasks').then(result => {
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (platform.isWindows) {
 				assert.deepStrictEqual({ ...result }, {
 					'name': 'Test',
@@ -735,7 +790,15 @@ class MockCommandService implements ICommandService {
 		this.callCount++;
 
 		let result = `${commandId}-result`;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (args.length >= 1) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (args[0] && args[0].value) {
 				result = args[0].value;
 			}
@@ -800,6 +863,10 @@ class MockPathService implements IPathService {
 class MockInputsConfigurationService extends TestConfigurationService {
 	public override getValue(arg1?: any, arg2?: any): any {
 		let configuration;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (arg1 === 'tasks') {
 			configuration = {
 				inputs: [

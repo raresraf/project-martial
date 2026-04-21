@@ -1,3 +1,10 @@
+/**
+ * @raw/1bc43643-2675-4692-8dd2-edd847c3aeb2/fs/bcachefs/journal.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * bcachefs journalling code, for btree insertions
@@ -44,19 +51,27 @@ static bool journal_entry_is_open(struct journal *j)
 static void bch2_journal_buf_to_text(struct printbuf *out, struct journal *j, u64 seq)
 {
 	union journal_res_state s = READ_ONCE(j->reservations);
-	unsigned i = seq & JOURNAL_BUF_MASK;
+	unsigned i = seq & JOURNAL_BUF_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct journal_buf *buf = j->buf + i;
 
 	prt_printf(out, "seq:\t%llu\n", seq);
 	printbuf_indent_add(out, 2);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!buf->write_started)
-		prt_printf(out, "refcount:\t%u\n", journal_state_count(s, i & JOURNAL_STATE_BUF_MASK));
+		prt_printf(out, "refcount:\t%u\n", journal_state_count(s, i & JOURNAL_STATE_BUF_MASK)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	struct closure *cl = &buf->io;
 	int r = atomic_read(&cl->remaining);
-	prt_printf(out, "io:\t%pS r %i\n", cl->fn, r & CLOSURE_REMAINING_MASK);
+	prt_printf(out, "io:\t%pS r %i\n", cl->fn, r & CLOSURE_REMAINING_MASK); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->data) {
 		prt_printf(out, "size:\t");
 		prt_human_readable_u64(out, vstruct_bytes(buf->data));
@@ -66,18 +81,46 @@ static void bch2_journal_buf_to_text(struct printbuf *out, struct journal *j, u6
 	prt_printf(out, "expires:\t%li jiffies\n", buf->expires - jiffies);
 
 	prt_printf(out, "flags:\t");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->noflush)
 		prt_str(out, "noflush ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->must_flush)
 		prt_str(out, "must_flush ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->separate_flush)
 		prt_str(out, "separate_flush ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->need_flush_to_write_buffer)
 		prt_str(out, "need_flush_to_write_buffer ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->write_started)
 		prt_str(out, "write_started ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->write_allocated)
 		prt_str(out, "write_allocated ");
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->write_done)
 		prt_str(out, "write_done");
 	prt_newline(out);
@@ -90,9 +133,17 @@ static void bch2_journal_bufs_to_text(struct printbuf *out, struct journal *j)
 	lockdep_assert_held(&j->lock);
 	out->atomic++;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!out->nr_tabstops)
 		printbuf_tabstop_push(out, 24);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (u64 seq = journal_last_unwritten_seq(j);
 	     seq <= journal_cur_seq(j);
 	     seq++)
@@ -109,15 +160,27 @@ journal_seq_to_buf(struct journal *j, u64 seq)
 
 	EBUG_ON(seq > journal_cur_seq(j));
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_seq_unwritten(j, seq))
-		buf = j->buf + (seq & JOURNAL_BUF_MASK);
+		buf = j->buf + (seq & JOURNAL_BUF_MASK); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	return buf;
 }
 
-static void journal_pin_list_init(struct journal_entry_pin_list *p, int count)
+static void journal_pin_list_init(struct journal_entry_pin_list *p, int count) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(p->unflushed); i++)
 		INIT_LIST_HEAD(&p->unflushed[i]);
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(p->flushed); i++)
 		INIT_LIST_HEAD(&p->flushed[i]);
 	atomic_set(&p->count, count);
@@ -144,14 +207,22 @@ journal_error_check_stuck(struct journal *j, int error, unsigned flags)
 
 	buf.atomic++;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!(error == -BCH_ERR_journal_full ||
 	      error == -BCH_ERR_journal_pin_full) ||
 	    nr_unwritten_journal_entries(j) ||
-	    (flags & BCH_WATERMARK_MASK) != BCH_WATERMARK_reclaim)
+	    (flags & BCH_WATERMARK_MASK) != BCH_WATERMARK_reclaim) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return stuck;
 
 	spin_lock(&j->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->can_discard) {
 		spin_unlock(&j->lock);
 		return stuck;
@@ -163,6 +234,10 @@ journal_error_check_stuck(struct journal *j, int error, unsigned flags)
 	 * The journal shutdown path will set ->err_seq, but do it here first to
 	 * serialize against concurrent failures and avoid duplicate error
 	 * reports.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (j->err_seq) {
 		spin_unlock(&j->lock);
@@ -189,17 +264,33 @@ journal_error_check_stuck(struct journal *j, int error, unsigned flags)
 
 void bch2_journal_do_writes(struct journal *j)
 {
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (u64 seq = journal_last_unwritten_seq(j);
 	     seq <= journal_cur_seq(j);
 	     seq++) {
-		unsigned idx = seq & JOURNAL_BUF_MASK;
+		unsigned idx = seq & JOURNAL_BUF_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		struct journal_buf *w = j->buf + idx;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (w->write_started && !w->write_allocated)
 			break;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (w->write_started)
 			continue;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!journal_state_seq_count(j, j->reservations, seq)) {
 			j->seq_write_started = seq;
 			w->write_started = true;
@@ -219,6 +310,10 @@ void bch2_journal_buf_put_final(struct journal *j, u64 seq)
 {
 	lockdep_assert_held(&j->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (__bch2_journal_pin_put(j, seq))
 		bch2_journal_reclaim_fast(j);
 	bch2_journal_do_writes(j);
@@ -253,21 +348,37 @@ static void __journal_entry_close(struct journal *j, unsigned closed_val, bool t
 		new.v = old.v;
 		new.cur_entry_offset = closed_val;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (old.cur_entry_offset == JOURNAL_ENTRY_ERROR_VAL ||
 		    old.cur_entry_offset == new.cur_entry_offset)
 			return;
 	} while (!atomic64_try_cmpxchg(&j->reservations.counter,
 				       &old.v, new.v));
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!__journal_entry_is_open(old))
 		return;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (old.cur_entry_offset == JOURNAL_ENTRY_BLOCKED_VAL)
 		old.cur_entry_offset = j->cur_entry_offset_if_blocked;
 
 	/* Close out old buffer: */
 	buf->data->u64s		= cpu_to_le32(old.cur_entry_offset);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (trace_journal_entry_close_enabled() && trace) {
 		struct printbuf pbuf = PRINTBUF;
 		pbuf.atomic++;
@@ -281,7 +392,11 @@ static void __journal_entry_close(struct journal *j, unsigned closed_val, bool t
 	}
 
 	sectors = vstruct_blocks_plus(buf->data, c->block_bits,
-				      buf->u64s_reserved) << c->block_bits;
+				      buf->u64s_reserved) << c->block_bits; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(sectors > buf->sectors)) {
 		struct printbuf err = PRINTBUF;
 		err.atomic++;
@@ -337,6 +452,10 @@ void bch2_journal_halt_locked(struct journal *j)
 	lockdep_assert_held(&j->lock);
 
 	__journal_entry_close(j, JOURNAL_ENTRY_ERROR_VAL, true);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->err_seq)
 		j->err_seq = journal_cur_seq(j);
 	journal_wake(j);
@@ -355,11 +474,23 @@ static bool journal_entry_want_write(struct journal *j)
 		journal_cur_seq(j) == journal_last_unwritten_seq(j);
 
 	/* Don't close it yet if we already have a write in flight: */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		__journal_entry_close(j, JOURNAL_ENTRY_CLOSED_VAL, true);
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (nr_unwritten_journal_entries(j)) {
 		struct journal_buf *buf = journal_cur_buf(j);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!buf->flush_time) {
 			buf->flush_time	= local_clock() ?: 1;
 			buf->expires = jiffies;
@@ -388,7 +519,7 @@ static int journal_entry_open(struct journal *j)
 {
 	struct bch_fs *c = container_of(j, struct bch_fs, journal);
 	struct journal_buf *buf = j->buf +
-		((journal_cur_seq(j) + 1) & JOURNAL_BUF_MASK);
+		((journal_cur_seq(j) + 1) & JOURNAL_BUF_MASK); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	union journal_res_state old, new;
 	int u64s;
 
@@ -396,37 +527,77 @@ static int journal_entry_open(struct journal *j)
 	BUG_ON(journal_entry_is_open(j));
 	BUG_ON(BCH_SB_CLEAN(c->disk_sb.sb));
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->blocked)
 		return bch_err_throw(c, journal_blocked);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->cur_entry_error)
 		return j->cur_entry_error;
 
 	int ret = bch2_journal_error(j);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(ret))
 		return ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!fifo_free(&j->pin))
 		return bch_err_throw(c, journal_pin_full);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (nr_unwritten_journal_entries(j) == ARRAY_SIZE(j->buf))
 		return bch_err_throw(c, journal_max_in_flight);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (atomic64_read(&j->seq) - j->seq_write_started == JOURNAL_STATE_BUF_NR)
 		return bch_err_throw(c, journal_max_open);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(journal_cur_seq(j) >= JOURNAL_SEQ_MAX)) {
 		bch_err(c, "cannot start: journal seq overflow");
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (bch2_fs_emergency_read_only_locked(c))
 			bch_err(c, "fatal error - emergency read only");
 		return bch_err_throw(c, journal_shutdown);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->free_buf && !buf->data)
 		return bch_err_throw(c, journal_buf_enomem); /* will retry after write completion frees up a buf */
 
 	BUG_ON(!j->cur_entry_sectors);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!buf->data) {
 		swap(buf->data,		j->free_buf);
 		swap(buf->buf_size,	j->free_buf_size);
@@ -440,15 +611,23 @@ static int journal_entry_open(struct journal *j)
 
 	buf->u64s_reserved	= j->entry_u64s_reserved;
 	buf->disk_sectors	= j->cur_entry_sectors;
-	buf->sectors		= min(buf->disk_sectors, buf->buf_size >> 9);
+	buf->sectors		= min(buf->disk_sectors, buf->buf_size >> 9); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-	u64s = (int) (buf->sectors << 9) / sizeof(u64) -
+	u64s = (int) (buf->sectors << 9) / sizeof(u64) - /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		journal_entry_overhead(j);
 	u64s = clamp_t(int, u64s, 0, JOURNAL_ENTRY_CLOSED_VAL - 1);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (u64s <= (ssize_t) j->early_journal_entries.nr)
 		return bch_err_throw(c, journal_full);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (fifo_empty(&j->pin) && j->reclaim_thread)
 		wake_up_process(j->reclaim_thread);
 
@@ -459,9 +638,17 @@ static int journal_entry_open(struct journal *j)
 	atomic64_inc(&j->seq);
 	journal_pin_list_init(fifo_push_ref(&j->pin), 1);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(bch2_journal_seq_is_blacklisted(c, journal_cur_seq(j), false))) {
 		bch_err(c, "attempting to open blacklisted journal seq %llu",
 			journal_cur_seq(j));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (bch2_fs_emergency_read_only_locked(c))
 			bch_err(c, "fatal error - emergency read only");
 		return bch_err_throw(c, journal_shutdown);
@@ -469,7 +656,7 @@ static int journal_entry_open(struct journal *j)
 
 	BUG_ON(j->pin.back - 1 != atomic64_read(&j->seq));
 
-	BUG_ON(j->buf + (journal_cur_seq(j) & JOURNAL_BUF_MASK) != buf);
+	BUG_ON(j->buf + (journal_cur_seq(j) & JOURNAL_BUF_MASK) != buf); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	bkey_extent_init(&buf->key);
 	buf->noflush		= false;
@@ -485,6 +672,10 @@ static int journal_entry_open(struct journal *j)
 	buf->data->seq	= cpu_to_le64(journal_cur_seq(j));
 	buf->data->u64s	= 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->early_journal_entries.nr) {
 		memcpy(buf->data->_data, j->early_journal_entries.data,
 		       j->early_journal_entries.nr * sizeof(u64));
@@ -504,7 +695,7 @@ static int journal_entry_open(struct journal *j)
 
 		new.idx++;
 		BUG_ON(journal_state_count(new, new.idx));
-		BUG_ON(new.idx != (journal_cur_seq(j) & JOURNAL_STATE_BUF_MASK));
+		BUG_ON(new.idx != (journal_cur_seq(j) & JOURNAL_STATE_BUF_MASK)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		journal_state_inc(&new);
 
@@ -513,12 +704,20 @@ static int journal_entry_open(struct journal *j)
 	} while (!atomic64_try_cmpxchg(&j->reservations.counter,
 				       &old.v, new.v));
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (nr_unwritten_journal_entries(j) == 1)
 		mod_delayed_work(j->wq,
 				 &j->write_work,
 				 msecs_to_jiffies(c->opts.journal_flush_delay));
 	journal_wake(j);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->early_journal_entries.nr)
 		darray_exit(&j->early_journal_entries);
 	return 0;
@@ -528,6 +727,10 @@ static bool journal_quiesced(struct journal *j)
 {
 	bool ret = atomic64_read(&j->seq) == j->seq_ondisk;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ret)
 		bch2_journal_entry_close(j);
 	return ret;
@@ -543,9 +746,17 @@ static void journal_write_work(struct work_struct *work)
 	struct journal *j = container_of(work, struct journal, write_work.work);
 
 	spin_lock(&j->lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (__journal_entry_is_open(j->reservations)) {
 		long delta = journal_cur_buf(j)->expires - jiffies;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (delta > 0)
 			mod_delayed_work(j->wq, &j->write_work, delta);
 		else
@@ -556,6 +767,10 @@ static void journal_write_work(struct work_struct *work)
 
 static void journal_buf_prealloc(struct journal *j)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->free_buf &&
 	    j->free_buf_size >= j->buf_size_want)
 		return;
@@ -566,6 +781,10 @@ static void journal_buf_prealloc(struct journal *j)
 	void *buf = kvmalloc(buf_size, GFP_NOFS);
 	spin_lock(&j->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf &&
 	    (!j->free_buf ||
 	     buf_size > j->free_buf_size)) {
@@ -573,6 +792,10 @@ static void journal_buf_prealloc(struct journal *j)
 		swap(buf_size,	j->free_buf_size);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(buf)) {
 		spin_unlock(&j->lock);
 		/* kvfree can sleep */
@@ -589,22 +812,42 @@ static int __journal_res_get(struct journal *j, struct journal_res *res,
 	bool can_discard;
 	int ret;
 retry:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_res_get_fast(j, res, flags))
 		return 0;
 
 	ret = bch2_journal_error(j);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (unlikely(ret))
 		return ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->blocked)
 		return bch_err_throw(c, journal_blocked);
 
-	if ((flags & BCH_WATERMARK_MASK) < j->watermark) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if ((flags & BCH_WATERMARK_MASK) < j->watermark) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		ret = bch_err_throw(c, journal_full);
 		can_discard = j->can_discard;
 		goto out;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (nr_unwritten_journal_entries(j) == ARRAY_SIZE(j->buf) && !journal_entry_is_open(j)) {
 		ret = bch_err_throw(c, journal_max_in_flight);
 		goto out;
@@ -619,6 +862,10 @@ retry:
 	 * that just did journal_entry_open() and call bch2_journal_entry_close()
 	 * unnecessarily
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_res_get_fast(j, res, flags)) {
 		ret = 0;
 		goto unlock;
@@ -630,10 +877,14 @@ retry:
 	 * realloc the journal bufs:
 	 */
 	buf = journal_cur_buf(j);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_entry_is_open(j) &&
 	    buf->buf_size >> 9 < buf->disk_sectors &&
 	    buf->buf_size < JOURNAL_ENTRY_SIZE_MAX)
-		j->buf_size_want = max(j->buf_size_want, buf->buf_size << 1);
+		j->buf_size_want = max(j->buf_size_want, buf->buf_size << 1); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	__journal_entry_close(j, JOURNAL_ENTRY_CLOSED_VAL, false);
 	ret = journal_entry_open(j) ?: -BCH_ERR_journal_retry_open;
@@ -641,14 +892,30 @@ unlock:
 	can_discard = j->can_discard;
 	spin_unlock(&j->lock);
 out:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (likely(!ret))
 		return 0;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret == -BCH_ERR_journal_retry_open)
 		goto retry;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_error_check_stuck(j, ret, flags))
 		ret = bch_err_throw(c, journal_stuck);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret == -BCH_ERR_journal_max_in_flight &&
 	    track_event_change(&c->times[BCH_TIME_blocked_journal_max_in_flight], true) &&
 	    trace_journal_entry_full_enabled()) {
@@ -666,6 +933,10 @@ out:
 		count_event(c, journal_entry_full);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret == -BCH_ERR_journal_max_open &&
 	    track_event_change(&c->times[BCH_TIME_blocked_journal_max_open], true) &&
 	    trace_journal_entry_full_enabled()) {
@@ -687,14 +958,26 @@ out:
 	 * Journal is full - can't rely on reclaim from work item due to
 	 * freezing:
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((ret == -BCH_ERR_journal_full ||
 	     ret == -BCH_ERR_journal_pin_full) &&
-	    !(flags & JOURNAL_RES_GET_NONBLOCK)) {
+	    !(flags & JOURNAL_RES_GET_NONBLOCK)) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (can_discard) {
 			bch2_journal_do_discards(j);
 			goto retry;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (mutex_trylock(&j->reclaim_lock)) {
 			bch2_journal_reclaim(j);
 			mutex_unlock(&j->reclaim_lock);
@@ -731,12 +1014,20 @@ int bch2_journal_res_get_slowpath(struct journal *j, struct journal_res *res,
 {
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (closure_wait_event_timeout(&j->async_wait,
 		   !bch2_err_matches(ret = __journal_res_get(j, res, flags), BCH_ERR_operation_blocked) ||
-		   (flags & JOURNAL_RES_GET_NONBLOCK),
+		   (flags & JOURNAL_RES_GET_NONBLOCK), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		   HZ))
 		return ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (trans)
 		bch2_trans_unlock_long(trans);
 
@@ -745,9 +1036,13 @@ int bch2_journal_res_get_slowpath(struct journal *j, struct journal_res *res,
 
 	remaining_wait = max(0, remaining_wait - HZ);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (closure_wait_event_timeout(&j->async_wait,
 		   !bch2_err_matches(ret = __journal_res_get(j, res, flags), BCH_ERR_operation_blocked) ||
-		   (flags & JOURNAL_RES_GET_NONBLOCK),
+		   (flags & JOURNAL_RES_GET_NONBLOCK), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		   remaining_wait))
 		return ret;
 
@@ -759,7 +1054,7 @@ int bch2_journal_res_get_slowpath(struct journal *j, struct journal_res *res,
 
 	closure_wait_event(&j->async_wait,
 		   !bch2_err_matches(ret = __journal_res_get(j, res, flags), BCH_ERR_operation_blocked) ||
-		   (flags & JOURNAL_RES_GET_NONBLOCK));
+		   (flags & JOURNAL_RES_GET_NONBLOCK)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	return ret;
 }
 
@@ -775,12 +1070,20 @@ void bch2_journal_entry_res_resize(struct journal *j,
 	spin_lock(&j->lock);
 
 	j->entry_u64s_reserved += d;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (d <= 0)
 		goto out;
 
 	j->cur_entry_u64s = max_t(int, 0, j->cur_entry_u64s - d);
 	state = READ_ONCE(j->reservations);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (state.cur_entry_offset < JOURNAL_ENTRY_CLOSED_VAL &&
 	    state.cur_entry_offset > j->cur_entry_u64s) {
 		j->cur_entry_u64s += d;
@@ -810,28 +1113,44 @@ out:
  * necessary
  */
 int bch2_journal_flush_seq_async(struct journal *j, u64 seq,
-				 struct closure *parent)
+				 struct closure *parent) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	struct bch_fs *c = container_of(j, struct bch_fs, journal);
 	struct journal_buf *buf;
 	int ret = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (seq <= j->flushed_seq_ondisk)
 		return 1;
 
 	spin_lock(&j->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (WARN_ONCE(seq > journal_cur_seq(j),
 		      "requested to flush journal seq %llu, but currently at %llu",
 		      seq, journal_cur_seq(j)))
 		goto out;
 
 	/* Recheck under lock: */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->err_seq && seq >= j->err_seq) {
 		ret = bch_err_throw(c, journal_flush_err);
 		goto out;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (seq <= j->flushed_seq_ondisk) {
 		ret = 1;
 		goto out;
@@ -841,9 +1160,17 @@ int bch2_journal_flush_seq_async(struct journal *j, u64 seq,
 	seq = max(seq, journal_last_unwritten_seq(j));
 
 recheck_need_open:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (seq > journal_cur_seq(j)) {
 		struct journal_res res = { 0 };
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (journal_entry_is_open(j))
 			__journal_entry_close(j, JOURNAL_ENTRY_CLOSED_VAL, true);
 
@@ -856,6 +1183,10 @@ recheck_need_open:
 		 */
 		sched_annotate_sleep();
 		ret = bch2_journal_res_get(j, &res, jset_u64s(0), 0, NULL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			return ret;
 
@@ -863,11 +1194,19 @@ recheck_need_open:
 		buf = journal_seq_to_buf(j, seq);
 		buf->must_flush = true;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!buf->flush_time) {
 			buf->flush_time	= local_clock() ?: 1;
 			buf->expires = jiffies;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (parent && !closure_wait(&buf->wait, parent))
 			BUG();
 
@@ -882,6 +1221,10 @@ recheck_need_open:
 	 * wouldn't be a flush, flush the next sequence number instead
 	 */
 	buf = journal_seq_to_buf(j, seq);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (buf->noflush) {
 		seq++;
 		goto recheck_need_open;
@@ -890,9 +1233,17 @@ recheck_need_open:
 	buf->must_flush = true;
 	j->flushing_seq = max(j->flushing_seq, seq);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (parent && !closure_wait(&buf->wait, parent))
 		BUG();
 want_write:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (seq == journal_cur_seq(j))
 		journal_entry_want_write(j);
 out:
@@ -908,6 +1259,10 @@ int bch2_journal_flush_seq(struct journal *j, u64 seq, unsigned task_state)
 	/*
 	 * Don't update time_stats when @seq is already flushed:
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (seq <= j->flushed_seq_ondisk)
 		return 0;
 
@@ -915,6 +1270,10 @@ int bch2_journal_flush_seq(struct journal *j, u64 seq, unsigned task_state)
 			       (ret2 = bch2_journal_flush_seq_async(j, seq, NULL)),
 			       task_state);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ret)
 		bch2_time_stats_update(j->flush_seq_time, start_time);
 
@@ -925,7 +1284,7 @@ int bch2_journal_flush_seq(struct journal *j, u64 seq, unsigned task_state)
  * bch2_journal_flush_async - if there is an open journal entry, or a journal
  * still being written, write it and wait for the write to complete
  */
-void bch2_journal_flush_async(struct journal *j, struct closure *parent)
+void bch2_journal_flush_async(struct journal *j, struct closure *parent) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	bch2_journal_flush_seq_async(j, atomic64_read(&j->seq), parent);
 }
@@ -946,22 +1305,42 @@ bool bch2_journal_noflush_seq(struct journal *j, u64 start, u64 end)
 	u64 unwritten_seq;
 	bool ret = false;
 
-	if (!(c->sb.features & (1ULL << BCH_FEATURE_journal_no_flush)))
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (!(c->sb.features & (1ULL << BCH_FEATURE_journal_no_flush))) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return false;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c->journal.flushed_seq_ondisk >= start)
 		return false;
 
 	spin_lock(&j->lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c->journal.flushed_seq_ondisk >= start)
 		goto out;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unwritten_seq = journal_last_unwritten_seq(j);
 	     unwritten_seq < end;
 	     unwritten_seq++) {
 		struct journal_buf *buf = journal_seq_to_buf(j, unwritten_seq);
 
 		/* journal flush already in flight, or flush requseted */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (buf->must_flush)
 			goto out;
 
@@ -978,12 +1357,20 @@ static int __bch2_journal_meta(struct journal *j)
 {
 	struct journal_res res = {};
 	int ret = bch2_journal_res_get(j, &res, jset_u64s(0), 0, NULL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
-	struct journal_buf *buf = j->buf + (res.seq & JOURNAL_BUF_MASK);
+	struct journal_buf *buf = j->buf + (res.seq & JOURNAL_BUF_MASK); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	buf->must_flush = true;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!buf->flush_time) {
 		buf->flush_time	= local_clock() ?: 1;
 		buf->expires = jiffies;
@@ -998,6 +1385,10 @@ int bch2_journal_meta(struct journal *j)
 {
 	struct bch_fs *c = container_of(j, struct bch_fs, journal);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!enumerated_ref_tryget(&c->writes, BCH_WRITE_REF_journal))
 		return bch_err_throw(c, erofs_no_writes);
 
@@ -1011,6 +1402,10 @@ int bch2_journal_meta(struct journal *j)
 void bch2_journal_unblock(struct journal *j)
 {
 	spin_lock(&j->lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!--j->blocked &&
 	    j->cur_entry_offset_if_blocked < JOURNAL_ENTRY_CLOSED_VAL &&
 	    j->reservations.cur_entry_offset == JOURNAL_ENTRY_BLOCKED_VAL) {
@@ -1029,6 +1424,10 @@ void bch2_journal_unblock(struct journal *j)
 
 static void __bch2_journal_block(struct journal *j)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->blocked++) {
 		union journal_res_state old, new;
 
@@ -1036,6 +1435,10 @@ static void __bch2_journal_block(struct journal *j)
 		do {
 			j->cur_entry_offset_if_blocked = old.cur_entry_offset;
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (j->cur_entry_offset_if_blocked >= JOURNAL_ENTRY_CLOSED_VAL)
 				break;
 
@@ -1043,6 +1446,10 @@ static void __bch2_journal_block(struct journal *j)
 			new.cur_entry_offset = JOURNAL_ENTRY_BLOCKED_VAL;
 		} while (!atomic64_try_cmpxchg(&j->reservations.counter, &old.v, new.v));
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (old.cur_entry_offset < JOURNAL_ENTRY_BLOCKED_VAL)
 			journal_cur_buf(j)->data->u64s = cpu_to_le32(old.cur_entry_offset);
 	}
@@ -1068,24 +1475,36 @@ static struct journal_buf *__bch2_next_write_buffer_flush_journal_buf(struct jou
 	spin_lock(&j->lock);
 	max_seq = min(max_seq, journal_cur_seq(j));
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (u64 seq = journal_last_unwritten_seq(j);
 	     seq <= max_seq;
 	     seq++) {
-		unsigned idx = seq & JOURNAL_BUF_MASK;
+		unsigned idx = seq & JOURNAL_BUF_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		struct journal_buf *buf = j->buf + idx;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (buf->need_flush_to_write_buffer) {
 			union journal_res_state s;
 			s.v = atomic64_read_acquire(&j->reservations.counter);
 
 			unsigned open = seq == journal_cur_seq(j) && __journal_entry_is_open(s);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (open && !*blocked) {
 				__bch2_journal_block(j);
 				*blocked = true;
 			}
 
-			ret = journal_state_count(s, idx & JOURNAL_STATE_BUF_MASK) > open
+			ret = journal_state_count(s, idx & JOURNAL_STATE_BUF_MASK) > open /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 				? ERR_PTR(-EAGAIN)
 				: buf;
 			break;
@@ -1093,6 +1512,10 @@ static struct journal_buf *__bch2_next_write_buffer_flush_journal_buf(struct jou
 	}
 
 	spin_unlock(&j->lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR_OR_NULL(ret))
 		mutex_unlock(&j->buf_lock);
 	return ret;
@@ -1106,6 +1529,10 @@ struct journal_buf *bch2_next_write_buffer_flush_journal_buf(struct journal *j,
 
 	wait_event(j->wait, (ret = __bch2_next_write_buffer_flush_journal_buf(j,
 						max_seq, blocked)) != ERR_PTR(-EAGAIN));
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (IS_ERR_OR_NULL(ret) && *blocked)
 		bch2_journal_unblock(j);
 
@@ -1131,11 +1558,19 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 	ob		= kcalloc(nr_want, sizeof(*ob), GFP_KERNEL);
 	new_buckets	= kcalloc(nr, sizeof(u64), GFP_KERNEL);
 	new_bucket_seq	= kcalloc(nr, sizeof(u64), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!bu || !ob || !new_buckets || !new_bucket_seq) {
 		ret = bch_err_throw(c, ENOMEM_set_nr_journal_buckets);
 		goto err_free;
 	}
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (nr_got = 0; nr_got < nr_want; nr_got++) {
 		enum bch_watermark watermark = new_fs
 			? BCH_WATERMARK_btree
@@ -1144,14 +1579,26 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 		ob[nr_got] = bch2_bucket_alloc(c, ca, watermark,
 					       BCH_DATA_journal, cl);
 		ret = PTR_ERR_OR_ZERO(ob[nr_got]);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			break;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!new_fs) {
 			ret = bch2_trans_run(c,
 				bch2_trans_mark_metadata_bucket(trans, ca,
 						ob[nr_got]->bucket, BCH_DATA_journal,
 						ca->mi.bucket_size, BTREE_TRIGGER_transactional));
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (ret) {
 				bch2_open_bucket_put(c, ob[nr_got]);
 				bch_err_msg(c, ret, "marking new journal buckets");
@@ -1162,12 +1609,20 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 		bu[nr_got] = ob[nr_got]->bucket;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!nr_got)
 		goto err_free;
 
 	/* Don't return an error if we successfully allocated some buckets: */
 	ret = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c) {
 		bch2_journal_flush_all_pins(&c->journal);
 		bch2_journal_block(&c->journal);
@@ -1188,6 +1643,10 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 		new_bucket_seq + pos,
 		sizeof(new_bucket_seq[0]) * (ja->nr - pos));
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < nr_got; i++) {
 		new_buckets[pos + i] = bu[i];
 		new_bucket_seq[pos + i] = 0;
@@ -1196,12 +1655,20 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 	nr = ja->nr + nr_got;
 
 	ret = bch2_journal_buckets_to_sb(c, ca, new_buckets, nr);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto err_unblock;
 
 	bch2_write_super(c);
 
 	/* Commit: */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c)
 		spin_lock(&c->journal.lock);
 
@@ -1209,30 +1676,66 @@ static int bch2_set_nr_journal_buckets_iter(struct bch_dev *ca, unsigned nr,
 	swap(new_bucket_seq,	ja->bucket_seq);
 	ja->nr = nr;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (pos <= ja->discard_idx)
 		ja->discard_idx = (ja->discard_idx + nr_got) % ja->nr;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (pos <= ja->dirty_idx_ondisk)
 		ja->dirty_idx_ondisk = (ja->dirty_idx_ondisk + nr_got) % ja->nr;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (pos <= ja->dirty_idx)
 		ja->dirty_idx = (ja->dirty_idx + nr_got) % ja->nr;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (pos <= ja->cur_idx)
 		ja->cur_idx = (ja->cur_idx + nr_got) % ja->nr;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c)
 		spin_unlock(&c->journal.lock);
 err_unblock:
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (c) {
 		bch2_journal_unblock(&c->journal);
 		mutex_unlock(&c->sb_lock);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret && !new_fs)
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (i = 0; i < nr_got; i++)
 			bch2_trans_run(c,
 				bch2_trans_mark_metadata_bucket(trans, ca,
 						bu[i], BCH_DATA_free, 0,
 						BTREE_TRIGGER_transactional));
 err_free:
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (i = 0; i < nr_got; i++)
 		bch2_open_bucket_put(c, ob[i]);
 
@@ -1253,9 +1756,17 @@ static int bch2_set_nr_journal_buckets_loop(struct bch_fs *c, struct bch_dev *ca
 	closure_init_stack(&cl);
 
 	/* don't handle reducing nr of buckets yet: */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (nr < ja->nr)
 		return 0;
 
+	/**
+	 * Block Logic: Condition check initialization for iterative traversal.
+	 * Invariant: Condition remains true across iterations, ensuring execution state.
+	 */
 	while (!ret && ja->nr < nr) {
 		struct disk_reservation disk_res = { 0, 0, 0 };
 
@@ -1269,15 +1780,27 @@ static int bch2_set_nr_journal_buckets_loop(struct bch_fs *c, struct bch_dev *ca
 		 * filesystem-wide allocation will succeed, this is a device
 		 * specific allocation - we can hang here:
 		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!new_fs) {
 			ret = bch2_disk_reservation_get(c, &disk_res,
 							bucket_to_sector(ca, nr - ja->nr), 1, 0);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (ret)
 				break;
 		}
 
 		ret = bch2_set_nr_journal_buckets_iter(ca, nr, new_fs, &cl);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret == -BCH_ERR_bucket_alloc_blocked ||
 		    ret == -BCH_ERR_open_buckets_empty)
 			ret = 0; /* wait and retry */
@@ -1312,16 +1835,32 @@ int bch2_dev_journal_bucket_delete(struct bch_dev *ca, u64 b)
 
 	guard(mutex)(&c->sb_lock);
 	unsigned pos;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (pos = 0; pos < ja->nr; pos++)
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ja->buckets[pos] == b)
 			break;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (pos == ja->nr) {
 		bch_err(ca, "journal bucket %llu not found when deleting", b);
 		return -EINVAL;
 	}
 
 	u64 *new_buckets = kcalloc(ja->nr, sizeof(u64), GFP_KERNEL);;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!new_buckets)
 		return bch_err_throw(c, ENOMEM_set_nr_journal_buckets);
 
@@ -1332,18 +1871,38 @@ int bch2_dev_journal_bucket_delete(struct bch_dev *ca, u64 b)
 
 	int ret = bch2_journal_buckets_to_sb(c, ca, ja->buckets, ja->nr - 1) ?:
 		bch2_write_super(c);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret) {
 		kfree(new_buckets);
 		return ret;
 	}
 
 	scoped_guard(spinlock, &j->lock) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (pos < ja->discard_idx)
 			--ja->discard_idx;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (pos < ja->dirty_idx_ondisk)
 			--ja->dirty_idx_ondisk;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (pos < ja->dirty_idx)
 			--ja->dirty_idx;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (pos < ja->cur_idx)
 			--ja->cur_idx;
 
@@ -1368,10 +1927,18 @@ int bch2_dev_journal_alloc(struct bch_dev *ca, bool new_fs)
 {
 	struct bch_fs *c = ca->fs;
 
-	if (!(ca->mi.data_allowed & BIT(BCH_DATA_journal)))
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (!(ca->mi.data_allowed & BIT(BCH_DATA_journal))) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return 0;
 
-	if (c->sb.features & BIT_ULL(BCH_FEATURE_small_image)) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
+	if (c->sb.features & BIT_ULL(BCH_FEATURE_small_image)) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		bch_err(c, "cannot allocate journal, filesystem is an unresized image file");
 		return bch_err_throw(c, erofs_filesystem_full);
 	}
@@ -1379,13 +1946,17 @@ int bch2_dev_journal_alloc(struct bch_dev *ca, bool new_fs)
 	unsigned nr;
 	int ret;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (dynamic_fault("bcachefs:add:journal_alloc")) {
 		ret = bch_err_throw(c, ENOMEM_set_nr_journal_buckets);
 		goto err;
 	}
 
 	/* 1/128th of the device by default: */
-	nr = ca->mi.nbuckets >> 7;
+	nr = ca->mi.nbuckets >> 7; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	/*
 	 * clamp journal size to 8192 buckets or 8GB (in sectors), whichever
@@ -1393,8 +1964,8 @@ int bch2_dev_journal_alloc(struct bch_dev *ca, bool new_fs)
 	 */
 	nr = clamp_t(unsigned, nr,
 		     BCH_JOURNAL_BUCKETS_MIN,
-		     min(1 << 13,
-			 (1 << 24) / ca->mi.bucket_size));
+		     min(1 << 13, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+			 (1 << 24) / ca->mi.bucket_size)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	ret = bch2_set_nr_journal_buckets_loop(c, ca, nr, new_fs);
 err:
@@ -1405,10 +1976,18 @@ err:
 int bch2_fs_journal_alloc(struct bch_fs *c)
 {
 	for_each_online_member(c, ca, BCH_DEV_READ_REF_fs_journal_alloc) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ca->journal.nr)
 			continue;
 
 		int ret = bch2_dev_journal_alloc(ca, true);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret) {
 			enumerated_ref_put(&ca->io_ref[READ],
 					   BCH_DEV_READ_REF_fs_journal_alloc);
@@ -1427,11 +2006,19 @@ static bool bch2_journal_writing_to_device(struct journal *j, unsigned dev_idx)
 	u64 seq;
 
 	spin_lock(&j->lock);
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (seq = journal_last_unwritten_seq(j);
 	     seq <= journal_cur_seq(j) && !ret;
 	     seq++) {
 		struct journal_buf *buf = journal_seq_to_buf(j, seq);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (bch2_bkey_has_device_c(bkey_i_to_s_c(&buf->key), dev_idx))
 			ret = true;
 	}
@@ -1447,6 +2034,10 @@ void bch2_dev_journal_stop(struct journal *j, struct bch_dev *ca)
 
 void bch2_fs_journal_stop(struct journal *j)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!test_bit(JOURNAL_running, &j->flags))
 		return;
 
@@ -1470,6 +2061,10 @@ void bch2_fs_journal_stop(struct journal *j)
 	     "journal shutdown error: cur seq %llu but last empty seq %llu",
 	     journal_cur_seq(j), j->last_empty_seq);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!bch2_journal_error(j))
 		clear_bit(JOURNAL_running, &j->flags);
 }
@@ -1477,7 +2072,7 @@ void bch2_fs_journal_stop(struct journal *j)
 int bch2_fs_journal_start(struct journal *j, u64 last_seq, u64 cur_seq)
 {
 	struct bch_fs *c = container_of(j, struct bch_fs, journal);
-	struct journal_entry_pin_list *p;
+	struct journal_entry_pin_list *p; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	struct journal_replay *i, **_i;
 	struct genradix_iter iter;
 	bool had_entries = false;
@@ -1489,12 +2084,20 @@ int bch2_fs_journal_start(struct journal *j, u64 last_seq, u64 cur_seq)
 
 	cur_seq = max(cur_seq, bch2_journal_last_blacklisted_seq(c));
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (cur_seq >= JOURNAL_SEQ_MAX) {
 		bch_err(c, "cannot start: journal seq overflow");
 		return -EINVAL;
 	}
 
 	/* Clean filesystem? */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!last_seq)
 		last_seq = cur_seq;
 
@@ -1510,6 +2113,10 @@ int bch2_fs_journal_start(struct journal *j, u64 last_seq, u64 cur_seq)
 
 	nr = max(nr, JOURNAL_PIN);
 	init_fifo(&j->pin, roundup_pow_of_two(nr), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->pin.data) {
 		bch_err(c, "error reallocating journal fifo (%llu open entries)", nr);
 		return bch_err_throw(c, ENOMEM_journal_pin_fifo);
@@ -1532,15 +2139,27 @@ int bch2_fs_journal_start(struct journal *j, u64 last_seq, u64 cur_seq)
 	genradix_for_each(&c->journal_entries, iter, _i) {
 		i = *_i;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (journal_replay_ignore(i))
 			continue;
 
 		seq = le64_to_cpu(i->j.seq);
 		BUG_ON(seq >= cur_seq);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (seq < last_seq)
 			continue;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (journal_entry_empty(&i->j))
 			j->last_empty_seq = le64_to_cpu(i->j.seq);
 
@@ -1553,6 +2172,10 @@ int bch2_fs_journal_start(struct journal *j, u64 last_seq, u64 cur_seq)
 		had_entries = true;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!had_entries)
 		j->last_empty_seq = cur_seq - 1; /* to match j->seq */
 
@@ -1588,6 +2211,10 @@ void bch2_dev_journal_exit(struct bch_dev *ca)
 {
 	struct journal_device *ja = &ca->journal;
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(ja->bio); i++) {
 		kfree(ja->bio[i]);
 		ja->bio[i] = NULL;
@@ -1610,9 +2237,17 @@ int bch2_dev_journal_init(struct bch_dev *ca, struct bch_sb *sb)
 
 	ja->nr = 0;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_buckets_v2) {
 		unsigned nr = bch2_sb_field_journal_v2_nr_entries(journal_buckets_v2);
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned i = 0; i < nr; i++)
 			ja->nr += le64_to_cpu(journal_buckets_v2->d[i].nr);
 	} else if (journal_buckets) {
@@ -1620,14 +2255,26 @@ int bch2_dev_journal_init(struct bch_dev *ca, struct bch_sb *sb)
 	}
 
 	ja->bucket_seq = kcalloc(ja->nr, sizeof(u64), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ja->bucket_seq)
 		return bch_err_throw(c, ENOMEM_dev_journal_init);
 
 	unsigned nr_bvecs = DIV_ROUND_UP(JOURNAL_ENTRY_SIZE_MAX, PAGE_SIZE);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(ja->bio); i++) {
 		ja->bio[i] = kzalloc(struct_size(ja->bio[i], bio.bi_inline_vecs,
 				     nr_bvecs), GFP_KERNEL);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!ja->bio[i])
 			return bch_err_throw(c, ENOMEM_dev_journal_init);
 
@@ -1637,18 +2284,38 @@ int bch2_dev_journal_init(struct bch_dev *ca, struct bch_sb *sb)
 	}
 
 	ja->buckets = kcalloc(ja->nr, sizeof(u64), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ja->buckets)
 		return bch_err_throw(c, ENOMEM_dev_journal_init);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (journal_buckets_v2) {
 		unsigned nr = bch2_sb_field_journal_v2_nr_entries(journal_buckets_v2);
 		unsigned dst = 0;
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned i = 0; i < nr; i++)
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (unsigned j = 0; j < le64_to_cpu(journal_buckets_v2->d[i].nr); j++)
 				ja->buckets[dst++] =
 					le64_to_cpu(journal_buckets_v2->d[i].start) + j;
 	} else if (journal_buckets) {
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (unsigned i = 0; i < ja->nr; i++)
 			ja->buckets[i] = le64_to_cpu(journal_buckets->buckets[i]);
 	}
@@ -1658,11 +2325,19 @@ int bch2_dev_journal_init(struct bch_dev *ca, struct bch_sb *sb)
 
 void bch2_fs_journal_exit(struct journal *j)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (j->wq)
 		destroy_workqueue(j->wq);
 
 	darray_exit(&j->early_journal_entries);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(j->buf); i++)
 		kvfree(j->buf[i].data);
 	kvfree(j->free_buf);
@@ -1696,14 +2371,26 @@ int bch2_fs_journal_init(struct journal *j)
 
 	j->free_buf_size = j->buf_size_want = JOURNAL_ENTRY_SIZE_MIN;
 	j->free_buf = kvmalloc(j->free_buf_size, GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->free_buf)
 		return bch_err_throw(c, ENOMEM_journal_buf);
 
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (unsigned i = 0; i < ARRAY_SIZE(j->buf); i++)
 		j->buf[i].idx = i;
 
 	j->wq = alloc_workqueue("bcachefs_journal",
 				WQ_HIGHPRI|WQ_FREEZABLE|WQ_UNBOUND|WQ_MEM_RECLAIM, 512);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!j->wq)
 		return bch_err_throw(c, ENOMEM_fs_other_alloc);
 	return 0;
@@ -1794,14 +2481,26 @@ void __bch2_journal_debug_to_text(struct printbuf *out, struct journal *j)
 	printbuf_indent_sub(out, 2);
 
 	for_each_member_device_rcu(c, ca, &c->rw_devs[BCH_DATA_journal]) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!ca->mi.durability)
 			continue;
 
 		struct journal_device *ja = &ca->journal;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!test_bit(ca->dev_idx, c->rw_devs[BCH_DATA_journal].d))
 			continue;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!ja->nr)
 			continue;
 

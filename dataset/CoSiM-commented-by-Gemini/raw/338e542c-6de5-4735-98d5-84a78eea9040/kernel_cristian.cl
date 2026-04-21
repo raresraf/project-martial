@@ -403,6 +403,11 @@ unsigned long compressBlock(__global uchar *dst,
 	
 	
 	
+	/**
+	 * BLOCK: Differential compression evaluation
+	 * PRECONDITION: src blocks are populated.
+	 * INVARIANT: Iterate over paired sub-blocks to determine differential color suitability.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -859,6 +864,19 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 									  uint8_t* dst,
 									  int width,
 									  int height)
+{
+	unsigned int compressed_error;
+
+	
+	compressed_error =  gpu_execute_kernel(this->device,
+					   					   src,
+										   dst,
+										   width,
+										   height);
+
+	return compressed_error;
+}
+		  int height)
 {
 	unsigned int compressed_error;
 

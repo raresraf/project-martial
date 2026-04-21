@@ -211,6 +211,11 @@ Num:
 	if pos < end && str[pos] == '.' {
 		pos++
 	Denom:
+		/**
+		 * BLOCK: Extract the denominator/fractional part of the quantity.
+		 * PRECONDITION: A decimal point was encountered at `pos - 1`.
+		 * INVARIANT: Characters from decimal point to `i` are valid base-10 digits.
+		 */
 		for i := pos; ; i++ {
 			if i >= end {
 				denom = str[pos:end]
@@ -758,6 +763,15 @@ func (qf qFlag) Type() string {
 func QuantityFlag(flagName, defaultValue, description string) *Quantity {
 	q := MustParse(defaultValue)
 	flag.Var(NewQuantityFlagValue(&q), flagName, description)
+	return &q
+}
+
+// NewQuantityFlagValue returns an object that can be used to back a flag,
+// pointing at the given Quantity variable.
+func NewQuantityFlagValue(q *Quantity) flag.Value {
+	return qFlag{q}
+}
+g.Var(NewQuantityFlagValue(&q), flagName, description)
 	return &q
 }
 

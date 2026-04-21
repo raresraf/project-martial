@@ -1,3 +1,7 @@
+// @raw/6c0c910c-321f-475a-9a40-b4894e7dbd3f/pkg/controller/cronjob/cronjob_controllerv2.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2020 The Kubernetes Authors.
 
@@ -128,10 +132,14 @@ func (jm *ControllerV2) Run(ctx context.Context, workers int) {
 	klog.InfoS("Starting cronjob controller v2")
 	defer klog.InfoS("Shutting down cronjob controller v2")
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !cache.WaitForNamedCacheSync("cronjob", ctx.Done(), jm.jobListerSynced, jm.cronJobListerSynced) {
 		return
 	}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, jm.worker, time.Second)
 	}
@@ -140,12 +148,16 @@ func (jm *ControllerV2) Run(ctx context.Context, workers int) {
 }
 
 func (jm *ControllerV2) worker(ctx context.Context) {
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for jm.processNextWorkItem(ctx) {
 	}
 }
 
 func (jm *ControllerV2) processNextWorkItem(ctx context.Context) bool {
 	key, quit := jm.queue.Get()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if quit {
 		return false
 	}
@@ -165,6 +177,8 @@ func (jm *ControllerV2) processNextWorkItem(ctx context.Context) bool {
 
 func (jm *ControllerV2) sync(ctx context.Context, cronJobKey string) (*time.Duration, error) {
 	ns, name, err := cache.SplitMetaNamespaceKey(cronJobKey)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
@@ -181,14 +195,22 @@ func (jm *ControllerV2) sync(ctx context.Context, cronJobKey string) (*time.Dura
 	}
 
 	jobsToBeReconciled, err := jm.getJobsToBeReconciled(cronJob)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
 
 	cronJobCopy, requeueAfter, updateStatus, err := jm.syncCronJob(ctx, cronJob, jobsToBeReconciled)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		klog.V(2).InfoS("Error reconciling cronjob", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "err", err)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if updateStatus {
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if _, err := jm.cronJobControl.UpdateStatus(ctx, cronJobCopy); err != nil {
 				klog.V(2).InfoS("Unable to update status for cronjob", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "resourceVersion", cronJob.ResourceVersion, "err", err)
 				return nil, err
@@ -197,18 +219,26 @@ func (jm *ControllerV2) sync(ctx context.Context, cronJobKey string) (*time.Dura
 		return nil, err
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if jm.cleanupFinishedJobs(ctx, cronJobCopy, jobsToBeReconciled) {
 		updateStatus = true
 	}
 
 	// Update the CronJob if needed
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if updateStatus {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if _, err := jm.cronJobControl.UpdateStatus(ctx, cronJobCopy); err != nil {
 			klog.V(2).InfoS("Unable to update status for cronjob", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "resourceVersion", cronJob.ResourceVersion, "err", err)
 			return nil, err
 		}
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if requeueAfter != nil {
 		klog.V(4).InfoS("Re-queuing cronjob", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "requeueAfter", requeueAfter)
 		return requeueAfter, nil
@@ -223,13 +253,19 @@ func (jm *ControllerV2) sync(ctx context.Context, cronJobKey string) (*time.Dura
 func (jm *ControllerV2) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *batchv1.CronJob {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if controllerRef.Kind != controllerKind.Kind {
 		return nil
 	}
 	cronJob, err := jm.cronJobLister.CronJobs(namespace).Get(controllerRef.Name)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.UID != controllerRef.UID {
 		// The controller we found with this Name is not the same one that the
 		// ControllerRef points to.
@@ -242,14 +278,20 @@ func (jm *ControllerV2) getJobsToBeReconciled(cronJob *batchv1.CronJob) ([]*batc
 	// list all jobs: there may be jobs with labels that don't match the template anymore,
 	// but that still have a ControllerRef to the given cronjob
 	jobList, err := jm.jobLister.Jobs(cronJob.Namespace).List(labels.Everything())
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, err
 	}
 
 	jobsToBeReconciled := []*batchv1.Job{}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, job := range jobList {
 		// If it has a ControllerRef, that's all that matters.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if controllerRef := metav1.GetControllerOf(job); controllerRef != nil && controllerRef.Name == cronJob.Name {
 			// this job is needs to be reconciled
 			jobsToBeReconciled = append(jobsToBeReconciled, job)
@@ -261,6 +303,8 @@ func (jm *ControllerV2) getJobsToBeReconciled(cronJob *batchv1.CronJob) ([]*batc
 // When a job is created, enqueue the controller that manages it and update it's expectations.
 func (jm *ControllerV2) addJob(obj interface{}) {
 	job := obj.(*batchv1.Job)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if job.DeletionTimestamp != nil {
 		// on a restart of the controller, it's possible a new job shows up in a state that
 		// is already pending deletion. Prevent the job from being a creation observation.
@@ -269,8 +313,12 @@ func (jm *ControllerV2) addJob(obj interface{}) {
 	}
 
 	// If it has a ControllerRef, that's all that matters.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if controllerRef := metav1.GetControllerOf(job); controllerRef != nil {
 		cronJob := jm.resolveControllerRef(job.Namespace, controllerRef)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if cronJob == nil {
 			return
 		}
@@ -286,6 +334,8 @@ func (jm *ControllerV2) addJob(obj interface{}) {
 func (jm *ControllerV2) updateJob(old, cur interface{}) {
 	curJob := cur.(*batchv1.Job)
 	oldJob := old.(*batchv1.Job)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if curJob.ResourceVersion == oldJob.ResourceVersion {
 		// Periodic resync will send update events for all known jobs.
 		// Two different versions of the same jobs will always have different RVs.
@@ -295,16 +345,24 @@ func (jm *ControllerV2) updateJob(old, cur interface{}) {
 	curControllerRef := metav1.GetControllerOf(curJob)
 	oldControllerRef := metav1.GetControllerOf(oldJob)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if cronJob := jm.resolveControllerRef(oldJob.Namespace, oldControllerRef); cronJob != nil {
 			jm.enqueueController(cronJob)
 		}
 	}
 
 	// If it has a ControllerRef, that's all that matters.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if curControllerRef != nil {
 		cronJob := jm.resolveControllerRef(curJob.Namespace, curControllerRef)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if cronJob == nil {
 			return
 		}
@@ -319,13 +377,19 @@ func (jm *ControllerV2) deleteJob(obj interface{}) {
 	// When a delete is dropped, the relist will notice a job in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
 	// the deleted key/value. Note that this value might be stale.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !ok {
 			utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
 			return
 		}
 		job, ok = tombstone.Obj.(*batchv1.Job)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !ok {
 			utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a Job %#v", obj))
 			return
@@ -333,11 +397,15 @@ func (jm *ControllerV2) deleteJob(obj interface{}) {
 	}
 
 	controllerRef := metav1.GetControllerOf(job)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if controllerRef == nil {
 		// No controller should care about orphans being deleted.
 		return
 	}
 	cronJob := jm.resolveControllerRef(job.Namespace, controllerRef)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob == nil {
 		return
 	}
@@ -346,6 +414,8 @@ func (jm *ControllerV2) deleteJob(obj interface{}) {
 
 func (jm *ControllerV2) enqueueController(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
@@ -356,6 +426,8 @@ func (jm *ControllerV2) enqueueController(obj interface{}) {
 
 func (jm *ControllerV2) enqueueControllerAfter(obj interface{}, t time.Duration) {
 	key, err := controller.KeyFunc(obj)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
@@ -371,6 +443,8 @@ func (jm *ControllerV2) updateCronJob(old interface{}, curr interface{}) {
 	oldCJ, okOld := old.(*batchv1.CronJob)
 	newCJ, okNew := curr.(*batchv1.CronJob)
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !okOld || !okNew {
 		// typecasting of one failed, handle this better, may be log entry
 		return
@@ -378,9 +452,13 @@ func (jm *ControllerV2) updateCronJob(old interface{}, curr interface{}) {
 	// if the change in schedule results in next requeue having to be sooner than it already was,
 	// it will be handled here by the queue. If the next requeue is further than previous schedule,
 	// the sync loop will essentially be a no-op for the already queued key with old schedule.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if oldCJ.Spec.Schedule != newCJ.Spec.Schedule || (timeZoneEnabled && !pointer.StringEqual(oldCJ.Spec.TimeZone, newCJ.Spec.TimeZone)) {
 		// schedule changed, change the requeue time, pass nil recorder so that syncCronJob will output any warnings
 		sched, err := cron.ParseStandard(formatSchedule(timeZoneEnabled, newCJ, nil))
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			// this is likely a user error in defining the spec value
 			// we should log the error and not reconcile this cronjob until an update to spec
@@ -420,14 +498,22 @@ func (jm *ControllerV2) syncCronJob(
 	timeZoneEnabled := utilfeature.DefaultFeatureGate.Enabled(features.CronJobTimeZone)
 
 	childrenJobs := make(map[types.UID]bool)
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, j := range jobs {
 		childrenJobs[j.ObjectMeta.UID] = true
 		found := inActiveList(*cronJob, j.ObjectMeta.UID)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !found && !IsJobFinished(j) {
 			cjCopy, err := jm.cronJobControl.GetCronJob(ctx, cronJob.Namespace, cronJob.Name)
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if err != nil {
 				return nil, nil, updateStatus, err
 			}
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if inActiveList(*cjCopy, j.ObjectMeta.UID) {
 				cronJob = cjCopy
 				continue
@@ -444,10 +530,14 @@ func (jm *ControllerV2) syncCronJob(
 			updateStatus = true
 		} else if IsJobFinished(j) {
 			// a job does not have to be in active list, as long as it is finished, we will process the timestamp
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if cronJob.Status.LastSuccessfulTime == nil {
 				cronJob.Status.LastSuccessfulTime = j.Status.CompletionTime
 				updateStatus = true
 			}
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if j.Status.CompletionTime != nil && j.Status.CompletionTime.After(cronJob.Status.LastSuccessfulTime.Time) {
 				cronJob.Status.LastSuccessfulTime = j.Status.CompletionTime
 				updateStatus = true
@@ -458,8 +548,12 @@ func (jm *ControllerV2) syncCronJob(
 	// Remove any job reference from the active list if the corresponding job does not exist any more.
 	// Otherwise, the cronjob may be stuck in active mode forever even though there is no matching
 	// job running.
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, j := range cronJob.Status.Active {
 		_, found := childrenJobs[j.UID]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if found {
 			continue
 		}
@@ -479,13 +573,19 @@ func (jm *ControllerV2) syncCronJob(
 		// the job is missing in the lister but found in api-server
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.DeletionTimestamp != nil {
 		// The CronJob is being deleted.
 		// Don't do anything other than updating status.
 		return cronJob, nil, updateStatus, nil
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if timeZoneEnabled && cronJob.Spec.TimeZone != nil {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if _, err := time.LoadLocation(*cronJob.Spec.TimeZone); err != nil {
 			timeZone := pointer.StringDeref(cronJob.Spec.TimeZone, "")
 			klog.V(4).InfoS("Not starting job because timeZone is invalid", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "timeZone", timeZone, "err", err)
@@ -494,12 +594,16 @@ func (jm *ControllerV2) syncCronJob(
 		}
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.Spec.Suspend != nil && *cronJob.Spec.Suspend {
 		klog.V(4).InfoS("Not starting job because the cron is suspended", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()))
 		return cronJob, nil, updateStatus, nil
 	}
 
 	sched, err := cron.ParseStandard(formatSchedule(timeZoneEnabled, cronJob, jm.recorder))
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		// this is likely a user error in defining the spec value
 		// we should log the error and not reconcile this cronjob until an update to spec
@@ -509,6 +613,8 @@ func (jm *ControllerV2) syncCronJob(
 	}
 
 	scheduledTime, err := getNextScheduleTime(*cronJob, now, sched, jm.recorder)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		// this is likely a user error in defining the spec value
 		// we should log the error and not reconcile this cronjob until an update to spec
@@ -516,6 +622,8 @@ func (jm *ControllerV2) syncCronJob(
 		jm.recorder.Eventf(cronJob, corev1.EventTypeWarning, "InvalidSchedule", "invalid schedule: %s : %s", cronJob.Spec.Schedule, err)
 		return cronJob, nil, updateStatus, nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if scheduledTime == nil {
 		// no unmet start time, return cj,.
 		// The only time this should happen is if queue is filled after restart.
@@ -527,9 +635,13 @@ func (jm *ControllerV2) syncCronJob(
 	}
 
 	tooLate := false
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.Spec.StartingDeadlineSeconds != nil {
 		tooLate = scheduledTime.Add(time.Second * time.Duration(*cronJob.Spec.StartingDeadlineSeconds)).Before(now)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if tooLate {
 		klog.V(4).InfoS("Missed starting window", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()))
 		jm.recorder.Eventf(cronJob, corev1.EventTypeWarning, "MissSchedule", "Missed scheduled time to start a job: %s", scheduledTime.UTC().Format(time.RFC1123Z))
@@ -544,6 +656,8 @@ func (jm *ControllerV2) syncCronJob(
 		t := nextScheduledTimeDuration(*cronJob, sched, now)
 		return cronJob, t, updateStatus, nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if isJobInActiveList(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getJobName(cronJob, *scheduledTime),
@@ -553,6 +667,8 @@ func (jm *ControllerV2) syncCronJob(
 		t := nextScheduledTimeDuration(*cronJob, sched, now)
 		return cronJob, t, updateStatus, nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.Spec.ConcurrencyPolicy == batchv1.ForbidConcurrent && len(cronJob.Status.Active) > 0 {
 		// Regardless which source of information we use for the set of active jobs,
 		// there is some risk that we won't see an active job when there is one.
@@ -568,15 +684,23 @@ func (jm *ControllerV2) syncCronJob(
 		t := nextScheduledTimeDuration(*cronJob, sched, now)
 		return cronJob, t, updateStatus, nil
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cronJob.Spec.ConcurrencyPolicy == batchv1.ReplaceConcurrent {
+		// Block Logic: Orchestrates the temporal progression of the iteration.
+		// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 		for _, j := range cronJob.Status.Active {
 			klog.V(4).InfoS("Deleting job that was still running at next scheduled start time", "job", klog.KRef(j.Namespace, j.Name))
 
 			job, err := jm.jobControl.GetJob(j.Namespace, j.Name)
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if err != nil {
 				jm.recorder.Eventf(cronJob, corev1.EventTypeWarning, "FailedGet", "Get job: %v", err)
 				return cronJob, nil, updateStatus, err
 			}
+			// Block Logic: Conditional evaluation for divergent control flow.
+			// Invariant: Taken branch maintains control flow invariants.
 			if !deleteJob(cronJob, job, jm.jobControl, jm.recorder) {
 				return cronJob, nil, updateStatus, fmt.Errorf("could not replace job %s/%s", job.Namespace, job.Name)
 			}
@@ -585,6 +709,8 @@ func (jm *ControllerV2) syncCronJob(
 	}
 
 	jobReq, err := getJobFromTemplate2(cronJob, *scheduledTime)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		klog.ErrorS(err, "Unable to make Job from template", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()))
 		return cronJob, nil, updateStatus, err
@@ -618,6 +744,8 @@ func (jm *ControllerV2) syncCronJob(
 
 	// Add the just-started job to the status list.
 	jobRef, err := getRef(jobResp)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		klog.V(2).InfoS("Unable to make object reference", "cronjob", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()), "err", err)
 		return cronJob, nil, updateStatus, fmt.Errorf("unable to make object reference for job for %s", klog.KRef(cronJob.GetNamespace(), cronJob.GetName()))
@@ -641,10 +769,14 @@ func getJobName(cj *batchv1.CronJob, scheduledTime time.Time) string {
 // the schedule.
 func nextScheduledTimeDuration(cj batchv1.CronJob, sched cron.Schedule, now time.Time) *time.Duration {
 	earliestTime := cj.ObjectMeta.CreationTimestamp.Time
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cj.Status.LastScheduleTime != nil {
 		earliestTime = cj.Status.LastScheduleTime.Time
 	}
 	mostRecentTime, _, err := getMostRecentScheduleTime(earliestTime, now, sched)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		// we still have to requeue at some point, so aim for the next scheduling slot from now
 		mostRecentTime = &now
@@ -662,6 +794,8 @@ func nextScheduledTimeDuration(cj batchv1.CronJob, sched cron.Schedule, now time
 // It returns a bool to indicate an update to api-server is needed
 func (jm *ControllerV2) cleanupFinishedJobs(ctx context.Context, cj *batchv1.CronJob, js []*batchv1.Job) bool {
 	// If neither limits are active, there is no need to do anything.
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cj.Spec.FailedJobsHistoryLimit == nil && cj.Spec.SuccessfulJobsHistoryLimit == nil {
 		return false
 	}
@@ -670,8 +804,12 @@ func (jm *ControllerV2) cleanupFinishedJobs(ctx context.Context, cj *batchv1.Cro
 	failedJobs := []*batchv1.Job{}
 	successfulJobs := []*batchv1.Job{}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, job := range js {
 		isFinished, finishedStatus := jm.getFinishedStatus(job)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if isFinished && finishedStatus == batchv1.JobComplete {
 			successfulJobs = append(successfulJobs, job)
 		} else if isFinished && finishedStatus == batchv1.JobFailed {
@@ -679,6 +817,8 @@ func (jm *ControllerV2) cleanupFinishedJobs(ctx context.Context, cj *batchv1.Cro
 		}
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cj.Spec.SuccessfulJobsHistoryLimit != nil &&
 		jm.removeOldestJobs(cj,
 			successfulJobs,
@@ -686,6 +826,8 @@ func (jm *ControllerV2) cleanupFinishedJobs(ctx context.Context, cj *batchv1.Cro
 		updateStatus = true
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if cj.Spec.FailedJobsHistoryLimit != nil &&
 		jm.removeOldestJobs(cj,
 			failedJobs,
@@ -697,7 +839,11 @@ func (jm *ControllerV2) cleanupFinishedJobs(ctx context.Context, cj *batchv1.Cro
 }
 
 func (jm *ControllerV2) getFinishedStatus(j *batchv1.Job) (bool, batchv1.JobConditionType) {
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, c := range j.Status.Conditions {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
 			return true, c.Type
 		}
@@ -709,6 +855,8 @@ func (jm *ControllerV2) getFinishedStatus(j *batchv1.Job) (bool, batchv1.JobCond
 func (jm *ControllerV2) removeOldestJobs(cj *batchv1.CronJob, js []*batchv1.Job, maxJobs int32) bool {
 	updateStatus := false
 	numToDelete := len(js) - int(maxJobs)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if numToDelete <= 0 {
 		return updateStatus
 	}
@@ -716,8 +864,12 @@ func (jm *ControllerV2) removeOldestJobs(cj *batchv1.CronJob, js []*batchv1.Job,
 	klog.V(4).InfoS("Cleaning up jobs from CronJob list", "deletejobnum", numToDelete, "jobnum", len(js), "cronjob", klog.KRef(cj.GetNamespace(), cj.GetName()))
 
 	sort.Sort(byJobStartTimeStar(js))
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for i := 0; i < numToDelete; i++ {
 		klog.V(4).InfoS("Removing job from CronJob list", "job", js[i].Name, "cronjob", klog.KRef(cj.GetNamespace(), cj.GetName()))
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if deleteJob(cj, js[i], jm.jobControl, jm.recorder) {
 			updateStatus = true
 		}
@@ -728,7 +880,11 @@ func (jm *ControllerV2) removeOldestJobs(cj *batchv1.CronJob, js []*batchv1.Job,
 // isJobInActiveList take a job and checks if activeJobs has a job with the same
 // name and namespace.
 func isJobInActiveList(job *batchv1.Job, activeJobs []corev1.ObjectReference) bool {
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, j := range activeJobs {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if j.Name == job.Name && j.Namespace == job.Namespace {
 			return true
 		}
@@ -741,6 +897,8 @@ func deleteJob(cj *batchv1.CronJob, job *batchv1.Job, jc jobControlInterface, re
 	nameForLog := fmt.Sprintf("%s/%s", cj.Namespace, cj.Name)
 
 	// delete the job itself...
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err := jc.DeleteJob(job.Namespace, job.Name); err != nil {
 		recorder.Eventf(cj, corev1.EventTypeWarning, "FailedDelete", "Deleted job: %v", err)
 		klog.Errorf("Error deleting job %s from %s: %v", job.Name, nameForLog, err)
@@ -758,7 +916,11 @@ func getRef(object runtime.Object) (*corev1.ObjectReference, error) {
 }
 
 func formatSchedule(timeZoneEnabled bool, cj *batchv1.CronJob, recorder record.EventRecorder) string {
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if strings.Contains(cj.Spec.Schedule, "TZ") {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if recorder != nil {
 			recorder.Eventf(cj, corev1.EventTypeWarning, "UnsupportedSchedule", "CRON_TZ or TZ used in schedule %q is not officially supported, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/ for more details", cj.Spec.Schedule)
 		}
@@ -766,7 +928,11 @@ func formatSchedule(timeZoneEnabled bool, cj *batchv1.CronJob, recorder record.E
 		return cj.Spec.Schedule
 	}
 
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if timeZoneEnabled && cj.Spec.TimeZone != nil {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if _, err := time.LoadLocation(*cj.Spec.TimeZone); err != nil {
 			return cj.Spec.Schedule
 		}

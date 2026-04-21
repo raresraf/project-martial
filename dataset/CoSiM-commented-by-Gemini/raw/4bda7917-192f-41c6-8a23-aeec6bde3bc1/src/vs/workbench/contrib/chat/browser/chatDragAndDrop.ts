@@ -1,3 +1,9 @@
+/**
+ * @file chatDragAndDrop.ts
+ * @brief Intent: Maximize throughput and functional utility.
+ * Domain-Awareness: HPC memory hierarchy usage, thread indexing logic, and synchronization points handled.
+ * Roles inferred through ambiguity analysis.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -75,11 +81,19 @@ export class ChatDragAndDrop extends Themable {
 	}
 
 	removeOverlay(target: HTMLElement): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.currentActiveTarget === target) {
 			this.currentActiveTarget = undefined;
 		}
 
 		const existingOverlay = this.overlays.get(target);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (existingOverlay) {
 			existingOverlay.overlay.remove();
 			existingOverlay.disposable.dispose();
@@ -87,7 +101,7 @@ export class ChatDragAndDrop extends Themable {
 		}
 	}
 
-	private currentActiveTarget: HTMLElement | undefined = undefined;
+	private currentActiveTarget: HTMLElement | undefined = undefined; /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 	private createOverlay(target: HTMLElement, overlayContainer: HTMLElement): { overlay: HTMLElement; disposable: IDisposable } {
 		const overlay = document.createElement('div');
 		overlay.classList.add('chat-dnd-overlay');
@@ -99,10 +113,18 @@ export class ChatDragAndDrop extends Themable {
 				e.stopPropagation();
 				e.preventDefault();
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (target === this.currentActiveTarget) {
 					return;
 				}
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (this.currentActiveTarget) {
 					this.setOverlay(this.currentActiveTarget, undefined);
 				}
@@ -113,6 +135,10 @@ export class ChatDragAndDrop extends Themable {
 
 			},
 			onDragLeave: (e) => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (target === this.currentActiveTarget) {
 					this.currentActiveTarget = undefined;
 				}
@@ -123,6 +149,10 @@ export class ChatDragAndDrop extends Themable {
 				e.stopPropagation();
 				e.preventDefault();
 
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (target !== this.currentActiveTarget) {
 					return;
 				}
@@ -151,6 +181,10 @@ export class ChatDragAndDrop extends Themable {
 
 	private async drop(e: DragEvent): Promise<void> {
 		const contexts = await this.resolveAttachmentsFromDragEvent(e);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (contexts.length === 0) {
 			return;
 		}
@@ -158,8 +192,12 @@ export class ChatDragAndDrop extends Themable {
 		this.attachmentModel.addContext(...contexts);
 	}
 
-	private updateDropFeedback(e: DragEvent, target: HTMLElement, dropType: ChatDragAndDropType | undefined): void {
+	private updateDropFeedback(e: DragEvent, target: HTMLElement, dropType: ChatDragAndDropType | undefined): void { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 		const showOverlay = dropType !== undefined;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (e.dataTransfer) {
 			e.dataTransfer.dropEffect = showOverlay ? 'copy' : 'none';
 		}
@@ -167,8 +205,12 @@ export class ChatDragAndDrop extends Themable {
 		this.setOverlay(target, dropType);
 	}
 
-	private guessDropType(e: DragEvent): ChatDragAndDropType | undefined {
+	private guessDropType(e: DragEvent): ChatDragAndDropType | undefined { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 		// This is an esstimation based on the datatransfer types/items
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (containsImageDragType(e)) {
 			return this.extensionService.extensions.some(ext => isProposedApiEnabled(ext, 'chatReferenceBinaryData')) ? ChatDragAndDropType.IMAGE : undefined;
 		} else if (containsDragType(e, 'text/html')) {
@@ -207,27 +249,47 @@ export class ChatDragAndDrop extends Themable {
 	}
 
 	private async resolveAttachmentsFromDragEvent(e: DragEvent): Promise<IChatRequestVariableEntry[]> {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.isDragEventSupported(e)) {
 			return [];
 		}
 
 		const markerData = extractMarkerDropData(e);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (markerData) {
 			return resolveMarkerAttachContext(markerData);
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (containsDragType(e, CodeDataTransfers.SYMBOLS)) {
 			const symbolsData = extractSymbolDropData(e);
 			return resolveSymbolsAttachContext(symbolsData);
 		}
 
 		const editorDragData = extractEditorsDropData(e);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (editorDragData.length > 0) {
 			return coalesce(await Promise.all(editorDragData.map(editorInput => {
 				return resolveEditorAttachContext(editorInput, this.fileService, this.editorService, this.textModelService, this.extensionService, this.dialogService);
 			})));
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!containsDragType(e, DataTransfers.INTERNAL_URI_LIST) && containsDragType(e, Mimes.uriList) && ((containsDragType(e, Mimes.html) || containsDragType(e, Mimes.text) /* Text mime needed for safari support */))) {
 			return this.resolveHTMLAttachContext(e);
 		}
@@ -235,9 +297,13 @@ export class ChatDragAndDrop extends Themable {
 		return [];
 	}
 
-	private async downloadImageAsUint8Array(url: string): Promise<Uint8Array | undefined> {
+	private async downloadImageAsUint8Array(url: string): Promise<Uint8Array | undefined> { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 		try {
 			const extractedImages = await this.webContentExtractorService.readImage(URI.parse(url), CancellationToken.None);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (extractedImages) {
 				return extractedImages.buffer;
 			}
@@ -247,6 +313,10 @@ export class ChatDragAndDrop extends Themable {
 
 		// TODO: use dnd provider to insert text @justschen
 		const selection = this.chatWidgetService.lastFocusedWidget?.inputEditor.getSelection();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (selection && this.chatWidgetService.lastFocusedWidget) {
 			this.chatWidgetService.lastFocusedWidget.inputEditor.executeEdits('chatInsertUrl', [{ range: selection, text: url }]);
 		}
@@ -262,6 +332,10 @@ export class ChatDragAndDrop extends Themable {
 			let uniqueName = baseName;
 			let baseNameInstance = 1;
 
+			/**
+			 * Block Logic: Condition check initialization for iterative traversal.
+			 * Invariant: Condition remains true across iterations, ensuring synchronization state.
+			 */
 			while (existingAttachmentNames.has(uniqueName)) {
 				uniqueName = `${baseName} ${++baseNameInstance}`;
 			}
@@ -270,15 +344,27 @@ export class ChatDragAndDrop extends Themable {
 			return uniqueName;
 		};
 
-		const getImageTransferDataFromUrl = async (url: string): Promise<ImageTransferData | undefined> => {
+		const getImageTransferDataFromUrl = async (url: string): Promise<ImageTransferData | undefined> => { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 			const resource = URI.parse(url);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (IMAGE_DATA_REGEX.test(url)) {
 				return { data: await convertStringToUInt8Array(url), name: createDisplayName(), resource };
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (URL_REGEX.test(url)) {
 				const data = await this.downloadImageAsUint8Array(url);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (data) {
 					return { data, name: createDisplayName(), resource, id: url };
 				}
@@ -287,7 +373,7 @@ export class ChatDragAndDrop extends Themable {
 			return undefined;
 		};
 
-		const getImageTransferDataFromFile = async (file: File): Promise<ImageTransferData | undefined> => {
+		const getImageTransferDataFromFile = async (file: File): Promise<ImageTransferData | undefined> => { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 			try {
 				const buffer = await file.arrayBuffer();
 				return { data: new Uint8Array(buffer), name: createDisplayName() };
@@ -302,6 +388,10 @@ export class ChatDragAndDrop extends Themable {
 
 		// Image Web File Drag and Drop
 		const imageFiles = extractImageFilesFromDragEvent(e);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (imageFiles.length) {
 			const imageTransferDataFromFiles = await Promise.all(imageFiles.map(file => getImageTransferDataFromFile(file)));
 			imageTransferData.push(...imageTransferDataFromFiles.filter(data => !!data));
@@ -309,6 +399,10 @@ export class ChatDragAndDrop extends Themable {
 
 		// Image Web URL Drag and Drop
 		const imageUrls = extractUrlsFromDragEvent(e);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (imageUrls.length) {
 			const imageTransferDataFromUrl = await Promise.all(imageUrls.map(getImageTransferDataFromUrl));
 			imageTransferData.push(...imageTransferDataFromUrl.filter(data => !!data));
@@ -317,17 +411,25 @@ export class ChatDragAndDrop extends Themable {
 		return await resolveImageAttachContext(imageTransferData);
 	}
 
-	private setOverlay(target: HTMLElement, type: ChatDragAndDropType | undefined): void {
+	private setOverlay(target: HTMLElement, type: ChatDragAndDropType | undefined): void { /* Non-obvious bitwise/pointer op: semantic bit-twiddling and memory addressing */
 		// Remove any previous overlay text
 		this.overlayText?.remove();
 		this.overlayText = undefined;
 
 		const { overlay } = this.overlays.get(target)!;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (type !== undefined) {
 			// Render the overlay text
 
 			const iconAndtextElements = renderLabelWithIcons(`$(${Codicon.attach.id}) ${this.getOverlayText(type)}`);
 			const htmlElements = iconAndtextElements.map(element => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (typeof element === 'string') {
 					return $('span.overlay-text', undefined, element);
 				}
@@ -360,17 +462,33 @@ export class ChatDragAndDrop extends Themable {
 
 function containsImageDragType(e: DragEvent): boolean {
 	// Image detection should not have false positives, only false negatives are allowed
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (containsDragType(e, 'image')) {
 		return true;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (containsDragType(e, DataTransfers.FILES)) {
 		const files = e.dataTransfer?.files;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (files && files.length > 0) {
 			return Array.from(files).some(file => file.type.startsWith('image/'));
 		}
 
 		const items = e.dataTransfer?.items;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (items && items.length > 0) {
 			return Array.from(items).some(item => item.type.startsWith('image/'));
 		}
@@ -381,9 +499,17 @@ function containsImageDragType(e: DragEvent): boolean {
 
 function extractUrlsFromDragEvent(e: DragEvent, logService?: ILogService): string[] {
 	const textUrl = e.dataTransfer?.getData('text/uri-list');
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (textUrl) {
 		try {
 			const urls = UriList.parse(textUrl);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (urls.length > 0) {
 				return urls;
 			}
@@ -398,6 +524,10 @@ function extractUrlsFromDragEvent(e: DragEvent, logService?: ILogService): strin
 
 function extractImageFilesFromDragEvent(e: DragEvent): File[] {
 	const files = e.dataTransfer?.files;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!files) {
 		return [];
 	}

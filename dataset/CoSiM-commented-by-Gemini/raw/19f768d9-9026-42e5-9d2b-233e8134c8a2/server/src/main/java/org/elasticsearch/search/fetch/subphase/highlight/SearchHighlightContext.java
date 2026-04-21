@@ -1,3 +1,10 @@
+/**
+ * @raw/19f768d9-9026-42e5-9d2b-233e8134c8a2/server/src/main/java/org/elasticsearch/search/fetch/subphase/highlight/SearchHighlightContext.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -27,6 +34,10 @@ public class SearchHighlightContext {
     public SearchHighlightContext(Collection<Field> fields) {
         assert fields != null;
         this.fields = Maps.newLinkedHashMapWithExpectedSize(fields.size());
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Field field : fields) {
             this.fields.put(field.field, field);
         }
@@ -299,60 +310,136 @@ public class SearchHighlightContext {
             }
 
             Builder merge(FieldOptions globalOptions) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.preTags == null && globalOptions.preTags != null) {
                     fieldOptions.preTags = Arrays.copyOf(globalOptions.preTags, globalOptions.preTags.length);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.postTags == null && globalOptions.postTags != null) {
                     fieldOptions.postTags = Arrays.copyOf(globalOptions.postTags, globalOptions.postTags.length);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.highlightFilter == null) {
                     fieldOptions.highlightFilter = globalOptions.highlightFilter;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.scoreOrdered == null) {
                     fieldOptions.scoreOrdered = globalOptions.scoreOrdered;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.fragmentCharSize == -1) {
                     fieldOptions.fragmentCharSize = globalOptions.fragmentCharSize;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.numberOfFragments == -1) {
                     fieldOptions.numberOfFragments = globalOptions.numberOfFragments;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.encoder == null) {
                     fieldOptions.encoder = globalOptions.encoder;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.requireFieldMatch == null) {
                     fieldOptions.requireFieldMatch = globalOptions.requireFieldMatch;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.maxAnalyzedOffset == null) {
                     fieldOptions.maxAnalyzedOffset = globalOptions.maxAnalyzedOffset;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.boundaryScannerType == null) {
                     fieldOptions.boundaryScannerType = globalOptions.boundaryScannerType;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.boundaryMaxScan == -1) {
                     fieldOptions.boundaryMaxScan = globalOptions.boundaryMaxScan;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.boundaryChars == null && globalOptions.boundaryChars != null) {
                     fieldOptions.boundaryChars = Arrays.copyOf(globalOptions.boundaryChars, globalOptions.boundaryChars.length);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.boundaryScannerLocale == null) {
                     fieldOptions.boundaryScannerLocale = globalOptions.boundaryScannerLocale;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.highlighterType == null) {
                     fieldOptions.highlighterType = globalOptions.highlighterType;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.fragmenter == null) {
                     fieldOptions.fragmenter = globalOptions.fragmenter;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if ((fieldOptions.options == null || fieldOptions.options.size() == 0) && globalOptions.options != null) {
                     fieldOptions.options = new HashMap<>(globalOptions.options);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.highlightQuery == null && globalOptions.highlightQuery != null) {
                     fieldOptions.highlightQuery = globalOptions.highlightQuery;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.noMatchSize == -1) {
                     fieldOptions.noMatchSize = globalOptions.noMatchSize;
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (fieldOptions.phraseLimit == -1) {
                     fieldOptions.phraseLimit = globalOptions.phraseLimit;
                 }

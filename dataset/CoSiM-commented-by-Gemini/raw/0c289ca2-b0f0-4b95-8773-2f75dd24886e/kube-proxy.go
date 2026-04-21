@@ -1,3 +1,5 @@
+// Package component kube-proxy.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -24,12 +26,14 @@ import (
 	"k8s.io/kubernetes/pkg/healthz"
 )
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func init() {
 	healthz.DefaultHealthz()
 }
 
 // NewKubeProxy creates a new hyperkube Server object that includes the
 // description and flags.
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func NewKubeProxy() *Server {
 	config := options.NewProxyConfig()
 
@@ -45,6 +49,7 @@ func NewKubeProxy() *Server {
 
 	hks.Run = func(_ *Server, _ []string) error {
 		s, err := app.NewProxyServerDefault(config)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 		if err != nil {
 			return err
 		}

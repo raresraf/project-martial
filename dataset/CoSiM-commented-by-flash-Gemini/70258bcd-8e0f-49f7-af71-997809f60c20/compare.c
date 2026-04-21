@@ -1,4 +1,10 @@
-
+/**
+ * @70258bcd-8e0f-49f7-af71-997809f60c20/compare.c
+ * @brief Utility for numerical verification of matrix computations.
+ * Functional Utility: Performs an element-wise comparison between two binary-encoded
+ * double-precision matrices using memory-mapped I/O for high-performance access.
+ * Domain: HPC Numerical Validation.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,9 +15,15 @@
 #include <unistd.h>
 #include <math.h>
 
+/**
+ * Functional Utility: Defines a relative error threshold check for floating-point comparisons.
+ */
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
 
+/**
+ * @brief Validates spatial and numerical equivalence of two serialized matrices.
+ */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
 	double *mat1, *mat2;

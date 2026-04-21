@@ -1,3 +1,10 @@
+/**
+ * @raw/d55234b2-42b1-4904-a9d1-ef70314c2cd2/libs/simdvec/src/main21/java/org/elasticsearch/simdvec/internal/vectorization/MemorySegmentES91Int4VectorsScorer.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -69,16 +76,28 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
 
     @Override
     public long int4DotProduct(byte[] q) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (PanamaESVectorUtilSupport.VECTOR_BITSIZE >= 512 || PanamaESVectorUtilSupport.VECTOR_BITSIZE == 256) {
             return dotProduct(q);
         }
         int i = 0;
         int res = 0;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (dimensions >= 32 && PanamaESVectorUtilSupport.HAS_FAST_INTEGER_VECTORS) {
             i += BYTE_SPECIES_128.loopBound(dimensions);
             res += int4DotProductBody128(q, i);
         }
         in.readBytes(scratch, i, dimensions - i);
+        /**
+         * Block Logic: Condition check initialization for iterative traversal.
+         * Invariant: Condition remains true across iterations, ensuring execution state.
+         */
         while (i < dimensions) {
             res += scratch[i] * q[i++];
         }
@@ -88,10 +107,18 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     private int int4DotProductBody128(byte[] q, int limit) throws IOException {
         int sum = 0;
         long offset = in.getFilePointer();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < limit; i += 1024) {
             ShortVector acc0 = ShortVector.zero(SHORT_SPECIES_128);
             ShortVector acc1 = ShortVector.zero(SHORT_SPECIES_128);
             int innerLimit = Math.min(limit - i, 1024);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < innerLimit; j += BYTE_SPECIES_128.length()) {
                 ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_64, q, i + j);
                 ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_64, memorySegment, offset + i + j, LITTLE_ENDIAN);
@@ -118,10 +145,18 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     private long dotProduct(byte[] q) throws IOException {
         // only vectorize if we'll at least enter the loop a single time, and we have at least 128-bit
         // vectors (256-bit on intel to dodge performance landmines)
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (dimensions >= 16 && PanamaESVectorUtilSupport.HAS_FAST_INTEGER_VECTORS) {
             int i = 0;
             int res = 0;
             // compute vectorized dot product consistent with VPDPBUSD instruction
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (PanamaESVectorUtilSupport.VECTOR_BITSIZE >= 512) {
                 i += BYTE_SPECIES_128.loopBound(dimensions);
                 res += dotProductBody512(q, i);
@@ -132,6 +167,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
                 throw new IllegalArgumentException("Unreacheable statement");
             }
             // scalar tail
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (; i < q.length; i++) {
                 res += in.readByte() * q[i];
             }
@@ -144,6 +183,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     private int dotProductBody512(byte[] q, int limit) throws IOException {
         IntVector acc = IntVector.zero(INT_SPECIES_512);
         long offset = in.getFilePointer();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < limit; i += BYTE_SPECIES_128.length()) {
             ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_128, q, i);
             ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_128, memorySegment, offset + i, LITTLE_ENDIAN);
@@ -167,6 +210,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     private int dotProductBody256(byte[] q, int limit) throws IOException {
         IntVector acc = IntVector.zero(INT_SPECIES_256);
         long offset = in.getFilePointer();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < limit; i += BYTE_SPECIES_64.length()) {
             ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_64, q, i);
             ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_64, memorySegment, offset + i, LITTLE_ENDIAN);
@@ -183,10 +230,18 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
 
     @Override
     public void int4DotProductBulk(byte[] q, int count, float[] scores) throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (PanamaESVectorUtilSupport.VECTOR_BITSIZE >= 512 || PanamaESVectorUtilSupport.VECTOR_BITSIZE == 256) {
             dotProductBulk(q, count, scores);
             return;
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (dimensions >= 32 && PanamaESVectorUtilSupport.HAS_FAST_INTEGER_VECTORS) {
             int4DotProductBody128Bulk(q, count, scores);
             return;
@@ -196,14 +251,26 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
 
     private void int4DotProductBody128Bulk(byte[] q, int count, float[] scores) throws IOException {
         int limit = BYTE_SPECIES_128.loopBound(dimensions);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int iter = 0; iter < count; iter++) {
             int sum = 0;
             long offset = in.getFilePointer();
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int i = 0; i < limit; i += 1024) {
                 ShortVector acc0 = ShortVector.zero(SHORT_SPECIES_128);
                 ShortVector acc1 = ShortVector.zero(SHORT_SPECIES_128);
 
                 int innerLimit = Math.min(limit - i, 1024);
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int j = 0; j < innerLimit; j += BYTE_SPECIES_128.length()) {
                     ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_64, q, i + j);
                     ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_64, memorySegment, offset + i + j, LITTLE_ENDIAN);
@@ -228,6 +295,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
             }
             in.seek(offset + limit);
             in.readBytes(scratch, limit, dimensions - limit);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = limit; j < dimensions; j++) {
                 sum += scratch[j] * q[j];
             }
@@ -238,8 +309,16 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     private void dotProductBulk(byte[] q, int count, float[] scores) throws IOException {
         // only vectorize if we'll at least enter the loop a single time, and we have at least 128-bit
         // vectors (256-bit on intel to dodge performance landmines)
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (dimensions >= 16 && PanamaESVectorUtilSupport.HAS_FAST_INTEGER_VECTORS) {
             // compute vectorized dot product consistent with VPDPBUSD instruction
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (PanamaESVectorUtilSupport.VECTOR_BITSIZE >= 512) {
                 dotProductBody512Bulk(q, count, scores);
             } else if (PanamaESVectorUtilSupport.VECTOR_BITSIZE == 256) {
@@ -255,10 +334,18 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     /** vectorized dot product body (512 bit vectors) */
     private void dotProductBody512Bulk(byte[] q, int count, float[] scores) throws IOException {
         int limit = BYTE_SPECIES_128.loopBound(dimensions);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int iter = 0; iter < count; iter++) {
             IntVector acc = IntVector.zero(INT_SPECIES_512);
             long offset = in.getFilePointer();
             int i = 0;
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (; i < limit; i += BYTE_SPECIES_128.length()) {
                 ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_128, q, i);
                 ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_128, memorySegment, offset + i, LITTLE_ENDIAN);
@@ -276,6 +363,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
             in.seek(offset + limit); // advance the input stream
             // reduce
             long res = acc.reduceLanes(ADD);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (; i < q.length; i++) {
                 res += in.readByte() * q[i];
             }
@@ -286,10 +377,18 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
     /** vectorized dot product body (256 bit vectors) */
     private void dotProductBody256Bulk(byte[] q, int count, float[] scores) throws IOException {
         int limit = BYTE_SPECIES_128.loopBound(dimensions);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int iter = 0; iter < count; iter++) {
             IntVector acc = IntVector.zero(INT_SPECIES_256);
             long offset = in.getFilePointer();
             int i = 0;
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (; i < limit; i += BYTE_SPECIES_64.length()) {
                 ByteVector va8 = ByteVector.fromArray(BYTE_SPECIES_64, q, i);
                 ByteVector vb8 = ByteVector.fromMemorySegment(BYTE_SPECIES_64, memorySegment, offset + i, LITTLE_ENDIAN);
@@ -302,6 +401,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
             in.seek(offset + limit);
             // reduce
             long res = acc.reduceLanes(ADD);
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (; i < q.length; i++) {
                 res += in.readByte() * q[i];
             }
@@ -347,6 +450,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
         float ay = queryLowerInterval;
         float ly = (queryUpperInterval - ay) * FOUR_BIT_SCALE;
         float y1 = queryComponentSum;
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (; i < limit; i += FLOAT_SPECIES.length()) {
             var ax = FloatVector.fromMemorySegment(FLOAT_SPECIES, memorySegment, offset + i * Float.BYTES, ByteOrder.LITTLE_ENDIAN);
             var lx = FloatVector.fromMemorySegment(
@@ -377,6 +484,10 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
             var res = res1.add(res2).add(res3).add(res4);
             // For euclidean, we need to invert the score and apply the additional correction, which is
             // assumed to be the squared l2norm of the centroid centered vectors.
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (similarityFunction == EUCLIDEAN) {
                 res = res.mul(-2).add(additionalCorrections).add(queryAdditionalCorrection).add(1f);
                 res = FloatVector.broadcast(FLOAT_SPECIES, 1).div(res).max(0);
@@ -385,9 +496,17 @@ public final class MemorySegmentES91Int4VectorsScorer extends ES91Int4VectorsSco
                 // For cosine and max inner product, we need to apply the additional correction, which is
                 // assumed to be the non-centered dot-product between the vector and the centroid
                 res = res.add(queryAdditionalCorrection).add(additionalCorrections).sub(centroidDp);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (similarityFunction == MAXIMUM_INNER_PRODUCT) {
                     res.intoArray(scores, i);
                     // not sure how to do it better
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int j = 0; j < FLOAT_SPECIES.length(); j++) {
                         scores[i + j] = VectorUtil.scaleMaxInnerProductScore(scores[i + j]);
                     }

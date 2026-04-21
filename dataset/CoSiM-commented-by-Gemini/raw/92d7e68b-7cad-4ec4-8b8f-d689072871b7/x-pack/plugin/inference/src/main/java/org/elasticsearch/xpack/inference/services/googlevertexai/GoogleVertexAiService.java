@@ -1,3 +1,10 @@
+/**
+ * @raw/92d7e68b-7cad-4ec4-8b8f-d689072871b7/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/googlevertexai/GoogleVertexAiService.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -116,6 +123,10 @@ public class GoogleVertexAiService extends SenderService {
             Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
 
             ChunkingSettings chunkingSettings = null;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
                 chunkingSettings = ChunkingSettingsBuilder.fromMap(
                     removeFromMapOrDefaultEmpty(config, ModelConfigurations.CHUNKING_SETTINGS)
@@ -155,6 +166,10 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> secretSettingsMap = removeFromMapOrDefaultEmpty(secrets, ModelSecrets.SECRET_SETTINGS);
 
         ChunkingSettings chunkingSettings = null;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
             chunkingSettings = ChunkingSettingsBuilder.fromMap(removeFromMap(config, ModelConfigurations.CHUNKING_SETTINGS));
         }
@@ -176,6 +191,10 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
 
         ChunkingSettings chunkingSettings = null;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
             chunkingSettings = ChunkingSettingsBuilder.fromMap(removeFromMap(config, ModelConfigurations.CHUNKING_SETTINGS));
         }
@@ -214,6 +233,10 @@ public class GoogleVertexAiService extends SenderService {
         TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (model instanceof GoogleVertexAiModel == false) {
             listener.onFailure(createInvalidModelException(model));
             return;
@@ -239,6 +262,10 @@ public class GoogleVertexAiService extends SenderService {
         TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (model instanceof GoogleVertexAiChatCompletionModel == false) {
             listener.onFailure(createInvalidModelException(model));
             return;
@@ -266,7 +293,7 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> taskSettings,
         InputType inputType,
         TimeValue timeout,
-        ActionListener<List<ChunkedInference>> listener
+        ActionListener<List<ChunkedInference>> listener /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     ) {
         GoogleVertexAiModel googleVertexAiModel = (GoogleVertexAiModel) model;
         var actionCreator = new GoogleVertexAiActionCreator(getSender(), getServiceComponents());
@@ -277,6 +304,10 @@ public class GoogleVertexAiService extends SenderService {
             googleVertexAiModel.getConfigurations().getChunkingSettings()
         ).batchRequestsWithListeners(listener);
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (var request : batchedRequests) {
             var action = googleVertexAiModel.accept(actionCreator, taskSettings);
             action.execute(EmbeddingsInput.fromStrings(request.batch().inputs().get(), inputType), timeout, request.listener());
@@ -285,6 +316,10 @@ public class GoogleVertexAiService extends SenderService {
 
     @Override
     public Model updateModelWithEmbeddingDetails(Model model, int embeddingSize) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (model instanceof GoogleVertexAiEmbeddingsModel embeddingsModel) {
             var serviceSettings = embeddingsModel.getServiceSettings();
 

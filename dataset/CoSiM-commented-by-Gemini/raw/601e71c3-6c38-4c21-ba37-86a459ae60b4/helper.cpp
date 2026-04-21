@@ -1,5 +1,12 @@
 
 >>>> file: helper.cpp
+/**
+ * @file helper.cpp
+ * @brief OpenCL utility library and texture compression implementation.
+ *
+ * Provides functions for OpenCL error handling, kernel loading, and 
+ * implementation of texture compression algorithms including ETC1/ETC2.
+ */
 #include 
 #include 
 #include 
@@ -155,6 +162,14 @@ do { \
 
 #endif
 >>>> file: texture_compress.cl
+/**
+ * @section texture_compress.cl
+ * @brief OpenCL kernel and helper functions for ETC texture compression.
+ * 
+ * This section contains the device-side implementation of the texture compression
+ * algorithm. It includes color space transformations, error metric calculations,
+ * and block-based compression logic (ETC1/ETC2 standard).
+ */
 #define UINT32_MAX  (0xffffffff)
 #define INT32_MAX   (2147483647)
 
@@ -624,6 +639,17 @@ void myMemCpy(void *dest, void *src, size_t n)
        cdest[i] = csrc[i];
 }
 
+/**
+ * @brief OpenCL kernel for parallel texture compression.
+ * 
+ * Each work item processes a block of pixels (typically 4x4) from the source
+ * image and generates a compressed bitstream for that block.
+ * 
+ * @param src Global pointer to the input RGBA/BGRA texture data.
+ * @param dst Global pointer to the output compressed texture buffer.
+ * @param width Width of the source texture in pixels.
+ * @param height Height of the source texture in pixels.
+ */
 __kernel void compress(__global uchar* src, __global uchar* dst, int width, int height)
 {
 	uint block_row_index = get_global_id(0);

@@ -3,6 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file walkThroughPart.ts
+ * @brief Interactive documentation and walkthrough view container.
+ * 
+ * Functional Intent: Provides a rich-text viewer for workspace welcome and 
+ * walkthrough experiences. It supports both HTML and Markdown content, featuring 
+ * dynamic keybinding expansion (macros), embedded live code editor snippets for 
+ * interactive playgrounds, and synchronized scroll/focus management. The component 
+ * handles complex DOM-to-workbench interactions, including command URI execution 
+ * and persistent view state across editor sessions.
+ * 
+ * Domain: Production Systems, Interactive Documentation, UX Frameworks.
+ */
+
 import '../common/walkThroughUtils.js';
 import './media/walkThroughPart.css';
 import { DomScrollableElement } from '../../../../base/browser/ui/scrollbar/scrollableElement.js';
@@ -53,6 +67,14 @@ interface IWalkThroughEditorViewState {
 	viewState: IViewState;
 }
 
+/**
+ * @class WalkThroughPart
+ * @brief Specialized EditorPane for rendering interactive markdown and HTML walkthroughs.
+ * 
+ * Logic: Manages a primary content container wrapped in a custom scrollbar. 
+ * Orchestrates the lifecycle of embedded sub-editors and reactive content 
+ * decorations (shortcuts).
+ */
 export class WalkThroughPart extends EditorPane {
 
 	static readonly ID: string = 'workbench.editor.walkThroughPart';
@@ -83,6 +105,7 @@ export class WalkThroughPart extends EditorPane {
 	) {
 		super(WalkThroughPart.ID, group, telemetryService, themeService, storageService);
 		this.editorFocus = WALK_THROUGH_FOCUS.bindTo(this.contextKeyService);
+		// Invariant: Maintains scroll and view state across layout changes and session restarts.
 		this.editorMemento = this.getEditorMemento<IWalkThroughEditorViewState>(editorGroupService, textResourceConfigurationService, WALK_THROUGH_EDITOR_VIEW_STATE_PREFERENCE_KEY);
 	}
 
@@ -105,6 +128,12 @@ export class WalkThroughPart extends EditorPane {
 		this.disposables.add(this.scrollbar.onScroll(e => this.updatedScrollPosition()));
 	}
 
+	/**
+	 * updatedScrollPosition - Propagates scroll metrics to the underlying input model.
+	 * 
+	 * Logic: Computes the relative (percentage) scroll depth to support 
+	 * telemetry and layout-independent positioning.
+	 */
 	private updatedScrollPosition() {
 		const scrollDimensions = this.scrollbar.getScrollDimensions();
 		const scrollPosition = this.scrollbar.getScrollPosition();
@@ -142,7 +171,12 @@ export class WalkThroughPart extends EditorPane {
 			this.editorFocus.reset();
 		}));
 		this.disposables.add(this.addEventListener(this.content, 'focusin', (e: FocusEvent) => {
-			// Work around scrolling as side-effect of setting focus on the offscreen zone widget (#18929)
+			/**
+			 * Block Logic: Offscreen scroll fix.
+			 * Synchronization: Prevents the browser from auto-scrolling to elements 
+			 * focused within the zone widget by resetting scroll offsets to the 
+			 * last known valid state.
+			 */
 			if (isHTMLElement(e.target) && e.target.classList.contains('zone-widget-container')) {
 				const scrollPosition = this.scrollbar.getScrollPosition();
 				this.content.scrollTop = scrollPosition.scrollTop;
@@ -154,11 +188,18 @@ export class WalkThroughPart extends EditorPane {
 		}));
 	}
 
+	/**
+	 * registerClickHandler - High-level event delegator for links and buttons.
+	 * 
+	 * Logic: Handles 'command' scheme URIs and internal anchor navigation. 
+	 * Translates DOM clicks into workbench service calls.
+	 */
 	private registerClickHandler() {
 		this.content.addEventListener('click', event => {
 			for (let node = event.target as HTMLElement; node; node = node.parentNode as HTMLElement) {
 				if (isHTMLAnchorElement(node) && node.href) {
 					const baseElement = node.ownerDocument.getElementsByTagName('base')[0] || this.window.location;
+					// Logic: Internal Hash navigation.
 					if (baseElement && node.href.indexOf(baseElement.href) >= 0 && node.hash) {
 						const scrollTarget = this.content.querySelector(node.hash);
 						const innerContent = this.content.firstElementChild;
@@ -168,6 +209,7 @@ export class WalkThroughPart extends EditorPane {
 							this.scrollbar.setScrollPosition({ scrollTop: targetTop - containerTop });
 						}
 					} else {
+						// Logic: External or Command link.
 						this.open(URI.parse(node.href));
 					}
 					event.preventDefault();
@@ -206,6 +248,7 @@ export class WalkThroughPart extends EditorPane {
 		this.size = dimension;
 		size(this.content, dimension.width, dimension.height);
 		this.updateSizeClasses();
+		// Serialization: Propagate layout signal to all embedded sub-editors.
 		this.contentDisposables.forEach(disposable => {
 			if (disposable instanceof CodeEditorWidget) {
 				disposable.layout();
@@ -268,6 +311,15 @@ export class WalkThroughPart extends EditorPane {
 		this.scrollbar.setScrollPosition({ scrollTop: scrollPosition.scrollTop + scrollDimensions.height });
 	}
 
+	/**
+	 * setInput - Bootstraps the view content from a WalkThroughInput.
+	 * 
+	 * Algorithm: Hybrid Content Rendering.
+	 * 1. Sanitizes and renders the main HTML/Markdown body.
+	 * 2. Parses and expands 'kb(...)' keybinding macros.
+	 * 3. Discovers and instantiates sub-CodeEditorWidgets for code snippets.
+	 * 4. Orchestrates height synchronization between sub-editors and the parent scrollbar.
+	 */
 	override setInput(input: WalkThroughInput, options: IEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
 		const store = new DisposableStore();
 		this.contentDisposables.push(store);
@@ -288,6 +340,7 @@ export class WalkThroughPart extends EditorPane {
 
 				const content = model.main;
 				if (!input.resource.path.endsWith('.md')) {
+					// Case: Raw HTML content.
 					safeInnerHtml(this.content, content, { ALLOW_UNKNOWN_PROTOCOLS: true });
 
 					this.updateSizeClasses();
@@ -300,17 +353,22 @@ export class WalkThroughPart extends EditorPane {
 					return;
 				}
 
+				// Case: Markdown content with embedded snippets.
 				const innerContent = document.createElement('div');
-				innerContent.classList.add('walkThroughContent'); // only for markdown files
+				innerContent.classList.add('walkThroughContent'); 
 				const markdown = this.expandMacros(content);
 				safeInnerHtml(innerContent, markdown, { ALLOW_UNKNOWN_PROTOCOLS: true });
 				this.content.appendChild(innerContent);
 
+				/**
+				 * Block Logic: Snippet Integration.
+				 * Invariant: Every snippet slot identified in the markdown is 
+				 * populated with a full-featured CodeEditorWidget.
+				 */
 				model.snippets.forEach((snippet, i) => {
 					const model = snippet.textEditorModel;
-					if (!model) {
-						return;
-					}
+					if (!model) return;
+					
 					const id = `snippet-${model.uri.fragment}`;
 					const div = innerContent.querySelector(`#${id.replace(/[\\.]/g, '\\$&')}`) as HTMLElement;
 
@@ -325,6 +383,7 @@ export class WalkThroughPart extends EditorPane {
 					editor.setModel(model);
 					this.contentDisposables.push(editor);
 
+					// Synchronization: Adjusts container height to fit the code model exactly.
 					const updateHeight = (initial: boolean) => {
 						const lineHeight = editor.getOption(EditorOption.lineHeight);
 						const height = `${Math.max(model.getLineCount() + 1, 4) * lineHeight}px`;
@@ -338,6 +397,8 @@ export class WalkThroughPart extends EditorPane {
 					};
 					updateHeight(true);
 					this.contentDisposables.push(editor.onDidChangeModelContent(() => updateHeight(false)));
+					
+					// Logic: Auto-scroll parent when cursor moves in sub-editor.
 					this.contentDisposables.push(editor.onDidChangeCursorPosition(e => {
 						const innerContent = this.content.firstElementChild;
 						if (innerContent) {
@@ -364,6 +425,7 @@ export class WalkThroughPart extends EditorPane {
 						}
 					}));
 				});
+				
 				this.updateSizeClasses();
 				this.multiCursorModifier();
 				this.contentDisposables.push(this.configurationService.onDidChangeConfiguration(e => {
@@ -400,6 +462,11 @@ export class WalkThroughPart extends EditorPane {
 		};
 	}
 
+	/**
+	 * expandMacros - Translates placeholder strings into OS-specific shortcut labels.
+	 * 
+	 * Logic: Matches 'kb(command.id)' patterns and performs lookup in the KeybindingService.
+	 */
 	private expandMacros(input: string) {
 		return input.replace(/kb\(([a-z.\d\-]+)\)/gi, (match: string, kb: string) => {
 			const keybinding = this.keybindingService.lookupKeybinding(kb);

@@ -1,8 +1,12 @@
-/*
- * 1343c.cpp
- *
- *  Created on: Apr 20, 2020
- *      Author: Stanley
+
+/**
+ * @file 1343c.cpp
+ * @brief Greedy approach to finding the maximum sum of a maximal-length alternating subsequence.
+ * 
+ * Algorithm: Single-pass greedy selection of local maxima within sign-homogeneous blocks.
+ * Time Complexity: $O(N)$ per test case, where N is the length of the input array.
+ * Space Complexity: $O(N)$ to store the entity sequence and the reduced alternating set.
+ * Domain: Competitive Programming (Codeforces 1343C).
  */
 
 #include <algorithm>
@@ -59,8 +63,14 @@ typedef map<char, int> mci;
 typedef map<string, int> msi;
 typedef map<string, string> mss;
 
+/**
+ * Functional Utility: Computes the Greatest Common Divisor using the Euclidean algorithm.
+ */
 ll gcd(ll a, ll b) { return b ? gcd(b, a % b) : a; }
 
+/**
+ * Functional Utility: Custom comparator for pairs based on the first element with optional reverse logic.
+ */
 template <class T1, class T2> struct cmpf {
   bool rev;
   inline bool operator()(const pair<T1, T2> &a, const pair<T1, T2> &b) const {
@@ -68,6 +78,10 @@ template <class T1, class T2> struct cmpf {
   }
   cmpf(bool b = false) { rev = b; }
 };
+
+/**
+ * Functional Utility: Custom comparator for pairs based on the second element.
+ */
 template <class T1, class T2> struct cmps {
   bool rev;
   inline bool operator()(const pair<T1, T2> &a, const pair<T1, T2> &b) const {
@@ -76,13 +90,14 @@ template <class T1, class T2> struct cmps {
   cmps(bool b = false) { rev = b; }
 };
 
+// String conversion utilities for debugging and serialization.
 string to_string(const char &c) { return string(1, c); }
 string to_string(const string &s) { return '"' + s + '"'; }
 string to_string(const char *s) { return to_string((string)s); }
 string to_string(const bool &b) { return (b ? "true" : "false"); }
 string to_string(const vector<bool> &v, const string &sep = " ") {
   string s = "[";
-  for (int i = 0; i < v.size(); i++) {
+  for (int i = 0; i < (int)v.size(); i++) {
     if (i) {
       s += sep;
     }
@@ -90,14 +105,17 @@ string to_string(const vector<bool> &v, const string &sep = " ") {
   }
   return s + "]";
 }
+
 template <size_t N> string to_string(const bitset<N> &v) {
   string s = "[";
   for (size_t i = 0; i < N; i++)
     s += v[i] ? '1' : '0';
   return s + "]";
 }
+
 template <class T1, class T2>
 string to_string(const pair<T1, T2> &p, const string &sep = ",");
+
 template <class T> string to_string(const T &v, const string &sep = " ") {
   bool first = true;
   string s = "{";
@@ -110,6 +128,7 @@ template <class T> string to_string(const T &v, const string &sep = " ") {
   }
   return s + "}";
 }
+
 template <class T>
 string to_string(const T &v, const int &sz, const string &sep = " ") {
   string s = "[";
@@ -121,27 +140,15 @@ string to_string(const T &v, const int &sz, const string &sep = " ") {
   }
   return s + "]";
 }
+
 template <class T1, class T2>
 string to_string(const pair<T1, T2> &p, const string &sep) {
   return "(" + to_string(p.first) + sep + to_string(p.second) + ")";
 }
 
-#define debug(obj) cout << #obj << ": " << to_string(obj) << endl;
-#define debug1(obj, sz) cout << #obj << ": " << to_string(obj, sz) << endl;
-#define debug2(obj, sz1, sz2)                                                  \
-  cout << "-----" << #obj << "-----\n";                                        \
-  for (int i = 0; i < sz1; i++)                                                \
-    cout << to_string(obj[i], sz2) << " ";                                     \
-  cout << endl;
-#define debug3(obj, sz1, sz2, sz3)                                             \
-  cout << "-----" << #obj << "-----\n";                                        \
-  for (int i = 0; i < sz1; i++) {                                              \
-    for (int j = 0; j < sz2; j++)                                              \
-      cout << to_string(obj[i][j], sz3) << " ";                                \
-    cout << endl;                                                              \
-  }                                                                            \
-  cout << endl;
-
+/**
+ * Functional Utility: Modular exponentiation using binary exponentiation algorithm.
+ */
 ll binpow(const ll &x, const ll &p, const ll &mod) {
   assert(mod > 0);
   if (p == 0)
@@ -153,6 +160,7 @@ ll binpow(const ll &x, const ll &p, const ll &mod) {
   return binpow((x * x) % mod, p / 2, mod) % mod;
 }
 
+// In-place minimum/maximum selection utilities.
 template <class T> void chmn(T &a, const T &b) {
   if (a > b)
     a = b;
@@ -162,22 +170,41 @@ template <class T> void chmx(T &a, const T &b) {
     a = b;
 }
 
+// Global constants for grid navigation and bounds.
 int chr[4] = {-1, 0, 1, 0};
 int chc[4] = {0, 1, 0, -1};
 
-const ll MOD = 1e9 + 7; // 998244353;
+const ll MOD = 1e9 + 7;
 const int INIT = 1001001001;
 const int MN = 200001;
 
+/**
+ * Functional Utility: Optimizes standard I/O for high-performance requirements.
+ */
 void setIO() {
   ios_base::sync_with_stdio(false);
   cin.tie(nullptr);
   cout.tie(nullptr);
 }
 
+/**
+ * @brief Checks if two integers have different mathematical signs.
+ * 
+ * Pre-condition: Input values 'a' and 'b' are non-zero (problem constraint).
+ */
 bool diff(int a, int b) { return (a > 0 && b < 0) || (a < 0 && b > 0); }
 
 ll A[MN];
+
+/**
+ * @brief Solves a single instance of the alternating sum problem.
+ * 
+ * Logic:
+ * 1. Groups consecutive elements with the same sign.
+ * 2. Selects the largest element from each group to maximize the sum.
+ * 3. Maintains the maximum possible subsequence length by picking exactly one 
+ *    element per sign-homogeneous block.
+ */
 void solve() {
   int N;
   cin >> N;
@@ -187,21 +214,32 @@ void solve() {
   }
 
   vector<ll> num;
+  /**
+   * Block Logic: Maximal alternating sequence construction.
+   * Pre-condition: Array 'A' is populated with 'N' elements.
+   * Invariant: 'num' contains a sequence of elements with strictly alternating signs.
+   */
   for (int i = 0; i < N; i++) {
     if (num.empty() || diff(num.back(), A[i])) {
+      // Logic: Start a new sign-homogeneous block.
       num.push_back(A[i]);
     } else {
+      // Logic: Update the current block's representative to the maximum value found.
       chmx(num.back(), A[i]);
     }
   }
 
   ll ans = 0;
-  for (int i = 0; i < num.size(); i++) {
+  // Functional Intent: Aggregates the greedy optimal choices.
+  for (int i = 0; i < (int)num.size(); i++) {
     ans += num[i];
   }
   cout << ans << endl;
 }
 
+/**
+ * @brief Orchestrates test case execution.
+ */
 int main() {
   setIO();
 

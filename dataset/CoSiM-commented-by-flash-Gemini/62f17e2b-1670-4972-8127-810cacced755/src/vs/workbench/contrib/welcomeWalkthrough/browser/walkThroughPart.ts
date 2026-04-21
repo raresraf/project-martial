@@ -1,3 +1,11 @@
+/**
+ * @62f17e2b-1670-4972-8127-810cacced755/src/vs/workbench/contrib/welcomeWalkthrough/browser/walkThroughPart.ts
+ * @brief UI component for rendering interactive welcome walkthroughs and playground experiences.
+ * Functional Utility: Manages a scrollable walkthrough view that supports Markdown rendering, 
+ * embedded code snippets with live editors, and macro expansion for dynamic keybindings.
+ * Domain: Workbench UI, Interactive Documentation.
+ */
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -23,6 +31,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { localize } from '../../../../nls.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { RawContextKey, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService as IContextKeyService_1 } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isObject } from '../../../../base/common/types.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
@@ -53,6 +62,11 @@ interface IWalkThroughEditorViewState {
 	viewState: IViewState;
 }
 
+/**
+ * @class WalkThroughPart
+ * @extends EditorPane
+ * @description Orchestrates the rendering and interaction logic for the workbench walkthrough editor.
+ */
 export class WalkThroughPart extends EditorPane {
 
 	static readonly ID: string = 'workbench.editor.walkThroughPart';
@@ -86,6 +100,10 @@ export class WalkThroughPart extends EditorPane {
 		this.editorMemento = this.getEditorMemento<IWalkThroughEditorViewState>(editorGroupService, textResourceConfigurationService, WALK_THROUGH_EDITOR_VIEW_STATE_PREFERENCE_KEY);
 	}
 
+	/**
+	 * @description Scaffolds the DOM structure for the walkthrough part.
+	 * Logic: Wraps a content div within a custom scrollable element and registers interaction listeners.
+	 */
 	protected createEditor(container: HTMLElement): void {
 		this.content = document.createElement('div');
 		this.content.classList.add('welcomePageFocusElement');
@@ -105,6 +123,10 @@ export class WalkThroughPart extends EditorPane {
 		this.disposables.add(this.scrollbar.onScroll(e => this.updatedScrollPosition()));
 	}
 
+	/**
+	 * @description Synchronizes the internal input state with the current scroll metrics.
+	 * Functional Utility: Feeds relative scroll positions back into telemetry and input state.
+	 */
 	private updatedScrollPosition() {
 		const scrollDimensions = this.scrollbar.getScrollDimensions();
 		const scrollPosition = this.scrollbar.getScrollPosition();
@@ -116,6 +138,9 @@ export class WalkThroughPart extends EditorPane {
 		}
 	}
 
+	/**
+	 * @description Handles touch-based translation events for mobile/tablet environments.
+	 */
 	private onTouchChange(event: GestureEvent) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -131,6 +156,10 @@ export class WalkThroughPart extends EditorPane {
 		return toDisposable(() => { element.removeEventListener(type, listener, useCapture); });
 	}
 
+	/**
+	 * @description Manages focus state tracking within the walkthrough content.
+	 * Invariant: Synchronizes the `interactivePlaygroundFocus` context key with the actual DOM focus state.
+	 */
 	private registerFocusHandlers() {
 		this.disposables.add(this.addEventListener(this.content, 'mousedown', e => {
 			this.focus();
@@ -154,6 +183,10 @@ export class WalkThroughPart extends EditorPane {
 		}));
 	}
 
+	/**
+	 * @description Global click delegator for handling links and buttons within the walkthrough.
+	 * Logic: Supports local hash-based anchoring for internal navigation and external URI opening.
+	 */
 	private registerClickHandler() {
 		this.content.addEventListener('click', event => {
 			for (let node = event.target as HTMLElement; node; node = node.parentNode as HTMLElement) {
@@ -202,6 +235,9 @@ export class WalkThroughPart extends EditorPane {
 		return uri.with({ query: JSON.stringify(query) });
 	}
 
+	/**
+	 * @description Adjusts the visual layout and child components based on external dimension changes.
+	 */
 	layout(dimension: Dimension): void {
 		this.size = dimension;
 		size(this.content, dimension.width, dimension.height);
@@ -268,6 +304,11 @@ export class WalkThroughPart extends EditorPane {
 		this.scrollbar.setScrollPosition({ scrollTop: scrollPosition.scrollTop + scrollDimensions.height });
 	}
 
+	/**
+	 * @description Resolves the input model and renders the walkthrough content.
+	 * Logic: Handles both raw HTML and Markdown inputs, including snippet-to-editor conversion 
+	 * for Markdown-embedded code blocks.
+	 */
 	override setInput(input: WalkThroughInput, options: IEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
 		const store = new DisposableStore();
 		this.contentDisposables.push(store);
@@ -287,6 +328,9 @@ export class WalkThroughPart extends EditorPane {
 				}
 
 				const content = model.main;
+				/**
+				 * Block Logic: Handling for non-markdown (direct HTML) walkthroughs.
+				 */
 				if (!input.resource.path.endsWith('.md')) {
 					safeInnerHtml(this.content, content);
 
@@ -300,6 +344,10 @@ export class WalkThroughPart extends EditorPane {
 					return;
 				}
 
+				/**
+				 * Block Logic: Markdown rendering pipeline.
+				 * Includes macro expansion for shortcuts and instantiation of CodeEditorWidgets for snippets.
+				 */
 				const innerContent = document.createElement('div');
 				innerContent.classList.add('walkThroughContent'); // only for markdown files
 				const markdown = this.expandMacros(content);
@@ -400,6 +448,9 @@ export class WalkThroughPart extends EditorPane {
 		};
 	}
 
+	/**
+	 * @description Replaces `kb(commandId)` tokens in text with actual, localized keybinding labels.
+	 */
 	private expandMacros(input: string) {
 		return input.replace(/kb\(([a-z.\d\-]+)\)/gi, (match: string, kb: string) => {
 			const keybinding = this.keybindingService.lookupKeybinding(kb);
@@ -408,6 +459,9 @@ export class WalkThroughPart extends EditorPane {
 		});
 	}
 
+	/**
+	 * @description Scans the rendered DOM for shortcut placeholders and injects current keybinding strings.
+	 */
 	private decorateContent() {
 		const keys = this.content.querySelectorAll('.shortcut[data-command]');
 		Array.prototype.forEach.call(keys, (key: Element) => {
@@ -427,6 +481,9 @@ export class WalkThroughPart extends EditorPane {
 		});
 	}
 
+	/**
+	 * @description Updates DOM elements representing the multi-cursor modifier based on user configuration.
+	 */
 	private multiCursorModifier() {
 		const labels = UILabelProvider.modifierLabels[OS];
 		const value = this.configurationService.getValue('editor.multiCursorModifier');

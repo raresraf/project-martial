@@ -1,5 +1,17 @@
+/**
+ * @module TextureCompressionSystem
+ * @brief Concatenated High-Performance Texture Compression Suite.
+ * 
+ * This file contains a full-stack OpenCL-based texture compression solution, 
+ * including host-side C++ helper utilities, header definitions, the GPU kernel, 
+ * and the main orchestration logic. It is optimized for GPGPU workloads 
+ * targeting ETC1-style compression.
+ */
 
->>>> file: helper.cpp
+/* ============================================================================
+ * SECTION: helper.cpp
+ * Host-side utilities for OpenCL error handling and resource management.
+ * ============================================================================ */
 #include 
 #include 
 #include 
@@ -11,7 +23,11 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Checks for OpenCL runtime errors.
+ * Logs human-readable error messages to stdout upon failure.
+ * 
+ * @param cl_ret The OpenCL return code to validate.
+ * @return 1 if error, 0 if success.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +39,8 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Checks for OpenCL compilation errors and retrieves build logs.
+ * Crucial for debugging kernel syntax or hardware-specific build failures.
  */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
@@ -165,7 +182,11 @@ do {                                                        \
 } while(0);
 
 #endif
->>>> file: kernel_george.cl
+/* ============================================================================
+ * SECTION: kernel_george.cl
+ * GPGPU kernel implementation for ETC1-style block compression.
+ * Optimized for OpenCL's parallel execution model and hardware memory access.
+ * ============================================================================ */
 typedef struct Color {
 	struct BgraColorType {
 		uchar b;
@@ -178,7 +199,9 @@ typedef struct Color {
 } Color;
 
 
-/* implementare proprie a functiei memcpy */
+/**
+ * @brief Custom memcpy for OpenCL kernel (host-equivalent).
+ */
 void cpy(void *dest, void *src, int n){
 	char *csrc = (char *)src;
    	char *cdest = (char *)dest;
@@ -187,7 +210,9 @@ void cpy(void *dest, void *src, int n){
        cdest[i] = csrc[i];
 }
 
-/* implementare proprie a functiei memcpy, pentru variabile globale */
+/**
+ * @brief Custom memcpy for transferring data between kernel memory spaces.
+ */
 void gcpy(__global uchar *dest, void *src, int n){
 	char *csrc = (char *)src;
 

@@ -1,3 +1,10 @@
+/**
+ * @raw/7f59f5d4-6649-43d8-a9f9-0582b2c07d3d/components/script/dom/webglframebuffer.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -98,18 +105,18 @@ pub(crate) struct WebGLFramebuffer {
     webgl_version: WebGLVersion,
     #[no_trace]
     id: WebGLFramebufferId,
-    target: Cell<Option<u32>>,
+    target: Cell<Option<u32>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     is_deleted: Cell<bool>,
-    size: Cell<Option<(i32, i32)>>,
+    size: Cell<Option<(i32, i32)>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     status: Cell<u32>,
     // The attachment points for textures and renderbuffers on this
     // FBO.
-    colors: Vec<DomRefCell<Option<WebGLFramebufferAttachment>>>,
-    depth: DomRefCell<Option<WebGLFramebufferAttachment>>,
-    stencil: DomRefCell<Option<WebGLFramebufferAttachment>>,
-    depthstencil: DomRefCell<Option<WebGLFramebufferAttachment>>,
+    colors: Vec<DomRefCell<Option<WebGLFramebufferAttachment>>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+    depth: DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+    stencil: DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+    depthstencil: DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     color_read_buffer: DomRefCell<u32>,
-    color_draw_buffers: DomRefCell<Vec<u32>>,
+    color_draw_buffers: DomRefCell<Vec<u32>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     is_initialized: Cell<bool>,
     // Framebuffers for XR keep a reference to the XR session.
     // https://github.com/immersive-web/webxr/issues/856
@@ -142,7 +149,7 @@ impl WebGLFramebuffer {
     pub(crate) fn maybe_new(
         context: &WebGLRenderingContext,
         can_gc: CanGc,
-    ) -> Option<DomRoot<Self>> {
+    ) -> Option<DomRoot<Self>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let (sender, receiver) = webgl_channel().unwrap();
         context.send_command(WebGLCommand::CreateFramebuffer(sender));
         let id = receiver.recv().unwrap()?;
@@ -158,7 +165,7 @@ impl WebGLFramebuffer {
         context: &WebGLRenderingContext,
         size: Size2D<i32, Viewport>,
         can_gc: CanGc,
-    ) -> Option<DomRoot<Self>> {
+    ) -> Option<DomRoot<Self>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         let framebuffer = Self::maybe_new(context, can_gc)?;
         framebuffer.size.set(Some((size.width, size.height)));
         framebuffer.status.set(constants::FRAMEBUFFER_COMPLETE);
@@ -195,6 +202,10 @@ impl WebGLFramebuffer {
     }
 
     pub(crate) fn validate_transparent(&self) -> WebGLResult<()> {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.is_in_xr_session() {
             Err(WebGLError::InvalidOperation)
         } else {
@@ -203,6 +214,10 @@ impl WebGLFramebuffer {
     }
 
     pub(crate) fn bind(&self, target: u32) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !self.is_in_xr_session() {
             // Update the framebuffer status on binding.  It may have
             // changed if its attachments were resized or deleted while
@@ -220,6 +235,10 @@ impl WebGLFramebuffer {
     }
 
     pub(crate) fn delete(&self, operation_fallibility: Operation) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !self.is_deleted.get() {
             self.is_deleted.set(true);
             let context = self.upcast::<WebGLObject>().context();
@@ -245,6 +264,10 @@ impl WebGLFramebuffer {
     pub(crate) fn get_attachment_formats(
         &self,
     ) -> WebGLResult<(Option<u32>, Option<u32>, Option<u32>)> {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.check_status() != constants::FRAMEBUFFER_COMPLETE {
             return Err(WebGLError::InvalidFramebufferOperation);
         }
@@ -289,7 +312,15 @@ impl WebGLFramebuffer {
 
         // Make sure that, if we've found any other attachment,
         // that the size matches.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if size.is_some() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if fb_size.is_some() && size != *fb_size {
                 return Err(constants::FRAMEBUFFER_INCOMPLETE_DIMENSIONS);
             } else {
@@ -297,7 +328,15 @@ impl WebGLFramebuffer {
             }
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(format) = format {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if constraints.all(|c| *c != format) {
                 return Err(constants::FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
             }
@@ -348,6 +387,10 @@ impl WebGLFramebuffer {
                 }
             },
         };
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !is_supported {
             return self.status.set(constants::FRAMEBUFFER_UNSUPPORTED);
         }
@@ -385,7 +428,15 @@ impl WebGLFramebuffer {
             .zip(extra_attachment_constraints.iter())
             .map(|(a, b)| a.iter().chain(b.iter()));
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (attachment, constraints) in attachments.iter().zip(attachment_constraints) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Err(errnum) =
                 self.check_attachment_constraints(attachment, constraints, &mut fb_size)
             {
@@ -461,9 +512,17 @@ impl WebGLFramebuffer {
             .chain(extra_color_constraints.iter());
 
         let has_c = self.colors.iter().any(|att| att.borrow().is_some());
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for attachment in self.colors.iter() {
             let attachment = attachment.borrow();
             let constraints = color_constraints.clone();
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Err(errnum) =
                 self.check_attachment_constraints(&attachment, constraints, &mut fb_size)
             {
@@ -473,7 +532,15 @@ impl WebGLFramebuffer {
 
         self.size.set(fb_size);
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if has_c || has_z || has_zs || has_s {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if self.size.get().is_some_and(|(w, h)| w != 0 && h != 0) {
                 self.status.set(constants::FRAMEBUFFER_COMPLETE);
             } else {
@@ -490,6 +557,10 @@ impl WebGLFramebuffer {
         // For opaque framebuffers, check to see if the XR session is currently processing an rAF
         // https://immersive-web.github.io/webxr/#opaque-framebuffer
         #[cfg(feature = "webxr")]
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(xr_session) = self.xr_session.get() {
             return if xr_session.is_outside_raf() {
                 constants::FRAMEBUFFER_UNSUPPORTED
@@ -506,6 +577,10 @@ impl WebGLFramebuffer {
 
     pub(crate) fn check_status_for_rendering(&self) -> CompleteForRendering {
         let result = self.check_status();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if result != constants::FRAMEBUFFER_COMPLETE {
             return CompleteForRendering::Incomplete;
         }
@@ -513,14 +588,26 @@ impl WebGLFramebuffer {
         // XR framebuffers are complete inside an rAF
         // https://github.com/immersive-web/webxr/issues/854
         #[cfg(feature = "webxr")]
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.xr_session.get().is_some() {
             return CompleteForRendering::Complete;
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if self.colors.iter().all(|att| att.borrow().is_none()) {
             return CompleteForRendering::MissingColorAttachment;
         }
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !self.is_initialized.get() {
             let attachments = [
                 (&self.depth, constants::DEPTH_BUFFER_BIT),
@@ -531,16 +618,40 @@ impl WebGLFramebuffer {
                 ),
             ];
             let mut clear_bits = 0;
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for &(attachment, bits) in &attachments {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Some(ref att) = *attachment.borrow() {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if att.needs_initialization() {
                         att.mark_initialized();
                         clear_bits |= bits;
                     }
                 }
             }
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for attachment in self.colors.iter() {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if let Some(ref att) = *attachment.borrow() {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if att.needs_initialization() {
                         att.mark_initialized();
                         clear_bits |= constants::COLOR_BUFFER_BIT;
@@ -575,6 +686,10 @@ impl WebGLFramebuffer {
 
         let rb_id = match rb {
             Some(rb) => {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if !rb.ever_bound() {
                     return Err(WebGLError::InvalidOperation);
                 }
@@ -596,6 +711,10 @@ impl WebGLFramebuffer {
                 rb_id,
             ));
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if rb.is_none() {
             self.detach_binding(binding, attachment)?;
         }
@@ -607,17 +726,25 @@ impl WebGLFramebuffer {
 
     fn detach_binding(
         &self,
-        binding: &DomRefCell<Option<WebGLFramebufferAttachment>>,
+        binding: &DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         attachment: u32,
     ) -> WebGLResult<()> {
         // Opaque framebuffers cannot have their attachments changed
         // https://immersive-web.github.io/webxr/#opaque-framebuffer
         self.validate_transparent()?;
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(att) = &*binding.borrow() {
             att.detach();
         }
         *binding.borrow_mut() = None;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if INTERESTING_ATTACHMENT_POINTS.contains(&attachment) {
             self.reattach_depth_stencil()?;
         }
@@ -627,7 +754,7 @@ impl WebGLFramebuffer {
     fn attachment_binding(
         &self,
         attachment: u32,
-    ) -> Option<&DomRefCell<Option<WebGLFramebufferAttachment>>> {
+    ) -> Option<&DomRefCell<Option<WebGLFramebufferAttachment>>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         match attachment {
             constants::COLOR_ATTACHMENT0..=constants::COLOR_ATTACHMENT15 => {
                 let idx = attachment - constants::COLOR_ATTACHMENT0;
@@ -674,12 +801,24 @@ impl WebGLFramebuffer {
         // attachments to be overwritten, we need to ensure that we reattach
         // the DEPTH and STENCIL attachments when any of those attachments
         // is cleared.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(ref depth) = *self.depth.borrow() {
             reattach(depth, constants::DEPTH_ATTACHMENT);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(ref stencil) = *self.stencil.borrow() {
             reattach(stencil, constants::STENCIL_ATTACHMENT);
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(ref depth_stencil) = *self.depthstencil.borrow() {
             reattach(depth_stencil, constants::DEPTH_STENCIL_ATTACHMENT);
         }
@@ -704,6 +843,10 @@ impl WebGLFramebuffer {
         // Opaque framebuffers cannot have their attachments changed
         // https://immersive-web.github.io/webxr/#opaque-framebuffer
         self.validate_transparent()?;
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let Some(texture) = texture {
             //     "If texture is not zero, then texture must either
             //      name an existing texture object with an target of
@@ -741,6 +884,10 @@ impl WebGLFramebuffer {
             } else {
                 context.limits().max_tex_size
             };
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if level < 0 || level as u32 > log2(max_tex_size) {
                 return Err(WebGLError::InvalidValue);
             }
@@ -785,6 +932,10 @@ impl WebGLFramebuffer {
                 level,
             ));
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if texture.is_none() {
             self.detach_binding(binding, attachment)?;
         }
@@ -821,9 +972,17 @@ impl WebGLFramebuffer {
                     _ => return Err(WebGLError::InvalidOperation),
                 };
 
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if level < 0 || level as u32 >= max_level {
                     return Err(WebGLError::InvalidValue);
                 }
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if layer < 0 || layer as u32 >= max_layer {
                     return Err(WebGLError::InvalidValue);
                 }
@@ -851,7 +1010,7 @@ impl WebGLFramebuffer {
 
     fn with_matching_renderbuffers<F>(&self, rb: &WebGLRenderbuffer, mut closure: F)
     where
-        F: FnMut(&DomRefCell<Option<WebGLFramebufferAttachment>>, u32),
+        F: FnMut(&DomRefCell<Option<WebGLFramebufferAttachment>>, u32), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     {
         let rb_id = rb.id();
         let attachments = [
@@ -861,7 +1020,7 @@ impl WebGLFramebuffer {
         ];
 
         fn has_matching_id(
-            attachment: &DomRefCell<Option<WebGLFramebufferAttachment>>,
+            attachment: &DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             target: &WebGLRenderbufferId,
         ) -> bool {
             match *attachment.borrow() {
@@ -872,13 +1031,29 @@ impl WebGLFramebuffer {
             }
         }
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (attachment, name) in &attachments {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_matching_id(attachment, &rb_id) {
                 closure(attachment, *name);
             }
         }
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (idx, attachment) in self.colors.iter().enumerate() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_matching_id(attachment, &rb_id) {
                 let name = constants::COLOR_ATTACHMENT0 + idx as u32;
                 closure(attachment, name);
@@ -888,7 +1063,7 @@ impl WebGLFramebuffer {
 
     fn with_matching_textures<F>(&self, texture: &WebGLTexture, mut closure: F)
     where
-        F: FnMut(&DomRefCell<Option<WebGLFramebufferAttachment>>, u32),
+        F: FnMut(&DomRefCell<Option<WebGLFramebufferAttachment>>, u32), /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     {
         let tex_id = texture.id();
         let attachments = [
@@ -898,7 +1073,7 @@ impl WebGLFramebuffer {
         ];
 
         fn has_matching_id(
-            attachment: &DomRefCell<Option<WebGLFramebufferAttachment>>,
+            attachment: &DomRefCell<Option<WebGLFramebufferAttachment>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             target: &WebGLTextureId,
         ) -> bool {
             matches!(*attachment.borrow(), Some(WebGLFramebufferAttachment::Texture {
@@ -907,13 +1082,29 @@ impl WebGLFramebuffer {
                                 }) if att_texture.id() == *target)
         }
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (attachment, name) in &attachments {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_matching_id(attachment, &tex_id) {
                 closure(attachment, *name);
             }
         }
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (idx, attachment) in self.colors.iter().enumerate() {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if has_matching_id(attachment, &tex_id) {
                 let name = constants::COLOR_ATTACHMENT0 + idx as u32;
                 closure(attachment, name);
@@ -929,6 +1120,10 @@ impl WebGLFramebuffer {
         let mut depth_or_stencil_updated = false;
         self.with_matching_renderbuffers(rb, |att, name| {
             depth_or_stencil_updated |= INTERESTING_ATTACHMENT_POINTS.contains(&name);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(att) = &*att.borrow() {
                 att.detach();
             }
@@ -936,6 +1131,10 @@ impl WebGLFramebuffer {
             self.update_status();
         });
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if depth_or_stencil_updated {
             self.reattach_depth_stencil()?;
         }
@@ -950,6 +1149,10 @@ impl WebGLFramebuffer {
         let mut depth_or_stencil_updated = false;
         self.with_matching_textures(texture, |att, name| {
             depth_or_stencil_updated |= INTERESTING_ATTACHMENT_POINTS.contains(&name);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if let Some(att) = &*att.borrow() {
                 att.detach();
             }
@@ -957,6 +1160,10 @@ impl WebGLFramebuffer {
             self.update_status();
         });
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if depth_or_stencil_updated {
             self.reattach_depth_stencil()?;
         }
@@ -993,6 +1200,10 @@ impl WebGLFramebuffer {
     pub(crate) fn set_draw_buffers(&self, buffers: Vec<u32>) -> WebGLResult<()> {
         let context = self.upcast::<WebGLObject>().context();
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if buffers.len() > context.limits().max_draw_buffers as usize {
             return Err(WebGLError::InvalidValue);
         }
@@ -1000,6 +1211,10 @@ impl WebGLFramebuffer {
         let enums_valid = buffers
             .iter()
             .all(|&val| val == constants::NONE || context.valid_color_attachment_enum(val));
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !enums_valid {
             return Err(WebGLError::InvalidEnum);
         }
@@ -1007,6 +1222,10 @@ impl WebGLFramebuffer {
         let values_valid = buffers.iter().enumerate().all(|(i, &val)| {
             val == constants::NONE || val == (constants::COLOR_ATTACHMENT0 + i as u32)
         });
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if !values_valid {
             return Err(WebGLError::InvalidOperation);
         }

@@ -3,6 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file chatEditingEditorOverlay.ts
+ * @brief Viewport-anchored UI for AI-assisted code editing sessions.
+ * 
+ * Functional Intent: Provides a persistent floating overlay in the editor that 
+ * displays the progress and control status of AI-driven modifications. It 
+ * manages progress messages, change counts, and action buttons (Accept/Reject) 
+ * for active chat editing sessions. The architecture is highly reactive, 
+ * leveraging observables to synchronize visibility and content with the 
+ * underlying chat and editing services across multiple editor groups.
+ * 
+ * Domain: AI-Assisted Development, Reactive UI, Workbench Contributions.
+ */
+
 import '../media/chatEditingEditorOverlay.css';
 import { combinedDisposable, Disposable, DisposableMap, DisposableStore, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { autorun, derived, derivedOpts, IObservable, observableFromEvent, observableFromEventOpts, observableSignalFromEvent, observableValue, transaction } from '../../../../../base/common/observable.js';
@@ -34,6 +48,14 @@ import * as arrays from '../../../../../base/common/arrays.js';
 import { renderStringAsPlaintext } from '../../../../../base/browser/markdownRenderer.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 
+/**
+ * @class ChatEditorOverlayWidget
+ * @brief The concrete DOM widget displaying progress and controls.
+ * 
+ * Logic: Encapsulates a progress indicator and a toolbar. Uses derived observables 
+ * to compute current state (busy, current request message, change indices) 
+ * from the global chat session and the active file entry.
+ */
 class ChatEditorOverlayWidget extends Disposable {
 
 	private readonly _domNode: HTMLElement;
@@ -45,6 +67,7 @@ class ChatEditorOverlayWidget extends Disposable {
 	private readonly _entry = observableValue<IModifiedFileEntry | undefined>(this, undefined);
 	private readonly _isBusy: IObservable<boolean | undefined>;
 
+	// _navigationBearings - Tracks change counts and indices for multi-file/multi-hunk navigation.
 	private readonly _navigationBearings = observableValue<{ changeCount: number; activeIdx: number; entriesCount: number }>(this, { changeCount: -1, activeIdx: -1, entriesCount: -1 });
 
 	constructor(
@@ -63,8 +86,13 @@ class ChatEditorOverlayWidget extends Disposable {
 			return entry?.waitsForLastEdits.read(r) ?? !session?.isGlobalEditingSession; // aka inline chat
 		});
 
+		/**
+		 * requestMessage - Computes the plaintext representation of the AI's current activity.
+		 * 
+		 * Logic: Resolves whether the AI is currently thinking, paused, or executing 
+		 * a specific tool based on the model's response sequence.
+		 */
 		const requestMessage = derived(r => {
-
 			const session = this._session.read(r);
 			const chatModel = this._chatService.getSession(session?.chatSessionId ?? '');
 			if (!session || !chatModel) {
@@ -103,6 +131,8 @@ class ChatEditorOverlayWidget extends Disposable {
 		const textProgress = append(progressNode, $('span.progress-message'));
 		this._domNode.appendChild(progressNode);
 
+		// Block Logic: Dynamic progress visibility.
+		// Invariant: Displays progress text only when busy and for specific session types.
 		this._store.add(autorun(r => {
 			const value = requestMessage.read(r);
 			const busy = this._isBusy.read(r) && !value?.paused;
@@ -130,6 +160,12 @@ class ChatEditorOverlayWidget extends Disposable {
 		return this._domNode;
 	}
 
+	/**
+	 * show - Activates and binds the widget to a specific editing session.
+	 * 
+	 * Logic: Orchestrates the calculation of change indices across all files in 
+	 * the session to provide global context (e.g. "change 3 of 10").
+	 */
 	show(session: IChatEditingSession, entry: IModifiedFileEntry | undefined, indicies: { entryIndex: IObservable<number>; changeIndex: IObservable<number> }) {
 
 		this._showStore.clear();
@@ -139,11 +175,14 @@ class ChatEditorOverlayWidget extends Disposable {
 			this._entry.set(entry, tx);
 		});
 
+		/**
+		 * Block Logic: Global index reconciliation.
+		 * Logic: Computes the cumulative index of the currently active change by 
+		 * iterating through all modified file entries in the session.
+		 */
 		this._showStore.add(autorun(r => {
-
 			const entryIndex = indicies.entryIndex.read(r);
 			const changeIndex = indicies.changeIndex.read(r);
-
 			const entries = session.entries.read(r);
 
 			let activeIdx = entryIndex !== undefined && changeIndex !== undefined
@@ -167,6 +206,7 @@ class ChatEditorOverlayWidget extends Disposable {
 		this._domNode.appendChild(this._toolbarNode);
 		this._showStore.add(toDisposable(() => this._toolbarNode.remove()));
 
+		// Block Logic: Toolbar injection.
 		this._showStore.add(this._instaService.createInstance(MenuWorkbenchToolBar, this._toolbarNode, MenuId.ChatEditingEditorContent, {
 			telemetrySource: 'chatEditor.overlayToolbar',
 			hiddenItemStrategy: HiddenItemStrategy.Ignore,
@@ -178,35 +218,27 @@ class ChatEditorOverlayWidget extends Disposable {
 			actionViewItemProvider: (action, options) => {
 				const that = this;
 
+				// Case: Specialized status label for change navigation.
 				if (action.id === navigationBearingFakeActionId) {
 					return new class extends ActionViewItem {
-
 						constructor() {
 							super(undefined, action, { ...options, icon: false, label: true, keybindingNotRenderedWithLabel: true });
 						}
-
 						override render(container: HTMLElement) {
 							super.render(container);
-
 							container.classList.add('label-item');
-
 							this._store.add(autorun(r => {
 								assertType(this.label);
-
 								const { changeCount, activeIdx } = that._navigationBearings.read(r);
-
 								if (changeCount > 0) {
 									const n = activeIdx === -1 ? '1' : `${activeIdx + 1}`;
 									this.label.innerText = localize('nOfM', "{0} of {1}", n, changeCount);
 								} else {
-									// allow-any-unicode-next-line
 									this.label.innerText = localize('0Of0', "—");
 								}
-
 								this.updateTooltip();
 							}));
 						}
-
 						protected override getTooltip(): string | undefined {
 							const { changeCount, entriesCount } = that._navigationBearings.get();
 							if (changeCount === -1 || entriesCount === -1) {
@@ -230,34 +262,25 @@ class ChatEditorOverlayWidget extends Disposable {
 					};
 				}
 
+				// Case: Control buttons (Accept/Reject).
 				if (action.id === AcceptAction.ID || action.id === RejectAction.ID) {
 					return new class extends ActionViewItem {
-
 						private readonly _reveal = this._store.add(new MutableDisposable());
-
 						constructor() {
 							super(undefined, action, { ...options, icon: false, label: true, keybindingNotRenderedWithLabel: true });
 						}
-
 						override render(container: HTMLElement): void {
 							super.render(container);
-
 							if (action.id === AcceptAction.ID) {
-
 								const listener = this._store.add(new MutableDisposable());
-
+								// Logic: Dynamic 'auto-accept' timer visualization.
 								this._store.add(autorun(r => {
-
 									assertType(this.label);
 									assertType(this.element);
-
 									const ctrl = that._entry.read(r)?.autoAcceptController.read(r);
 									if (ctrl) {
-
 										const r = -100 * (ctrl.remaining / ctrl.total);
-
 										this.element.style.setProperty('--vscode-action-item-auto-timeout', `${r}%`);
-
 										this.element.classList.toggle('auto', true);
 										listener.value = addDisposableGenericMouseMoveListener(this.element, () => ctrl.cancel());
 									} else {
@@ -267,14 +290,12 @@ class ChatEditorOverlayWidget extends Disposable {
 								}));
 							}
 						}
-
 						override set actionRunner(actionRunner: IActionRunner) {
 							super.actionRunner = actionRunner;
 							this._reveal.value = actionRunner.onWillRun(_e => {
 								that._editor.focus();
 							});
 						}
-
 						protected override getTooltip(): string | undefined {
 							const value = super.getTooltip();
 							if (!value) {
@@ -288,11 +309,9 @@ class ChatEditorOverlayWidget extends Disposable {
 						}
 					};
 				}
-
 				return undefined;
 			}
 		}));
-
 	}
 
 	hide() {
@@ -305,10 +324,13 @@ class ChatEditorOverlayWidget extends Disposable {
 	}
 }
 
+/**
+ * @class ChatEditingOverlayController
+ * @brief Logic controller that binds the Overlay Widget to the editor group lifecycle.
+ */
 class ChatEditingOverlayController {
 
 	private readonly _store = new DisposableStore();
-
 	private readonly _domNode = document.createElement('div');
 
 	constructor(
@@ -319,7 +341,6 @@ class ChatEditingOverlayController {
 		@IChatEditingService chatEditingService: IChatEditingService,
 		@IInlineChatSessionService inlineChatService: IInlineChatSessionService
 	) {
-
 		this._domNode.classList.add('chat-editing-editor-overlay');
 		this._domNode.style.position = 'absolute';
 		this._domNode.style.bottom = `24px`;
@@ -344,63 +365,51 @@ class ChatEditingOverlayController {
 			}
 		};
 
+		// Signal: Reacts to any editor model or focus changes within the group.
 		const activeEditorSignal = observableSignalFromEvent(this, Event.any(group.onDidActiveEditorChange, group.onDidModelChange));
 
 		const activeUriObs = derivedOpts({ equalsFn: isEqual }, r => {
-
-			activeEditorSignal.read(r); // signal
-
+			activeEditorSignal.read(r);
 			const editor = group.activeEditorPane;
-			const uri = EditorResourceAccessor.getOriginalUri(editor?.input, { supportSideBySide: SideBySideEditor.PRIMARY });
-
-			return uri;
+			return EditorResourceAccessor.getOriginalUri(editor?.input, { supportSideBySide: SideBySideEditor.PRIMARY });
 		});
 
 		const sessionAndEntry = derived(r => {
-
-			activeEditorSignal.read(r); // signal to ensure activeEditor and activeEditorPane don't go out of sync
-
+			activeEditorSignal.read(r);
 			const uri = activeUriObs.read(r);
-			if (!uri) {
-				return undefined;
-			}
-
+			if (!uri) return undefined;
 			return new ObservableEditorSession(uri, chatEditingService, inlineChatService).value.read(r);
 		});
 
 		const isInProgress = derived(r => {
-
 			const session = sessionAndEntry.read(r)?.session;
-			if (!session) {
-				return false;
-			}
-
+			if (!session) return false;
 			const chatModel = chatService.getSession(session.chatSessionId)!;
 			return chatModel.requestInProgressObs.read(r);
 		});
 
+		/**
+		 * Block Logic: Conditional Visibility orchestration.
+		 * Logic: Determines if the overlay should be shown based on the current 
+		 * editor context, session type (Global vs Inline), and active modification state.
+		 */
 		this._store.add(autorun(r => {
-
 			const data = sessionAndEntry.read(r);
-
 			if (!data) {
 				hide();
 				return;
 			}
 
 			const { session, entry } = data;
-
 			if (!session.isGlobalEditingSession && !inlineChatService.hideOnRequest.read(r)) {
-				// inline chat - no chat overlay unless hideOnRequest is on
 				hide();
 				return;
 			}
 
 			if (
-				entry?.state.read(r) === ModifiedFileEntryState.Modified // any entry changing
-				|| (!session.isGlobalEditingSession && isInProgress.read(r)) // inline chat request
+				entry?.state.read(r) === ModifiedFileEntryState.Modified 
+				|| (!session.isGlobalEditingSession && isInProgress.read(r))
 			) {
-				// any session with changes
 				const editorPane = group.activeEditorPane;
 				assertType(editorPane);
 
@@ -415,9 +424,7 @@ class ChatEditingOverlayController {
 
 				widget.show(session, entry, { entryIndex, changeIndex });
 				show();
-
 			} else {
-				// nothing
 				hide();
 			}
 		}));
@@ -428,17 +435,18 @@ class ChatEditingOverlayController {
 	}
 }
 
+/**
+ * @class ChatEditingEditorOverlay
+ * @brief Top-level contribution managing overlay controllers for all editor groups.
+ */
 export class ChatEditingEditorOverlay implements IWorkbenchContribution {
-
 	static readonly ID = 'chat.edits.editorOverlay';
-
 	private readonly _store = new DisposableStore();
 
 	constructor(
 		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
-
 		const editorGroups = observableFromEvent(
 			this,
 			Event.any(editorGroupsService.onDidAddGroup, editorGroupsService.onDidRemoveGroup),
@@ -447,29 +455,21 @@ export class ChatEditingEditorOverlay implements IWorkbenchContribution {
 
 		const overlayWidgets = new DisposableMap<IEditorGroup>();
 
+		// Block Logic: Multi-group coordination.
+		// Invariant: Maintains exactly one OverlayController per active EditorGroupView.
 		this._store.add(autorun(r => {
-
 			const toDelete = new Set(overlayWidgets.keys());
 			const groups = editorGroups.read(r);
 
-
 			for (const group of groups) {
+				if (!(group instanceof EditorGroupView)) continue;
 
-				if (!(group instanceof EditorGroupView)) {
-					// TODO@jrieken better with https://github.com/microsoft/vscode/tree/ben/layout-group-container
-					continue;
-				}
-
-				toDelete.delete(group); // we keep the widget for this group!
-
+				toDelete.delete(group);
 				if (!overlayWidgets.has(group)) {
-
 					const scopedInstaService = instantiationService.createChild(
 						new ServiceCollection([IContextKeyService, group.scopedContextKeyService])
 					);
-
 					const container = group.element;
-
 					const ctrl = scopedInstaService.createInstance(ChatEditingOverlayController, container, group);
 					overlayWidgets.set(group, combinedDisposable(ctrl, scopedInstaService));
 				}

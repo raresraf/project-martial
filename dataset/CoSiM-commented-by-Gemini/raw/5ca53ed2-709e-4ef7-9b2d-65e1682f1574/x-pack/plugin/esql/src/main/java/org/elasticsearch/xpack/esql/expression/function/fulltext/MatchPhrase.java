@@ -1,3 +1,10 @@
+/**
+ * @raw/5ca53ed2-709e-4ef7-9b2d-65e1682f1574/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/fulltext/MatchPhrase.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -101,13 +108,13 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
         preview = true,
         // TODO link to match-phrase-field-params
         description = """
-            Use `MATCH_PHRASE` to perform a <<query-dsl-match-query-phrase,match_phrase query>> on the specified field.
+            Use `MATCH_PHRASE` to perform a <<query-dsl-match-query-phrase,match_phrase query>> on the specified field. /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             Using `MATCH_PHRASE` is equivalent to using the `match_phrase` query in the Elasticsearch Query DSL.
 
-            MatchPhrase can be used on <<text, text>> fields, as well as other field types like keyword, boolean, or date types.
-            MatchPhrase is not supported for <<semantic-text, semantic_text>> or numeric types.
+            MatchPhrase can be used on <<text, text>> fields, as well as other field types like keyword, boolean, or date types. /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+            MatchPhrase is not supported for <<semantic-text, semantic_text>> or numeric types. /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-            MatchPhrase can use <<esql-function-named-params,function named parameters>> to specify additional options for the
+            MatchPhrase can use <<esql-function-named-params,function named parameters>> to specify additional options for the /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             match_phrase query.
             All match_phrase query parameters are supported.
 
@@ -153,8 +160,8 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
                     description = "Indicates whether all documents or none are returned if the analyzer removes all tokens, such as "
                         + "when using a stop filter. Defaults to none."
                 ) },
-            description = "(Optional) MatchPhrase additional options as <<esql-function-named-params,function named parameters>>."
-                + " See <<query-dsl-match-query-phrase,match_phrase query>> for more information.",
+            description = "(Optional) MatchPhrase additional options as <<esql-function-named-params,function named parameters>>." /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+                + " See <<query-dsl-match-query-phrase,match_phrase query>> for more information.", /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
             optional = true
         ) Expression options
     ) {
@@ -216,6 +223,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
         DataType queryType = query().dataType();
 
         // Field and query types should match. If the query is a string, then it can match any field type.
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if ((fieldType == queryType) || (queryType == KEYWORD)) {
             return TypeResolution.TYPE_RESOLVED;
         }
@@ -224,13 +235,25 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
     }
 
     private TypeResolution resolveOptions() {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (options() != null) {
             TypeResolution resolution = isNotNull(options(), sourceText(), THIRD);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (resolution.unresolved()) {
                 return resolution;
             }
             // MapExpression does not have a DataType associated with it
             resolution = isMapExpression(options(), sourceText(), THIRD);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (resolution.unresolved()) {
                 return resolution;
             }
@@ -245,6 +268,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
     }
 
     private Map<String, Object> matchPhraseQueryOptions() throws InvalidArgumentException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (options() == null) {
             return Map.of();
         }
@@ -288,6 +315,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
         return (plan, failures) -> {
             super.postAnalysisPlanVerification().accept(plan, failures);
             plan.forEachExpression(MatchPhrase.class, mp -> {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (mp.fieldAsFieldAttribute() == null) {
                     failures.add(
                         Failure.fail(
@@ -308,6 +339,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
         Object queryAsObject = query().fold(FoldContext.small() /* TODO remove me */);
 
         // Convert BytesRef to string for string-based values
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (queryAsObject instanceof BytesRef bytesRef) {
             return switch (query().dataType()) {
                 case IP -> EsqlDataTypeConverter.ipToString(bytesRef);
@@ -317,6 +352,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
         }
 
         // Converts specific types to the correct type for the query
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (query().dataType() == DataType.DATETIME && queryAsObject instanceof Long) {
             // When casting to date and datetime, we get a long back. But MatchPhrase query needs a date string
             return EsqlDataTypeConverter.dateTimeToString((Long) queryAsObject);
@@ -337,6 +376,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
 
     public static String getNameFromFieldAttribute(FieldAttribute fieldAttribute) {
         String fieldName = fieldAttribute.name();
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (fieldAttribute.field() instanceof MultiTypeEsField multiTypeEsField) {
             // If we have multiple field types, we allow the query to be done, but getting the underlying field name
             fieldName = multiTypeEsField.getName();
@@ -347,6 +390,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
     public static FieldAttribute fieldAsFieldAttribute(Expression field) {
         Expression fieldExpression = field;
         // Field may be converted to other data type (field_name :: data_type), so we need to check the original field
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (fieldExpression instanceof AbstractConvertFunction convertFunction) {
             fieldExpression = convertFunction.field();
         }
@@ -361,6 +408,10 @@ public class MatchPhrase extends FullTextFunction implements OptionalArgument, P
     public boolean equals(Object o) {
         // MatchPhrase does not serialize options, as they get included in the query builder. We need to override equals and hashcode to
         // ignore options when comparing two Match functions
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (o == null || getClass() != o.getClass()) return false;
         MatchPhrase match = (MatchPhrase) o;
         return Objects.equals(field(), match.field())

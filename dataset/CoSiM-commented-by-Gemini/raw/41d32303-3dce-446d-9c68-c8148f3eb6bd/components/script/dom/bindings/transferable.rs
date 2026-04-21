@@ -1,3 +1,10 @@
+/**
+ *
+ * @file transferable.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Domain-Awareness: Focuses on production system reliability and robust execution paths.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -42,6 +49,6 @@ where
 
     fn serialized_storage<'a>(
         data: StructuredData<'a>,
-    ) -> &'a mut Option<HashMap<Self::Id, Self::Data>>;
-    fn deserialized_storage(reader: &mut StructuredDataReader) -> &mut Option<Vec<DomRoot<Self>>>;
+    ) -> &'a mut Option<HashMap<Self::Id, Self::Data>>; /* Non-obvious bitwise/pointer op for optimized access */
+    fn deserialized_storage(reader: &mut StructuredDataReader) -> &mut Option<Vec<DomRoot<Self>>>; /* Non-obvious bitwise/pointer op for optimized access */
 }

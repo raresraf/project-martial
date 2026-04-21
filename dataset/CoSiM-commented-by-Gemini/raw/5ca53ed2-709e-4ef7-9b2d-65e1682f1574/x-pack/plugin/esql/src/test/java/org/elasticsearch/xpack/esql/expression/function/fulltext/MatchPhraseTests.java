@@ -1,3 +1,10 @@
+/**
+ * @raw/5ca53ed2-709e-4ef7-9b2d-65e1682f1574/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/expression/function/fulltext/MatchPhraseTests.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -51,6 +58,10 @@ public class MatchPhraseTests extends AbstractMatchFullTextFunctionTests {
      */
     private static List<TestCaseSupplier> addFunctionNamedParams(List<TestCaseSupplier> suppliers) {
         List<TestCaseSupplier> result = new ArrayList<>();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (TestCaseSupplier supplier : suppliers) {
             List<DataType> dataTypes = new ArrayList<>(supplier.types());
             dataTypes.add(UNSUPPORTED);
@@ -78,6 +89,10 @@ public class MatchPhraseTests extends AbstractMatchFullTextFunctionTests {
         MatchPhrase matchPhrase = new MatchPhrase(source, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null);
         // We need to add the QueryBuilder to the match_phrase expression, as it is used to implement equals() and hashCode() and
         // thus test the serialization methods. But we can only do this if the parameters make sense .
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (args.get(0) instanceof FieldAttribute && args.get(1).foldable()) {
             QueryBuilder queryBuilder = TRANSLATOR_HANDLER.asQuery(LucenePushdownPredicates.DEFAULT, matchPhrase).toQueryBuilder();
             matchPhrase.replaceQueryBuilder(queryBuilder);

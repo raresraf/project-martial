@@ -1,3 +1,10 @@
+/**
+ * @raw/e996f34f-326e-440c-8030-1b961b883cc3/src/vs/workbench/contrib/chat/common/promptFileReferenceErrors.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -21,6 +28,10 @@ abstract class ResolveError extends Error {
 	 * Check if provided object is of the same type as this error.
 	 */
 	public sameTypeAs(other: unknown): other is typeof this {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (other === null || other === undefined) {
 			return false;
 		}
@@ -90,10 +101,18 @@ export class RecursiveReference extends ResolveError {
 	 * error, contains the same recursive path and URI.
 	 */
 	public override equal(other: unknown): other is this {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!this.sameTypeAs(other)) {
 			return false;
 		}
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.uri.toString() !== other.uri.toString()) {
 			return false;
 		}

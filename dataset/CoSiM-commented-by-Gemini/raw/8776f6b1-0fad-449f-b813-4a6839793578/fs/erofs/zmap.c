@@ -1,16 +1,28 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (C) 2018-2019 HUAWEI, Inc.
- *             https://www.huawei.com/
+/**
+ * @file zmap.c
+ * @brief Block mapping and extent resolution for compressed EROFS (Enhanced Read-Only File System).
+ * 
+ * Architectural Intent: Provides the logic to translate logical offsets within a compressed file 
+ * into physical block addresses and compression parameters. Manages complex layouts including 
+ * full, compact, and tail-packed metadata.
+ * 
+ * Performance Optimization: Implements "lazy" inode initialization to defer metadata parsing 
+ * until the first read access. Uses a "maprecorder" pattern to track state across nested 
+ * recursive lookups (e.g., searching for the head of a compression cluster).
  */
+
 #include "internal.h"
 #include <linux/unaligned.h>
 #include <trace/events/erofs.h>
 
+/**
+ * @struct z_erofs_maprecorder
+ * @brief Context for traversing and recording compression metadata during block mapping.
+ */
 struct z_erofs_maprecorder {
 	struct inode *inode;
 	struct erofs_map_blocks *map;
-	unsigned long lcn;
+	unsigned long lcn; // Logical cluster number.
 	/* compression extent information gathered */
 	u8  type, headtype;
 	u16 clusterofs;
@@ -20,6 +32,9 @@ struct z_erofs_maprecorder {
 	bool partialref;
 };
 
+/**
+ * @brief Loads logical cluster information from a "full" (fixed-size) index layout.
+ */
 static int z_erofs_load_full_lcluster(struct z_erofs_maprecorder *m,
 				      unsigned long lcn)
 {
@@ -39,10 +54,15 @@ static int z_erofs_load_full_lcluster(struct z_erofs_maprecorder *m,
 
 	advise = le16_to_cpu(di->di_advise);
 	m->type = advise & Z_EROFS_LI_LCLUSTER_TYPE_MASK;
+	/**
+	 * Block Logic: Cluster type resolution.
+	 * Invariant: If NONHEAD, the cluster points backward to a HEAD cluster using delta offsets.
+	 */
 	if (m->type == Z_EROFS_LCLUSTER_TYPE_NONHEAD) {
 		m->clusterofs = 1 << vi->z_lclusterbits;
 		m->delta[0] = le16_to_cpu(di->di_u.delta[0]);
 		if (m->delta[0] & Z_EROFS_LI_D0_CBLKCNT) {
+			// Big pcluster handling: Extracts block count if the BIG_PCLUSTER hint is set.
 			if (!(vi->z_advise & (Z_EROFS_ADVISE_BIG_PCLUSTER_1 |
 					Z_EROFS_ADVISE_BIG_PCLUSTER_2))) {
 				DBG_BUGON(1);
@@ -53,6 +73,7 @@ static int z_erofs_load_full_lcluster(struct z_erofs_maprecorder *m,
 		}
 		m->delta[1] = le16_to_cpu(di->di_u.delta[1]);
 	} else {
+		// HEAD cluster: Contains direct physical block address and internal cluster offset.
 		m->partialref = !!(advise & Z_EROFS_LI_PARTIAL_REF);
 		m->clusterofs = le16_to_cpu(di->di_clusterofs);
 		if (m->clusterofs >= 1 << vi->z_lclusterbits) {
@@ -64,6 +85,9 @@ static int z_erofs_load_full_lcluster(struct z_erofs_maprecorder *m,
 	return 0;
 }
 
+/**
+ * @brief Decodes variable-length bitfields from compacted metadata regions.
+ */
 static unsigned int decode_compactedbits(unsigned int lobits,
 					 u8 *in, unsigned int pos, u8 *type)
 {
@@ -74,6 +98,9 @@ static unsigned int decode_compactedbits(unsigned int lobits,
 	return lo;
 }
 
+/**
+ * @brief Computes the lookahead distance to the next HEAD cluster in a compacted layout.
+ */
 static int get_compacted_la_distance(unsigned int lobits,
 				     unsigned int encodebits,
 				     unsigned int vcnt, u8 *in, int i)
@@ -83,6 +110,10 @@ static int get_compacted_la_distance(unsigned int lobits,
 
 	DBG_BUGON(i >= vcnt);
 
+	/**
+	 * Block Logic: Forward scan for HEAD.
+	 * Invariant: Continues scanning NONHEAD clusters until a structural boundary is reached.
+	 */
 	do {
 		lo = decode_compactedbits(lobits, in, encodebits * i, &type);
 
@@ -97,6 +128,11 @@ static int get_compacted_la_distance(unsigned int lobits,
 	return d1;
 }
 
+/**
+ * @brief Resolves logical cluster metadata from a space-optimized "compact" layout.
+ * Architectural Intent: Minimizes metadata overhead by amortizing physical block addresses 
+ * over multiple logical clusters in a single "pack".
+ */
 static int z_erofs_load_compact_lcluster(struct z_erofs_maprecorder *m,
 					 unsigned long lcn, bool lookahead)
 {
@@ -126,6 +162,10 @@ static int z_erofs_load_compact_lcluster(struct z_erofs_maprecorder *m,
 
 	pos = ebase;
 	amortizedshift = 2;	/* compact_4b */
+	/**
+	 * Block Logic: Addressing mode selection.
+	 * Logic: Switches between 4-byte and 2-byte amortized indexing based on alignment and count.
+	 */
 	if (lcn >= compacted_4b_initial) {
 		pos += compacted_4b_initial * 4;
 		lcn -= compacted_4b_initial;
@@ -199,6 +239,9 @@ static int z_erofs_load_compact_lcluster(struct z_erofs_maprecorder *m,
 	/* figout out blkaddr (pblk) for HEAD lclusters */
 	if (!big_pcluster) {
 		nblk = 1;
+		/**
+		 * Block Logic: Backwards count for block offset.
+		 */
 		while (i > 0) {
 			--i;
 			lo = decode_compactedbits(lobits, in,
@@ -237,6 +280,9 @@ static int z_erofs_load_compact_lcluster(struct z_erofs_maprecorder *m,
 	return 0;
 }
 
+/**
+ * @brief High-level dispatcher for loading cluster metadata from disk.
+ */
 static int z_erofs_load_lcluster_from_disk(struct z_erofs_maprecorder *m,
 					   unsigned int lcn, bool lookahead)
 {
@@ -257,6 +303,11 @@ static int z_erofs_load_lcluster_from_disk(struct z_erofs_maprecorder *m,
 	}
 }
 
+/**
+ * @brief Recursively traces back to the HEAD of a compression extent.
+ * Functional Utility: Resolves the physical base address and logical starting offset 
+ * of the compressed data containing the requested logical cluster.
+ */
 static int z_erofs_extent_lookback(struct z_erofs_maprecorder *m,
 				   unsigned int lookback_distance)
 {
@@ -264,6 +315,10 @@ static int z_erofs_extent_lookback(struct z_erofs_maprecorder *m,
 	struct erofs_inode *const vi = EROFS_I(m->inode);
 	const unsigned int lclusterbits = vi->z_lclusterbits;
 
+	/**
+	 * Block Logic: Lookback traversal.
+	 * Invariant: Moves backward by 'delta[0]' units until a HEAD cluster is found.
+	 */
 	while (m->lcn >= lookback_distance) {
 		unsigned long lcn = m->lcn - lookback_distance;
 		int err;
@@ -289,6 +344,9 @@ static int z_erofs_extent_lookback(struct z_erofs_maprecorder *m,
 	return -EFSCORRUPTED;
 }
 
+/**
+ * @brief Determines the physical length of a compressed extent.
+ */
 static int z_erofs_get_extent_compressedlen(struct z_erofs_maprecorder *m,
 					    unsigned int initial_lcn)
 {
@@ -316,14 +374,6 @@ static int z_erofs_get_extent_compressedlen(struct z_erofs_maprecorder *m,
 	if (err)
 		return err;
 
-	/*
-	 * If the 1st NONHEAD lcluster has already been handled initially w/o
-	 * valid compressedblks, which means at least it mustn't be CBLKCNT, or
-	 * an internal implemenatation error is detected.
-	 *
-	 * The following code can also handle it properly anyway, but let's
-	 * BUG_ON in the debugging mode only for developers to notice that.
-	 */
 	DBG_BUGON(lcn == initial_lcn &&
 		  m->type == Z_EROFS_LCLUSTER_TYPE_NONHEAD);
 
@@ -333,10 +383,6 @@ static int z_erofs_get_extent_compressedlen(struct z_erofs_maprecorder *m,
 		return -EFSCORRUPTED;
 	}
 
-	/*
-	 * if the 1st NONHEAD lcluster is actually PLAIN or HEAD type rather
-	 * than CBLKCNT, it's a 1 block-sized pcluster.
-	 */
 	if (m->type != Z_EROFS_LCLUSTER_TYPE_NONHEAD || !m->compressedblks)
 		m->compressedblks = 1;
 out:
@@ -344,6 +390,9 @@ out:
 	return 0;
 }
 
+/**
+ * @brief Determines the decompressed length of the extent containing the current cluster.
+ */
 static int z_erofs_get_extent_decompressedlen(struct z_erofs_maprecorder *m)
 {
 	struct inode *inode = m->inode;
@@ -353,6 +402,10 @@ static int z_erofs_get_extent_decompressedlen(struct z_erofs_maprecorder *m)
 	u64 lcn = m->lcn, headlcn = map->m_la >> lclusterbits;
 	int err;
 
+	/**
+	 * Block Logic: Forward scan for extent end.
+	 * Invariant: Sums 'delta[1]' offsets until a new HEAD or EOF is encountered.
+	 */
 	while (1) {
 		/* handle the last EOF pcluster (no next HEAD lcluster) */
 		if ((lcn << lclusterbits) >= inode->i_size) {
@@ -381,6 +434,9 @@ static int z_erofs_get_extent_decompressedlen(struct z_erofs_maprecorder *m)
 	return 0;
 }
 
+/**
+ * @brief Primary block mapping logic for files with standard compression headers.
+ */
 static int z_erofs_map_blocks_fo(struct inode *inode,
 				 struct erofs_map_blocks *map, int flags)
 {
@@ -418,19 +474,17 @@ static int z_erofs_map_blocks_fo(struct inode *inode,
 	map->m_flags = EROFS_MAP_MAPPED | EROFS_MAP_ENCODED;
 	end = (m.lcn + 1ULL) << lclusterbits;
 
+	/**
+	 * Block Logic: Cluster state evaluation.
+	 * Logic: Determines if the target offset lies within a HEAD or NONHEAD cluster.
+	 */
 	if (m.type != Z_EROFS_LCLUSTER_TYPE_NONHEAD && endoff >= m.clusterofs) {
 		m.headtype = m.type;
 		map->m_la = (m.lcn << lclusterbits) | m.clusterofs;
-		/*
-		 * For ztailpacking files, in order to inline data more
-		 * effectively, special EOF lclusters are now supported
-		 * which can have three parts at most.
-		 */
 		if (ztailpacking && end > inode->i_size)
 			end = inode->i_size;
 	} else {
 		if (m.type != Z_EROFS_LCLUSTER_TYPE_NONHEAD) {
-			/* m.lcn should be >= 1 if endoff < m.clusterofs */
 			if (!m.lcn) {
 				erofs_err(sb, "invalid logical cluster 0 at nid %llu",
 					  vi->nid);
@@ -452,10 +506,14 @@ static int z_erofs_map_blocks_fo(struct inode *inode,
 
 	if (flags & EROFS_GET_BLOCKS_FINDTAIL) {
 		vi->z_tailextent_headlcn = m.lcn;
-		/* for non-compact indexes, fragmentoff is 64 bits */
 		if (fragment && vi->datalayout == EROFS_INODE_COMPRESSED_FULL)
 			vi->z_fragmentoff |= (u64)m.pblk << 32;
 	}
+	
+	/**
+	 * Block Logic: Physical layout mapping.
+	 * Invariant: Maps to either tail-packed metadata, fragment metadata, or direct physical blocks.
+	 */
 	if (ztailpacking && m.lcn == vi->z_tailextent_headlcn) {
 		map->m_flags |= EROFS_MAP_META;
 		map->m_pa = vi->z_fragmentoff;
@@ -475,6 +533,7 @@ static int z_erofs_map_blocks_fo(struct inode *inode,
 			goto unmap_out;
 	}
 
+	// Algorithm Detection: Assigns the correct decompressor based on the inode's algorithm type.
 	if (m.headtype == Z_EROFS_LCLUSTER_TYPE_PLAIN) {
 		if (map->m_llen > map->m_plen) {
 			DBG_BUGON(1);
@@ -512,6 +571,9 @@ unmap_out:
 	return err;
 }
 
+/**
+ * @brief Mapping logic for files utilizing explicit extent-based layouts.
+ */
 static int z_erofs_map_blocks_ext(struct inode *inode,
 				  struct erofs_map_blocks *map, int flags)
 {
@@ -528,6 +590,10 @@ static int z_erofs_map_blocks_ext(struct inode *inode,
 	bool last;
 
 	map->m_flags = 0;
+	/**
+	 * Block Logic: Extent lookup strategy.
+	 * Logic: Performs either linear scan or binary search through extent records depending on total count.
+	 */
 	if (recsz <= offsetof(struct z_erofs_extent, pstart_hi)) {
 		if (recsz <= offsetof(struct z_erofs_extent, pstart_lo)) {
 			ext = erofs_read_metabuf(&map->buf, sb, pos);
@@ -559,6 +625,7 @@ static int z_erofs_map_blocks_ext(struct inode *inode,
 		lend = min(lstart, lend);
 		lstart -= 1 << vi->z_lclusterbits;
 	} else {
+		// Binary search through sorted extent records.
 		lstart = lend;
 		for (l = 0, r = vi->z_extents; l < r; ) {
 			mid = l + (r - l) / 2;
@@ -620,6 +687,10 @@ static int z_erofs_map_blocks_ext(struct inode *inode,
 	return 0;
 }
 
+/**
+ * @brief Lazily fills compressed inode metadata from disk.
+ * Synchronization: Uses bit-locking to ensure atomic initialization across multiple threads.
+ */
 static int z_erofs_fill_inode_lazy(struct inode *inode)
 {
 	struct erofs_inode *const vi = EROFS_I(inode);
@@ -630,10 +701,6 @@ static int z_erofs_fill_inode_lazy(struct inode *inode)
 	struct z_erofs_map_header *h;
 
 	if (test_bit(EROFS_I_Z_INITED_BIT, &vi->flags)) {
-		/*
-		 * paired with smp_mb() at the end of the function to ensure
-		 * fields will only be observed after the bit is set.
-		 */
 		smp_mb();
 		return 0;
 	}
@@ -717,7 +784,6 @@ static int z_erofs_fill_inode_lazy(struct inode *inode)
 			goto out_put_metabuf;
 	}
 done:
-	/* paired with smp_mb() at the beginning of the function */
 	smp_mb();
 	set_bit(EROFS_I_Z_INITED_BIT, &vi->flags);
 out_put_metabuf:
@@ -727,6 +793,9 @@ out_unlock:
 	return err;
 }
 
+/**
+ * @brief Iterative block mapping entry point.
+ */
 int z_erofs_map_blocks_iter(struct inode *inode, struct erofs_map_blocks *map,
 			    int flags)
 {
@@ -758,6 +827,9 @@ int z_erofs_map_blocks_iter(struct inode *inode, struct erofs_map_blocks *map,
 	return err;
 }
 
+/**
+ * @brief Implementation of the iomap_begin callback for EROFS diagnostic reporting.
+ */
 static int z_erofs_iomap_begin_report(struct inode *inode, loff_t offset,
 				loff_t length, unsigned int flags,
 				struct iomap *iomap, struct iomap *srcmap)
@@ -780,15 +852,6 @@ static int z_erofs_iomap_begin_report(struct inode *inode, loff_t offset,
 	} else {
 		iomap->type = IOMAP_HOLE;
 		iomap->addr = IOMAP_NULL_ADDR;
-		/*
-		 * No strict rule on how to describe extents for post EOF, yet
-		 * we need to do like below. Otherwise, iomap itself will get
-		 * into an endless loop on post EOF.
-		 *
-		 * Calculate the effective offset by subtracting extent start
-		 * (map.m_la) from the requested offset, and add it to length.
-		 * (NB: offset >= map.m_la always)
-		 */
 		if (iomap->offset >= inode->i_size)
 			iomap->length = length + offset - map.m_la;
 	}

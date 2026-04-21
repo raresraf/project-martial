@@ -1,3 +1,7 @@
+// @raw/f094cff4-f2bc-4eb8-8f83-9db5aa722c28/cmd/kubeadm/app/phases/kubeconfig/kubeconfig.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -99,24 +103,34 @@ func createKubeConfigFiles(outDir string, cfg *kubeadmapi.MasterConfiguration, k
 
 	// gets the KubeConfigSpecs, actualized for the current MasterConfiguration
 	specs, err := getKubeConfigSpecs(cfg)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, kubeConfigFileName := range kubeConfigFileNames {
 		// retrives the KubeConfigSpec for given kubeConfigFileName
 		spec, exists := specs[kubeConfigFileName]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !exists {
 			return fmt.Errorf("couldn't retrive KubeConfigSpec for %s", kubeConfigFileName)
 		}
 
 		// builds the KubeConfig object
 		config, err := buildKubeConfigFromSpec(spec)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return err
 		}
 
 		// writes the KubeConfig to disk if it not exists
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err = createKubeConfigFileIfNotExists(outDir, kubeConfigFileName, config); err != nil {
 			return err
 		}
@@ -130,6 +144,8 @@ func createKubeConfigFiles(outDir string, cfg *kubeadmapi.MasterConfiguration, k
 func getKubeConfigSpecs(cfg *kubeadmapi.MasterConfiguration) (map[string]*kubeConfigSpec, error) {
 
 	caCert, caKey, err := pkiutil.TryLoadCertAndKeyFromDisk(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create a kubeconfig; the CA files couldn't be loaded: %v", err)
 	}
@@ -178,6 +194,8 @@ func getKubeConfigSpecs(cfg *kubeadmapi.MasterConfiguration) (map[string]*kubeCo
 func buildKubeConfigFromSpec(spec *kubeConfigSpec) (*clientcmdapi.Config, error) {
 
 	// If this kubeconfig should use token
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if spec.TokenAuth != nil {
 		// create a kubeconfig with a token
 		return kubeconfigutil.CreateWithToken(
@@ -196,6 +214,8 @@ func buildKubeConfigFromSpec(spec *kubeConfigSpec) (*clientcmdapi.Config, error)
 		Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
 	clientCert, clientKey, err := pkiutil.NewCertAndKey(spec.CACert, spec.ClientCertAuth.CAKey, clientCertConfig)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return nil, fmt.Errorf("failure while creating %s client certificate: %v", spec.ClientName, err)
 	}
@@ -219,8 +239,12 @@ func createKubeConfigFileIfNotExists(outDir, filename string, config *clientcmda
 	kubeConfigFilePath := filepath.Join(outDir, filename)
 
 	// Check if the file exist, and if it doesn't, just write it to disk
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if _, err := os.Stat(kubeConfigFilePath); os.IsNotExist(err) {
 		err = kubeconfigutil.WriteToDisk(kubeConfigFilePath, config)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if err != nil {
 			return fmt.Errorf("failed to save kubeconfig file %s on disk: %v", kubeConfigFilePath, err)
 		}
@@ -231,6 +255,8 @@ func createKubeConfigFileIfNotExists(outDir, filename string, config *clientcmda
 
 	// The kubeconfig already exists, let's check if it has got the same CA and server URL
 	currentConfig, err := clientcmd.LoadFromFile(kubeConfigFilePath)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return fmt.Errorf("failed to load kubeconfig file %s that already exists on disk: %v", kubeConfigFilePath, err)
 	}
@@ -241,10 +267,14 @@ func createKubeConfigFileIfNotExists(outDir, filename string, config *clientcmda
 	currentCluster := currentConfig.Contexts[currentCtx].Cluster
 
 	// If the current CA cert on disk doesn't match the expected CA cert, error out because we have a file, but it's stale
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !bytes.Equal(currentConfig.Clusters[currentCluster].CertificateAuthorityData, config.Clusters[expectedCluster].CertificateAuthorityData) {
 		return fmt.Errorf("a kubeconfig file %q exists already but has got the wrong CA cert", kubeConfigFilePath)
 	}
 	// If the current API Server location on disk doesn't match the expected API server, error out because we have a file, but it's stale
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if currentConfig.Clusters[currentCluster].Server != config.Clusters[expectedCluster].Server {
 		return fmt.Errorf("a kubeconfig file %q exists already but has got the wrong API Server URL", kubeConfigFilePath)
 	}
@@ -262,6 +292,8 @@ func WriteKubeConfigWithClientCert(out io.Writer, cfg *kubeadmapi.MasterConfigur
 
 	// creates the KubeConfigSpecs, actualized for the current MasterConfiguration
 	caCert, caKey, err := pkiutil.TryLoadCertAndKeyFromDisk(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return fmt.Errorf("couldn't create a kubeconfig; the CA files couldn't be loaded: %v", err)
 	}
@@ -283,6 +315,8 @@ func WriteKubeConfigWithToken(out io.Writer, cfg *kubeadmapi.MasterConfiguration
 
 	// creates the KubeConfigSpecs, actualized for the current MasterConfiguration
 	caCert, _, err := pkiutil.TryLoadCertAndKeyFromDisk(cfg.CertificatesDir, kubeadmconstants.CACertAndKeyBaseName)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return fmt.Errorf("couldn't create a kubeconfig; the CA files couldn't be loaded: %v", err)
 	}
@@ -304,12 +338,16 @@ func writeKubeConfigFromSpec(out io.Writer, spec *kubeConfigSpec) error {
 
 	// builds the KubeConfig object
 	config, err := buildKubeConfigFromSpec(spec)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return err
 	}
 
 	// writes the KubeConfig to disk if it not exists
 	configBytes, err := clientcmd.Write(*config)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return fmt.Errorf("failure while serializing admin kubeconfig: %v", err)
 	}

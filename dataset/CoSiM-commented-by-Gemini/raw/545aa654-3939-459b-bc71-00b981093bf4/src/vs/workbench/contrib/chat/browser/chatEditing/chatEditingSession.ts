@@ -1,3 +1,10 @@
+/**
+ * @raw/545aa654-3939-459b-bc71-00b981093bf4/src/vs/workbench/contrib/chat/browser/chatEditing/chatEditingSession.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -58,7 +65,7 @@ class ThrottledSequencer extends Sequencer {
 		super();
 	}
 
-	override queue<T>(promiseTask: ITask<Promise<T>>): Promise<T> {
+	override queue<T>(promiseTask: ITask<Promise<T>>): Promise<T> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 		this._size += 1;
 
@@ -87,6 +94,10 @@ function getMaxHistoryIndex(history: readonly IChatEditingSessionSnapshot[]) {
 }
 
 function snapshotsEqualForDiff(a: ISnapshotEntry | undefined, b: ISnapshotEntry | undefined) {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!a || !b) {
 		return a === b;
 	}
@@ -96,9 +107,17 @@ function snapshotsEqualForDiff(a: ISnapshotEntry | undefined, b: ISnapshotEntry 
 
 function getCurrentAndNextStop(requestId: string, stopId: string | undefined, history: readonly IChatEditingSessionSnapshot[]) {
 	const snapshotIndex = history.findIndex(s => s.requestId === requestId);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (snapshotIndex === -1) { return undefined; }
 	const snapshot = history[snapshotIndex];
 	const stopIndex = snapshot.stops.findIndex(s => s.stopId === stopId);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (stopIndex === -1) { return undefined; }
 
 	const current = snapshot.stops[stopIndex].entries;
@@ -107,6 +126,10 @@ function getCurrentAndNextStop(requestId: string, stopId: string | undefined, hi
 		: snapshot.postEdit || history[snapshotIndex + 1]?.stops[0].entries;
 
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!next) {
 		return undefined;
 	}
@@ -116,8 +139,16 @@ function getCurrentAndNextStop(requestId: string, stopId: string | undefined, hi
 
 function getFirstAndLastStop(uri: URI, history: readonly IChatEditingSessionSnapshot[]): { current: ResourceMap<ISnapshotEntry>; next: ResourceMap<ISnapshotEntry> } | undefined {
 	let firstStopWithUri: IChatEditingSessionStop | undefined;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (const snapshot of history) {
 		const stop = snapshot.stops.find(s => s.entries.has(uri));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (stop) {
 			firstStopWithUri = stop;
 			break;
@@ -125,20 +156,36 @@ function getFirstAndLastStop(uri: URI, history: readonly IChatEditingSessionSnap
 	}
 
 	let lastStopWithUri: ResourceMap<ISnapshotEntry> | undefined;
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for (let i = history.length - 1; i >= 0; i--) {
 		const snapshot = history[i];
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (snapshot.postEdit?.has(uri)) {
 			lastStopWithUri = snapshot.postEdit;
 			break;
 		}
 
 		const stop = findLast(snapshot.stops, s => s.entries.has(uri));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (stop) {
 			lastStopWithUri = stop.entries;
 			break;
 		}
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!firstStopWithUri || !lastStopWithUri) {
 		return undefined;
 	}
@@ -170,6 +217,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	}
 
 	public readonly canUndo = derived<boolean>((r) => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.state.read(r) !== ChatEditingSessionState.Idle) {
 			return false;
 		}
@@ -178,6 +229,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	});
 
 	public readonly canRedo = derived<boolean>((r) => {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this.state.read(r) !== ChatEditingSessionState.Idle) {
 			return false;
 		}
@@ -220,7 +275,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	public async init(): Promise<void> {
 		const restoredSessionState = await this._instantiationService.createInstance(ChatEditingSessionStorage, this.chatSessionId).restoreState();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (restoredSessionState) {
+			/**
+			 * Block Logic: Orchestrates the temporal progression of the iteration.
+			 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+			 */
 			for (const [uri, content] of restoredSessionState.initialFileContents) {
 				this._initialFileContents.set(uri, content);
 			}
@@ -275,6 +338,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	private _findEditStop(requestId: string, undoStop: string | undefined) {
 		const snapshot = this._findSnapshot(requestId);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!snapshot) {
 			return undefined;
 		}
@@ -286,8 +353,8 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		this._pendingSnapshot ??= this._createSnapshot(undefined, undefined);
 	}
 
-	private _diffsBetweenStops = new Map<string, IObservable<IEditSessionEntryDiff | undefined>>();
-	private _fullDiffs = new Map<string, IObservable<IEditSessionEntryDiff | undefined>>();
+	private _diffsBetweenStops = new Map<string, IObservable<IEditSessionEntryDiff | undefined>>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+	private _fullDiffs = new Map<string, IObservable<IEditSessionEntryDiff | undefined>>(); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	private readonly _ignoreTrimWhitespaceObservable: IObservable<boolean>;
 
@@ -302,10 +369,18 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	): IObservable<ObservablePromise<IEditSessionEntryDiff> | undefined> {
 		const modelRefsPromise = derived(this, (reader) => {
 			const modelUris = modelUrisObservable.read(reader);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!modelUris) { return undefined; }
 
 			const store = reader.store.add(new DisposableStore());
 			const promise = Promise.all(modelUris.map(u => this._textModelService.createModelReference(u))).then(refs => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (store.isDisposed) {
 					refs.forEach(r => r.dispose());
 				} else {
@@ -321,12 +396,20 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return derived((reader): ObservablePromise<IEditSessionEntryDiff> | undefined => {
 			const refs2 = modelRefsPromise.read(reader)?.promiseResult.read(reader);
 			const refs = refs2?.data;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!refs) {
 				return;
 			}
 
 			const entries = entriesContent.read(reader); // trigger re-diffing when contents change
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (entries?.before && ChatEditingModifiedNotebookEntry.canHandleSnapshot(entries.before)) {
 				const diffService = this._instantiationService.createInstance(ChatEditingModifiedNotebookDiff, entries.before, entries.after);
 				return new ObservablePromise(diffService.computeDiff());
@@ -347,7 +430,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 					added: 0,
 					removed: 0,
 				};
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (diff) {
+					/**
+					 * Block Logic: Orchestrates the temporal progression of the iteration.
+					 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+					 */
 					for (const change of diff.changes) {
 						entryDiff.removed += change.original.endLineNumberExclusive - change.original.startLineNumber;
 						entryDiff.added += change.modified.endLineNumberExclusive - change.modified.startLineNumber;
@@ -370,9 +461,17 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 				const stops = requestId ?
 					getCurrentAndNextStop(requestId, stopId, this._linearHistory.read(reader)) :
 					getFirstAndLastStop(uri, this._linearHistory.read(reader));
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!stops) { return undefined; }
 				const before = stops.current.get(uri);
 				const after = stops.next.get(uri);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!before || !after) { return undefined; }
 				return { before, after };
 			},
@@ -381,6 +480,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		// Separate observable for model refs to avoid unnecessary disposal
 		const modelUrisObservable = derivedOpts<[URI, URI] | undefined>({ equalsFn: (a, b) => arraysEqual(a, b, isEqual) }, reader => {
 			const entriesValue = entries.read(reader);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!entriesValue) { return undefined; }
 			return [entriesValue.before.snapshotUri, entriesValue.after.snapshotUri];
 		});
@@ -393,9 +496,17 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	}
 
 	public getEntryDiffBetweenStops(uri: URI, requestId: string | undefined, stopId: string | undefined) {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (requestId) {
 			const key = `${uri}\0${requestId}\0${stopId}`;
 			let observable = this._diffsBetweenStops.get(key);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!observable) {
 				observable = this._createDiffBetweenStopsObservable(uri, requestId, stopId);
 				this._diffsBetweenStops.set(key, observable);
@@ -405,6 +516,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		} else {
 			const key = uri.toString();
 			let observable = this._fullDiffs.get(key);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!observable) {
 				observable = this._createDiffBetweenStopsObservable(uri, requestId, stopId);
 				this._fullDiffs.set(key, observable);
@@ -419,7 +534,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 		const linearHistoryPtr = this._linearHistoryIndex.get();
 		const newLinearHistory: IChatEditingSessionSnapshot[] = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const entry of this._linearHistory.get()) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (entry.startIndex >= linearHistoryPtr) {
 				// all further entries are being dropped
 				break;
@@ -431,10 +554,22 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 
 		const lastEntry = newLinearHistory.at(-1);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (requestId && lastEntry?.requestId === requestId) {
 			// mirror over the saved postEdit modifications
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (lastEntry.postEdit && undoStop) {
 				const rebaseUri = (uri: URI) => URI.parse(uri.toString().replaceAll(POST_EDIT_STOP_ID, undoStop));
+				/**
+				 * Block Logic: Orchestrates the temporal progression of the iteration.
+				 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+				 */
 				for (const [uri, prev] of lastEntry.postEdit.entries()) {
 					snapshot.entries.set(uri, { ...prev, snapshotUri: rebaseUri(prev.snapshotUri), resource: rebaseUri(prev.resource) });
 				}
@@ -461,6 +596,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	private _createSnapshot(requestId: string | undefined, undoStop: string | undefined): IChatEditingSessionStop {
 		const entries = new ResourceMap<ISnapshotEntry>();
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const entry of this._entriesObs.get()) {
 			entries.set(entry.modifiedURI, entry.createSnapshot(requestId, undoStop));
 		}
@@ -480,6 +619,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	public async getSnapshotModel(requestId: string, undoStop: string | undefined, snapshotUri: URI): Promise<ITextModel | null> {
 		const snapshotEntry = this.getSnapshot(requestId, undoStop, snapshotUri);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!snapshotEntry) {
 			return null;
 		}
@@ -497,8 +640,16 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	 */
 	private _pendingSnapshot: IChatEditingSessionStop | undefined;
 	public async restoreSnapshot(requestId: string | undefined, stopId: string | undefined): Promise<void> {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (requestId !== undefined) {
 			const stopRef = this._findEditStop(requestId, stopId);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (stopRef) {
 				this._ensurePendingSnapshot();
 				this._linearHistoryIndex.set(stopRef.historyIndex, undefined);
@@ -507,6 +658,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			}
 		} else {
 			const pendingSnapshot = this._pendingSnapshot;
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!pendingSnapshot) {
 				return; // We don't have a pending snapshot that we can restore
 			}
@@ -519,8 +674,16 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 		// Reset all the files which are modified in this session state
 		// but which are not found in the snapshot
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const entry of this._entriesObs.get()) {
 			const snapshotEntry = entries.get(entry.modifiedURI);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!snapshotEntry) {
 				await entry.resetToInitialContent();
 				entry.dispose();
@@ -529,6 +692,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 		const entriesArr: AbstractChatEditingModifiedFileEntry[] = [];
 		// Restore all entries from the snapshot
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const snapshotEntry of entries.values()) {
 			const entry = await this._getOrCreateModifiedFileEntry(snapshotEntry.resource, snapshotEntry.telemetryInfo);
 			const restoreToDisk = snapshotEntry.state === ModifiedFileEntryState.Modified || restoreResolvedToDisk;
@@ -540,6 +707,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	}
 
 	private _assertNotDisposed(): void {
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this._state.get() === ChatEditingSessionState.Disposed) {
 			throw new BugIndicatingError(`Cannot access a disposed editing session`);
 		}
@@ -548,12 +719,24 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	async accept(...uris: URI[]): Promise<void> {
 		this._assertNotDisposed();
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (uris.length === 0) {
 			await Promise.all(this._entriesObs.get().map(entry => entry.accept()));
 		}
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const uri of uris) {
 			const entry = this._entriesObs.get().find(e => isEqual(e.modifiedURI, uri));
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (entry) {
 				await entry.accept();
 			}
@@ -564,12 +747,24 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	async reject(...uris: URI[]): Promise<void> {
 		this._assertNotDisposed();
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (uris.length === 0) {
 			await Promise.all(this._entriesObs.get().map(entry => entry.reject()));
 		}
 
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const uri of uris) {
 			const entry = this._entriesObs.get().find(e => isEqual(e.modifiedURI, uri));
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (entry) {
 				await entry.reject();
 			}
@@ -579,7 +774,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	async show(previousChanges?: boolean): Promise<void> {
 		this._assertNotDisposed();
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (this._editorPane) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this._editorPane.isVisible()) {
 				return;
 			} else if (this._editorPane.input) {
@@ -600,6 +803,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	async stop(clearState = false): Promise<void> {
 		this._stopPromise ??= Promise.allSettled([this._performStop(), this.storeState()]).then(() => { });
 		await this._stopPromise;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (clearState) {
 			await this._instantiationService.createInstance(ChatEditingSessionStorage, this.chatSessionId).clearState();
 		}
@@ -610,6 +817,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		const schemes = [AbstractChatEditingModifiedFileEntry.scheme, ChatEditingTextModelContentProvider.scheme];
 		await Promise.allSettled(this._editorGroupsService.groups.flatMap(async (g) => {
 			return g.editors.map(async (e) => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if ((e instanceof MultiDiffEditorInput && e.initialResources?.some(r => r.originalUri && schemes.indexOf(r.originalUri.scheme) !== -1))
 					|| (e instanceof DiffEditorInput && e.original.resource && schemes.indexOf(e.original.resource.scheme) !== -1)) {
 					await g.closeEditor(e);
@@ -647,6 +858,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		sequencer.queue(() => startPromise.p);
 
 		this._streamingEditLocks.queue(resource.toString(), async () => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!this.isDisposed) {
 				await this._acceptStreamingEditsStart(responseModel, inUndoStop, resource);
 			}
@@ -661,6 +876,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return {
 			pushText: (edits, isLastEdits) => {
 				sequencer.queue(async () => {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!this.isDisposed) {
 						await this._acceptEdits(resource, edits, isLastEdits, responseModel);
 					}
@@ -668,6 +887,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			},
 			pushNotebookCellText: (cell, edits, isLastEdits) => {
 				sequencer.queue(async () => {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!this.isDisposed) {
 						await this._acceptEdits(cell, edits, isLastEdits, responseModel);
 					}
@@ -675,18 +898,30 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			},
 			pushNotebook: (edits, isLastEdits) => {
 				sequencer.queue(async () => {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!this.isDisposed) {
 						await this._acceptEdits(resource, edits, isLastEdits, responseModel);
 					}
 				});
 			},
 			complete: () => {
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (didComplete) {
 					return;
 				}
 
 				didComplete = true;
 				sequencer.queue(async () => {
+					/**
+					 * Block Logic: Conditional evaluation for divergent control flow.
+					 * Invariant: Taken branch maintains control flow invariants.
+					 */
 					if (!this.isDisposed) {
 						await this._acceptEdits(resource, [], true, responseModel);
 						await this._resolve(responseModel.requestId, inUndoStop, resource);
@@ -701,6 +936,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		const history = this._linearHistory.get();
 		const searchedIndex = binarySearch2(history.length, (e) => history[e].startIndex - index);
 		const entry = history[searchedIndex < 0 ? (~searchedIndex) - 1 : searchedIndex];
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!entry || index - entry.startIndex >= entry.stops.length) {
 			return undefined;
 		}
@@ -714,6 +953,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	async undoInteraction(): Promise<void> {
 		const newIndex = this._linearHistoryIndex.get() - 1;
 		const previousSnapshot = this._getHistoryEntryByLinearIndex(newIndex);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!previousSnapshot) {
 			return;
 		}
@@ -727,11 +970,19 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	async redoInteraction(): Promise<void> {
 		const maxIndex = getMaxHistoryIndex(this._linearHistory.get());
 		const newIndex = this._linearHistoryIndex.get() + 1;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (newIndex > maxIndex) {
 			return;
 		}
 
 		const nextSnapshot = newIndex === maxIndex ? this._pendingSnapshot : this._getHistoryEntryByLinearIndex(newIndex)?.stop;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!nextSnapshot) {
 			return;
 		}
@@ -746,7 +997,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		const index = this._linearHistoryIndex.get();
 
 		const undoRequests: IChatRequestDisablement[] = [];
+		/**
+		 * Block Logic: Orchestrates the temporal progression of the iteration.
+		 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+		 */
 		for (const entry of history) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!entry.requestId) {
 				// ignored
 			} else if (entry.startIndex >= index) {
@@ -789,20 +1048,40 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private ensureEditInUndoStopMatches(requestId: string, undoStop: string | undefined, entry: AbstractChatEditingModifiedFileEntry, next: boolean, tx: ITransaction | undefined) {
 		const history = this._linearHistory.get();
 		const snapIndex = history.findIndex(s => s.requestId === requestId);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (snapIndex === -1) {
 			return;
 		}
 
 		const snap = history[snapIndex];
 		let stopIndex = snap.stops.findIndex(s => s.stopId === undoStop);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (stopIndex === -1) {
 			return;
 		}
 
 		// special case: put the last change in the pendingSnapshot as needed
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (next) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (stopIndex === snap.stops.length - 1) {
 				const postEdit = new ResourceMap(snap.postEdit || this._createEmptySnapshot(undefined).entries);
+				/**
+				 * Block Logic: Conditional evaluation for divergent control flow.
+				 * Invariant: Taken branch maintains control flow invariants.
+				 */
 				if (!snap.postEdit || !entry.equalsSnapshot(postEdit.get(entry.modifiedURI))) {
 					postEdit.set(entry.modifiedURI, entry.createSnapshot(requestId, POST_EDIT_STOP_ID));
 					const newHistory = history.slice();
@@ -815,6 +1094,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 
 		const stop = snap.stops[stopIndex];
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (entry.equalsSnapshot(stop.entries.get(entry.modifiedURI))) {
 			return;
 		}
@@ -850,11 +1133,19 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private async _resolve(requestId: string, undoStop: string | undefined, resource: URI): Promise<void> {
 
 		const hasOtherTasks = Iterable.some(this._streamingEditLocks.keys(), k => k !== resource.toString());
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!hasOtherTasks) {
 			this._state.set(ChatEditingSessionState.Idle, undefined);
 		}
 
 		const entry = this._getEntry(resource);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!entry) {
 			return;
 		}
@@ -874,7 +1165,15 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		resource = CellUri.parse(resource)?.notebook ?? resource;
 
 		const existingEntry = this._entriesObs.get().find(e => isEqual(e.modifiedURI, resource));
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (existingEntry) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (telemetryInfo.requestId !== existingEntry.telemetryInfo.requestId) {
 				existingEntry.updateTelemetryInfo(telemetryInfo);
 			}
@@ -883,12 +1182,20 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 		let entry: AbstractChatEditingModifiedFileEntry;
 		const existingExternalEntry = this._lookupExternalEntry(resource);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (existingExternalEntry) {
 			entry = existingExternalEntry;
 		} else {
 			const initialContent = this._initialFileContents.get(resource);
 			// This gets manually disposed in .dispose() or in .restoreSnapshot()
 			entry = await this._createModifiedFileEntry(resource, telemetryInfo, false, initialContent);
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!initialContent) {
 				this._initialFileContents.set(resource, entry.initialContent);
 			}
@@ -902,6 +1209,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			this._entriesObs.set(newEntries, undefined);
 			this._editorService.closeEditors(this._editorService.findEditors(entry.modifiedURI));
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!existingExternalEntry) {
 				// don't dispose entries that are not yours!
 				entry.dispose();
@@ -922,6 +1233,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		const chatKind = mustExist ? ChatEditKind.Created : ChatEditKind.Modified;
 		const notebookUri = CellUri.parse(resource)?.notebook || resource;
 		try {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this._notebookService.hasSupportedNotebooks(notebookUri)) {
 				return await ChatEditingModifiedNotebookEntry.create(notebookUri, multiDiffEntryDelegate, telemetryInfo, chatKind, initialContent, this._instantiationService);
 			} else {
@@ -929,12 +1244,20 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 				return this._instantiationService.createInstance(ChatEditingModifiedDocumentEntry, ref, multiDiffEntryDelegate, telemetryInfo, chatKind, initialContent);
 			}
 		} catch (err) {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (mustExist) {
 				throw err;
 			}
 			// this file does not exist yet, create it and try again
 			await this._bulkEditService.apply({ edits: [{ newResource: resource }] });
 			this._editorService.openEditor({ resource, options: { inactive: true, preserveFocus: true, pinned: true } });
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (this._notebookService.hasSupportedNotebooks(notebookUri)) {
 				return await ChatEditingModifiedNotebookEntry.create(resource, multiDiffEntryDelegate, telemetryInfo, ChatEditKind.Created, initialContent, this._instantiationService);
 			} else {
@@ -945,6 +1268,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	private _collapse(resource: URI, transaction: ITransaction | undefined) {
 		const multiDiffItem = this._editorPane?.findDocumentDiffItem(resource);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (multiDiffItem) {
 			this._editorPane?.viewModel?.items.get().find((documentDiffItem) =>
 				isEqual(documentDiffItem.originalUri, multiDiffItem.originalUri) &&

@@ -47,15 +47,16 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractReq
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractSimilarity;
 
 /**
- * TextEmbedding needs to differentiate between Bit, Byte, and Float types. Users must specify the
- * {@link org.elasticsearch.index.mapper.vectors.DenseVectorFieldMapper.ElementType} in the Service Settings,
- * and Elastic will use that to parse the request/response. {@link SimilarityMeasure} and Dimensions are also needed, though Dimensions can
- * be guessed and set during the validation call.
- * At the very least, Service Settings must look like:
- * {
- *     "element_type": "bit|byte|float",
- *     "similarity": "cosine|dot_product|l2_norm"
- * }
+ * @file ElasticTextEmbeddingPayload.java
+ * @brief Schema definition and response parser for Elastic-hosted SageMaker text embedding endpoints.
+ * 
+ * Functional Intent: Orchestrates the serialization of inference requests and the 
+ * polymorphic deserialization of embedding results from AWS SageMaker. It dynamically 
+ * selects a parsing strategy (Bit, Byte, or Float) based on the model's configured 
+ * vector element type, ensuring type-safe conversion from JSON payloads to 
+ * internal Dense Vector representations.
+ * 
+ * Domain: Production Systems, Machine Learning Inference, AWS SageMaker Integration.
  */
 public class ElasticTextEmbeddingPayload implements ElasticPayload {
     private static final EnumSet<TaskType> SUPPORTED_TASKS = EnumSet.of(TaskType.TEXT_EMBEDDING);
@@ -73,6 +74,7 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
 
     @Override
     public SdkBytes requestBytes(SageMakerModel model, SageMakerInferenceRequest request) throws Exception {
+        // Logic: Validates that the model context matches the expected schema before serializing to raw bytes.
         if (model.apiServiceSettings() instanceof ApiServiceSettings) {
             return ElasticPayload.super.requestBytes(model, request);
         } else {
@@ -90,9 +92,21 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         );
     }
 
+    /**
+     * responseBody - Polymorphic dispatcher for AWS SageMaker responses.
+     * 
+     * Algorithm: Type-driven JSON parsing.
+     * Logic: Inspects the model's 'elementType' metadata to select the appropriate 
+     * binary, integer, or floating-point parser for the incoming stream.
+     */
     @Override
     public TextEmbeddingResults<?> responseBody(SageMakerModel model, InvokeEndpointResponse response) throws Exception {
         try (var p = jsonXContent.createParser(XContentParserConfiguration.EMPTY, response.body().asInputStream())) {
+            /**
+             * Block Logic: Dispatch selection.
+             * Invariant: The chosen parser must match the numeric precision 
+             * of the vector stored in Elastic mappings.
+             */
             return switch (model.apiServiceSettings().elementType()) {
                 case BIT -> TextEmbeddingBinary.PARSER.apply(p, null);
                 case BYTE -> TextEmbeddingBytes.PARSER.apply(p, null);
@@ -102,21 +116,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads binary format (it says bytes, but the lengths are different)
-     * {
-     *     "text_embedding_bits": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingBinary
+     * @brief Specialized parser for 1-bit quantized embeddings (binary vectors).
      */
     private static class TextEmbeddingBinary {
         private static final ParseField TEXT_EMBEDDING_BITS = new ParseField(TextEmbeddingBitResults.TEXT_EMBEDDING_BITS);
@@ -133,21 +134,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads byte format from
-     * {
-     *     "text_embedding_bytes": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingBytes
+     * @brief Specialized parser for 8-bit quantized embeddings.
      */
     private static class TextEmbeddingBytes {
         private static final ParseField TEXT_EMBEDDING_BYTES = new ParseField("text_embedding_bytes");
@@ -167,6 +155,7 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             );
 
         static {
+            // Logic: Performs range validation on short values to ensure safely casting to signed byte.
             BYTE_PARSER.declareObjectArray(constructorArg(), (p, c) -> {
                 var byteVal = p.shortValue();
                 if (byteVal < Byte.MIN_VALUE || byteVal > Byte.MAX_VALUE) {
@@ -179,21 +168,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads float format from
-     * {
-     *     "text_embedding": [
-     *         {
-     *             "embedding": [
-     *                 0.1
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 0.2
-     *             ]
-     *         }
-     *     ]
-     * }
+     * @class TextEmbeddingFloat
+     * @brief Standard floating-point (32-bit) embedding parser.
      */
     private static class TextEmbeddingFloat {
         private static final ParseField TEXT_EMBEDDING_FLOAT = new ParseField("text_embedding");
@@ -219,7 +195,11 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Element Type is required. It is used to disambiguate between binary embeddings and byte embeddings.
+     * @record ApiServiceSettings
+     * @brief Persistent configuration state for the SageMaker text embedding service.
+     * 
+     * Logic: Encapsulates dimensionality, similarity metrics, and element precision 
+     * required for both vector search and inference orchestration.
      */
     record ApiServiceSettings(
         @Nullable Integer dimensions,
@@ -279,6 +259,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             return new ApiServiceSettings(dimensions, false, similarity, elementType);
         }
 
+        /**
+         * fromMap - Heuristic extraction of service settings from loosely-typed maps.
+         */
         static ApiServiceSettings fromMap(Map<String, Object> serviceSettings, ValidationException validationException) {
             var dimensions = extractOptionalPositiveInteger(
                 serviceSettings,

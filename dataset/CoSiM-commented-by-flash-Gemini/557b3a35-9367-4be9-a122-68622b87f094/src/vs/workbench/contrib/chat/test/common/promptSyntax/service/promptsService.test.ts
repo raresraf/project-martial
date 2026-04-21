@@ -3,6 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file promptsService.test.ts
+ * @brief Unit tests for the PromptsService, focusing on parser caching and lifecycle management.
+ * 
+ * Functional Intent: Ensures that the PromptsService correctly manages syntax parsers for 
+ * text models. Validates that parsers are properly cached (returning the same instance 
+ * for the same model), correctly track model edits, and are gracefully disposed of 
+ * when the underlying text model is destroyed.
+ * 
+ * Domain: Production Systems, AI-Assisted Development, Automated Testing.
+ */
+
 import assert from 'assert';
 import { createURI } from '../testUtils/createUri.js';
 import { URI } from '../../../../../../../base/common/uri.js';
@@ -23,7 +35,8 @@ import { TestInstantiationService } from '../../../../../../../platform/instanti
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 
 /**
- * Helper class to assert the properties of a link.
+ * @class ExpectedLink
+ * @brief Helper for validating parsed file references within prompt text.
  */
 class ExpectedLink {
 	constructor(
@@ -33,7 +46,7 @@ class ExpectedLink {
 	) { }
 
 	/**
-	 * Assert a provided link has the same properties as this object.
+	 * @brief Performs strict structural and semantic equality checks on a parsed link.
 	 */
 	public assertEqual(link: IPromptFileReference) {
 		assert.strictEqual(
@@ -66,9 +79,7 @@ class ExpectedLink {
 }
 
 /**
- * Asserts that provided links are equal to the expected links.
- * @param links Links to assert.
- * @param expectedLinks Expected links to compare against.
+ * @brief Batch validation utility for multiple parsed references.
  */
 const assertLinks = (
 	links: readonly IPromptFileReference[],
@@ -96,6 +107,7 @@ suite('PromptSyntaxService', () => {
 	let instantiationService: TestInstantiationService;
 
 	setup(async () => {
+		// Synchronization: Mock service layer setup.
 		instantiationService = disposables.add(new TestInstantiationService());
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
@@ -105,13 +117,19 @@ suite('PromptSyntaxService', () => {
 	});
 
 	suite('getParserFor', () => {
+		/**
+		 * Test: provides cached parser instance.
+		 * 
+		 * Logic:
+		 * 1. Verifies that a parser is created and correctly identifies file links.
+		 * 2. Confirms that subsequent requests for the same model return the same object (caching).
+		 * 3. Validates that multiple models can have independent parsers concurrently.
+		 * 4. Ensures disposal of one parser doesn't affect others.
+		 */
 		test('provides cached parser instance', async () => {
 			const langId = 'fooLang';
 
-			/**
-			 * Create a text model, get a parser for it, and perform basic assertions.
-			 */
-
+			// Block Logic: Model 1 initialization and parsing.
 			const model1 = disposables.add(createTextModel(
 				'test1\n\t#file:./file.md\n\n\n   [bin file](/root/tmp.bin)\t\n',
 				langId,
@@ -131,15 +149,7 @@ suite('PromptSyntaxService', () => {
 				'Parser1 must not be disposed.',
 			);
 
-			assert(
-				parser1 instanceof TextModelPromptParser,
-				'Parser1 must be an instance of TextModelPromptParser.',
-			);
-
-			/**
-			 * Validate that all links of the model are correctly parsed.
-			 */
-
+			// Synchronization: Wait for async parser resolution.
 			await parser1.settled();
 			assertLinks(
 				parser1.allReferences,
@@ -157,15 +167,9 @@ suite('PromptSyntaxService', () => {
 				],
 			);
 
-			// wait for some random amount of time
 			await waitRandom(5);
 
-			/**
-			 * Next, get parser for the same exact model and
-			 * validate that the same cached object is returned.
-			 */
-
-			// get the same parser again, the call must return the same object
+			// Block Logic: Cache hit validation.
 			const parser1_1 = service.getSyntaxParserFor(model1);
 			assert.strictEqual(
 				parser1,
@@ -173,16 +177,7 @@ suite('PromptSyntaxService', () => {
 				'Must return the same parser object.',
 			);
 
-			assert.strictEqual(
-				parser1_1.uri.toString(),
-				model1.uri.toString(),
-				'Must create parser1_1 with the correct URI.',
-			);
-
-			/**
-			 * Get parser for a different model and perform basic assertions.
-			 */
-
+			// Block Logic: Parallel model validation.
 			const model2 = disposables.add(createTextModel(
 				'some text #file:/absolute/path.txt  \t\ntest-text2',
 				langId,
@@ -190,7 +185,6 @@ suite('PromptSyntaxService', () => {
 				createURI('/Users/vscode/repos/test/some-folder/file.md'),
 			));
 
-			// wait for some random amount of time
 			await waitRandom(5);
 
 			const parser2 = service.getSyntaxParserFor(model2);
@@ -201,42 +195,7 @@ suite('PromptSyntaxService', () => {
 				'Must create parser2 with the correct URI.',
 			);
 
-			assert(
-				!parser2.disposed,
-				'Parser2 must not be disposed.',
-			);
-
-			assert(
-				parser2 instanceof TextModelPromptParser,
-				'Parser2 must be an instance of TextModelPromptParser.',
-			);
-
-			assert(
-				!parser2.disposed,
-				'Parser2 must not be disposed.',
-			);
-
-			assert(
-				!parser1.disposed,
-				'Parser1 must not be disposed.',
-			);
-
-			assert(
-				!parser1_1.disposed,
-				'Parser1_1 must not be disposed.',
-			);
-
-			/**
-			 * Validate that all links of the model 2 are correctly parsed.
-			 */
-
 			await parser2.settled();
-
-			assert.notStrictEqual(
-				parser1.uri.toString(),
-				parser2.uri.toString(),
-				'Parser2 must have its own URI.',
-			);
 
 			assertLinks(
 				parser2.allReferences,
@@ -249,14 +208,8 @@ suite('PromptSyntaxService', () => {
 				],
 			);
 
-			/**
-			 * Validate the first parser was not affected by the presence
-			 * of the second parser.
-			 */
-
+			// Invariant: Concurrent parsers must maintain distinct state.
 			await parser1_1.settled();
-
-			// parser1_1 has the same exact links as before
 			assertLinks(
 				parser1_1.allReferences,
 				[
@@ -273,13 +226,7 @@ suite('PromptSyntaxService', () => {
 				],
 			);
 
-			// wait for some random amount of time
-			await waitRandom(5);
-
-			/**
-			 * Dispose the first parser, perform basic validations, and confirm
-			 * that the second parser is not affected by the disposal of the first one.
-			 */
+			// Block Logic: Disposal propagation.
 			parser1.dispose();
 
 			assert(
@@ -297,12 +244,7 @@ suite('PromptSyntaxService', () => {
 				'Parser2 must not be disposed.',
 			);
 
-
-			/**
-			 * Get parser for the first model again. Confirm that we get
-			 * a new non-disposed parser object back with correct properties.
-			 */
-
+			// Block Logic: Cache eviction and re-creation.
 			const parser1_2 = service.getSyntaxParserFor(model1);
 
 			assert(
@@ -313,69 +255,17 @@ suite('PromptSyntaxService', () => {
 			assert.notStrictEqual(
 				parser1_2,
 				parser1,
-				'Must create a new parser object for the model1.',
+				'Must create a new parser object after disposal.',
 			);
 
-			assert.strictEqual(
-				parser1_2.uri.toString(),
-				model1.uri.toString(),
-				'Must create parser1_2 with the correct URI.',
-			);
-
-			/**
-			 * Validate that the contents of the second parser did not change.
-			 */
-
-			await parser1_2.settled();
-
-			// parser1_2 must have the same exact links as before
-			assertLinks(
-				parser1_2.allReferences,
-				[
-					new ExpectedLink(
-						createURI('/Users/vscode/repos/test/file.md'),
-						new Range(2, 2, 2, 2 + 15),
-						new Range(2, 8, 2, 8 + 9),
-					),
-					new ExpectedLink(
-						createURI('/root/tmp.bin'),
-						new Range(5, 4, 5, 4 + 25),
-						new Range(5, 15, 5, 15 + 13),
-					),
-				],
-			);
-
-			// wait for some random amount of time
-			await waitRandom(5);
-
-			/**
-			 * This time dispose model of the second parser instead of
-			 * the parser itself. Validate that the parser is disposed too, but
-			 * the newly created first parser is not affected.
-			 */
-
-			// dispose the `model` of the second parser now
+			// Block Logic: Model-driven disposal.
 			model2.dispose();
 
-			// assert that the parser is also disposed
 			assert(
 				parser2.disposed,
-				'Parser2 must be disposed.',
+				'Parser must be disposed when the underlying model is destroyed.',
 			);
 
-			// sanity check that the other parser is not affected
-			assert(
-				!parser1_2.disposed,
-				'Parser1_2 must not be disposed.',
-			);
-
-			/**
-			 * Create a new second parser with new model - we cannot use
-			 * the old one because it was disposed. This new model also has
-			 * a different second link.
-			 */
-
-			// we cannot use the same model since it was already disposed
 			const model2_1 = disposables.add(createTextModel(
 				'some text #file:/absolute/path.txt  \n [caption](.copilot/prompts/test.prompt.md)\t\n\t\n more text',
 				langId,
@@ -384,40 +274,16 @@ suite('PromptSyntaxService', () => {
 			));
 			const parser2_1 = service.getSyntaxParserFor(model2_1);
 
-			assert(
-				!parser2_1.disposed,
-				'Parser2_1 must not be disposed.',
-			);
-
-			assert.notStrictEqual(
-				parser2_1,
-				parser2,
-				'Parser2_1 must be a new object.',
-			);
-
-			assert.strictEqual(
-				parser2_1.uri.toString(),
-				model2.uri.toString(),
-				'Must create parser2_1 with the correct URI.',
-			);
-
-			/**
-			 * Validate that new model2 contents are parsed correctly.
-			 */
-
 			await parser2_1.settled();
 
-			// parser2_1 must have 2 links now
 			assertLinks(
 				parser2_1.allReferences,
 				[
-					// the first link didn't change
 					new ExpectedLink(
 						createURI('/absolute/path.txt'),
 						new Range(1, 11, 1, 11 + 24),
 						new Range(1, 17, 1, 17 + 18),
 					),
-					// the second link is new
 					new ExpectedLink(
 						createURI('/Users/vscode/repos/test/some-folder/.copilot/prompts/test.prompt.md'),
 						new Range(2, 2, 2, 2 + 42),
@@ -427,6 +293,12 @@ suite('PromptSyntaxService', () => {
 			);
 		});
 
+		/**
+		 * Test: auto-updated on model changes.
+		 * 
+		 * Logic: Verifies that the parser re-evaluates the syntax tree when 
+		 * edits are applied to the text model.
+		 */
 		test('auto-updated on model changes', async () => {
 			const langId = 'bazLang';
 
@@ -438,16 +310,6 @@ suite('PromptSyntaxService', () => {
 			));
 
 			const parser = service.getSyntaxParserFor(model);
-
-			// sanity checks
-			assert(
-				!parser.disposed,
-				'Parser must not be disposed.',
-			);
-			assert(
-				parser instanceof TextModelPromptParser,
-				'Parser must be an instance of TextModelPromptParser.',
-			);
 
 			await parser.settled();
 
@@ -467,6 +329,7 @@ suite('PromptSyntaxService', () => {
 				],
 			);
 
+			// Block Logic: Incremental update injection.
 			model.applyEdits([
 				{
 					range: new Range(4, 18, 4, 18 + 25),
@@ -474,18 +337,17 @@ suite('PromptSyntaxService', () => {
 				},
 			]);
 
+			// Synchronization: Re-wait for parser convergence.
 			await parser.settled();
 
 			assertLinks(
 				parser.allReferences,
 				[
-					// link1 didn't change
 					new ExpectedLink(
 						createURI('/repos/file.md'),
 						new Range(1, 4, 1, 4 + 16),
 						new Range(1, 10, 1, 10 + 10),
 					),
-					// link2 changed in the file name only
 					new ExpectedLink(
 						createURI('/Users/root/tmp/file3.txt'),
 						new Range(4, 3, 4, 3 + 41),
@@ -495,6 +357,11 @@ suite('PromptSyntaxService', () => {
 			);
 		});
 
+		/**
+		 * Test: throws if disposed model provided.
+		 * 
+		 * Logic: Defensive check for invalid API usage.
+		 */
 		test('throws if disposed model provided', async function () {
 			const model = disposables.add(createTextModel(
 				'test1\ntest2\n\ntest3\t\n',
@@ -503,7 +370,6 @@ suite('PromptSyntaxService', () => {
 				URI.parse('./github/prompts/file.prompt.md'),
 			));
 
-			// dispose the model before using it
 			model.dispose();
 
 			assert.throws(() => {

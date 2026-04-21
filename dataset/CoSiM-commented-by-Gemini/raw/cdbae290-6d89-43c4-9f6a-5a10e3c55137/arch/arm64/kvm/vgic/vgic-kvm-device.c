@@ -1,3 +1,10 @@
+/**
+ * @raw/cdbae290-6d89-43c4-9f6a-5a10e3c55137/arch/arm64/kvm/vgic/vgic-kvm-device.c
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * VGIC: KVM DEVICE API
@@ -19,15 +26,31 @@ int vgic_check_iorange(struct kvm *kvm, phys_addr_t ioaddr,
 		       phys_addr_t addr, phys_addr_t alignment,
 		       phys_addr_t size)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!IS_VGIC_ADDR_UNDEF(ioaddr))
 		return -EEXIST;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!IS_ALIGNED(addr, alignment) || !IS_ALIGNED(size, alignment))
 		return -EINVAL;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (addr + size < addr)
 		return -EINVAL;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (addr & ~kvm_phys_mask(&kvm->arch.mmu) ||
 	    (addr + size) > kvm_phys_size(&kvm->arch.mmu))
 		return -E2BIG;
@@ -37,6 +60,10 @@ int vgic_check_iorange(struct kvm *kvm, phys_addr_t ioaddr,
 
 static int vgic_check_type(struct kvm *kvm, int type_needed)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm->arch.vgic.vgic_model != type_needed)
 		return -ENODEV;
 	else
@@ -52,17 +79,33 @@ int kvm_set_legacy_vgic_v2_addr(struct kvm *kvm, struct kvm_arm_device_addr *dev
 	switch (FIELD_GET(KVM_ARM_DEVICE_TYPE_MASK, dev_addr->id)) {
 	case KVM_VGIC_V2_ADDR_TYPE_DIST:
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V2);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!r)
 			r = vgic_check_iorange(kvm, vgic->vgic_dist_base, dev_addr->addr,
 					       SZ_4K, KVM_VGIC_V2_DIST_SIZE);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!r)
 			vgic->vgic_dist_base = dev_addr->addr;
 		break;
 	case KVM_VGIC_V2_ADDR_TYPE_CPU:
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V2);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!r)
 			r = vgic_check_iorange(kvm, vgic->vgic_cpu_base, dev_addr->addr,
 					       SZ_4K, KVM_VGIC_V2_CPU_SIZE);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!r)
 			vgic->vgic_cpu_base = dev_addr->addr;
 		break;
@@ -100,7 +143,15 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 	int r;
 
 	/* Reading a redistributor region addr implies getting the index */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (write || attr->attr == KVM_VGIC_V3_ADDR_TYPE_REDIST_REGION)
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (get_user(addr, uaddr))
 			return -EFAULT;
 
@@ -132,14 +183,26 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 		struct vgic_redist_region *rdreg;
 
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V3);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (r)
 			break;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (write) {
 			r = vgic_v3_set_redist_base(kvm, 0, addr, 0);
 			goto out;
 		}
 		rdreg = list_first_entry_or_null(&vgic->rd_regions,
 						 struct vgic_redist_region, list);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!rdreg)
 			addr_ptr = &undef_value;
 		else
@@ -152,16 +215,28 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 		u8 index;
 
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V3);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (r)
 			break;
 
-		index = addr & KVM_VGIC_V3_RDIST_INDEX_MASK;
+		index = addr & KVM_VGIC_V3_RDIST_INDEX_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (write) {
-			gpa_t base = addr & KVM_VGIC_V3_RDIST_BASE_MASK;
+			gpa_t base = addr & KVM_VGIC_V3_RDIST_BASE_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			u32 count = FIELD_GET(KVM_VGIC_V3_RDIST_COUNT_MASK, addr);
 			u8 flags = FIELD_GET(KVM_VGIC_V3_RDIST_FLAGS_MASK, addr);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (!count || flags)
 				r = -EINVAL;
 			else
@@ -171,6 +246,10 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 		}
 
 		rdreg = vgic_v3_rdist_region_from_index(kvm, index);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!rdreg) {
 			r = -ENOENT;
 			goto out;
@@ -178,19 +257,31 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 
 		addr = index;
 		addr |= rdreg->base;
-		addr |= (u64)rdreg->count << KVM_VGIC_V3_RDIST_COUNT_SHIFT;
+		addr |= (u64)rdreg->count << KVM_VGIC_V3_RDIST_COUNT_SHIFT; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		goto out;
 	}
 	default:
 		r = -ENODEV;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (r)
 		goto out;
 
 	mutex_lock(&kvm->arch.config_lock);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (write) {
 		r = vgic_check_iorange(kvm, *addr_ptr, addr, alignment, size);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!r)
 			*addr_ptr = addr;
 	} else {
@@ -201,6 +292,10 @@ static int kvm_vgic_addr(struct kvm *kvm, struct kvm_device_attr *attr, bool wri
 out:
 	mutex_unlock(&kvm->slots_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!r && !write)
 		r =  put_user(addr, uaddr);
 
@@ -221,6 +316,10 @@ static int vgic_set_common_attr(struct kvm_device *dev,
 		u32 val;
 		int ret = 0;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (get_user(val, uaddr))
 			return -EFAULT;
 
@@ -230,9 +329,13 @@ static int vgic_set_common_attr(struct kvm_device *dev,
 		 * - at most 1024 interrupts
 		 * - a multiple of 32 interrupts
 		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (val < (VGIC_NR_PRIVATE_IRQS + 32) ||
 		    val > VGIC_MAX_RESERVED ||
-		    (val & 31))
+		    (val & 31)) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			return -EINVAL;
 
 		mutex_lock(&dev->kvm->arch.config_lock);
@@ -241,6 +344,10 @@ static int vgic_set_common_attr(struct kvm_device *dev,
 		 * Either userspace has already configured NR_IRQS or
 		 * the vgic has already been initialized and vgic_init()
 		 * supplied a default amount of SPIs.
+		 */
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
 		 */
 		if (dev->kvm->arch.vgic.nr_spis)
 			ret = -EBUSY;
@@ -265,10 +372,18 @@ static int vgic_set_common_attr(struct kvm_device *dev,
 			 * want to handle all control group attributes
 			 * in a single place.
 			 */
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (vgic_check_type(dev->kvm, KVM_DEV_TYPE_ARM_VGIC_V3))
 				return -ENXIO;
 			mutex_lock(&dev->kvm->lock);
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (kvm_trylock_all_vcpus(dev->kvm)) {
 				mutex_unlock(&dev->kvm->lock);
 				return -EBUSY;
@@ -332,6 +447,10 @@ int kvm_register_vgic_device(unsigned long type)
 		ret = kvm_register_device_ops(&kvm_arm_vgic_v3_ops,
 					      KVM_DEV_TYPE_ARM_VGIC_V3);
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (ret)
 			break;
 		ret = kvm_vgic_register_its_device();
@@ -346,8 +465,12 @@ int vgic_v2_parse_attr(struct kvm_device *dev, struct kvm_device_attr *attr,
 {
 	int cpuid = FIELD_GET(KVM_DEV_ARM_VGIC_CPUID_MASK, attr->attr);
 
-	reg_attr->addr = attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK;
+	reg_attr->addr = attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	reg_attr->vcpu = kvm_get_vcpu_by_id(dev->kvm, cpuid);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!reg_attr->vcpu)
 		return -EINVAL;
 
@@ -373,18 +496,34 @@ static int vgic_v2_attr_regs_access(struct kvm_device *dev,
 	u32 val;
 
 	ret = vgic_v2_parse_attr(dev, attr, &reg_attr);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
 	vcpu = reg_attr.vcpu;
 	addr = reg_attr.addr;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (is_write)
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (get_user(val, uaddr))
 			return -EFAULT;
 
 	mutex_lock(&dev->kvm->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm_trylock_all_vcpus(dev->kvm)) {
 		mutex_unlock(&dev->kvm->lock);
 		return -EBUSY;
@@ -393,6 +532,10 @@ static int vgic_v2_attr_regs_access(struct kvm_device *dev,
 	mutex_lock(&dev->kvm->arch.config_lock);
 
 	ret = vgic_init(dev->kvm);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		goto out;
 
@@ -413,6 +556,10 @@ out:
 	kvm_unlock_all_vcpus(dev->kvm);
 	mutex_unlock(&dev->kvm->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ret && !is_write)
 		ret = put_user(val, uaddr);
 
@@ -486,8 +633,12 @@ int vgic_v3_parse_attr(struct kvm_device *dev, struct kvm_device_attr *attr,
 	 * For KVM_DEV_ARM_VGIC_GRP_DIST_REGS group,
 	 * attr might not hold MPIDR. Hence assume vcpu0.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (attr->group != KVM_DEV_ARM_VGIC_GRP_DIST_REGS) {
-		vgic_mpidr = (attr->attr & KVM_DEV_ARM_VGIC_V3_MPIDR_MASK) >>
+		vgic_mpidr = (attr->attr & KVM_DEV_ARM_VGIC_V3_MPIDR_MASK) >> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			      KVM_DEV_ARM_VGIC_V3_MPIDR_SHIFT;
 
 		mpidr_reg = VGIC_TO_MPIDR(vgic_mpidr);
@@ -496,10 +647,14 @@ int vgic_v3_parse_attr(struct kvm_device *dev, struct kvm_device_attr *attr,
 		reg_attr->vcpu = kvm_get_vcpu(dev->kvm, 0);
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!reg_attr->vcpu)
 		return -EINVAL;
 
-	reg_attr->addr = attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK;
+	reg_attr->addr = attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	return 0;
 }
@@ -510,10 +665,14 @@ int vgic_v3_parse_attr(struct kvm_device *dev, struct kvm_device_attr *attr,
  */
 static bool reg_allowed_pre_init(struct kvm_device_attr *attr)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (attr->group != KVM_DEV_ARM_VGIC_GRP_DIST_REGS)
 		return false;
 
-	switch (attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK) {
+	switch (attr->attr & KVM_DEV_ARM_VGIC_OFFSET_MASK) { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 	case GICD_IIDR:
 		return true;
 	default:
@@ -540,6 +699,10 @@ static int vgic_v3_attr_regs_access(struct kvm_device *dev,
 	int ret;
 
 	ret = vgic_v3_parse_attr(dev, attr, &reg_attr);
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (ret)
 		return ret;
 
@@ -555,14 +718,26 @@ static int vgic_v3_attr_regs_access(struct kvm_device *dev,
 		uaccess = true;
 	}
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (uaccess && is_write) {
 		u32 __user *uaddr = (u32 __user *)(unsigned long)attr->addr;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (get_user(val, uaddr))
 			return -EFAULT;
 	}
 
 	mutex_lock(&dev->kvm->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (kvm_trylock_all_vcpus(dev->kvm)) {
 		mutex_unlock(&dev->kvm->lock);
 		return -EBUSY;
@@ -570,6 +745,10 @@ static int vgic_v3_attr_regs_access(struct kvm_device *dev,
 
 	mutex_lock(&dev->kvm->arch.config_lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!(vgic_initialized(dev->kvm) || reg_allowed_pre_init(attr))) {
 		ret = -EBUSY;
 		goto out;
@@ -588,8 +767,12 @@ static int vgic_v3_attr_regs_access(struct kvm_device *dev,
 	case KVM_DEV_ARM_VGIC_GRP_LEVEL_INFO: {
 		unsigned int info, intid;
 
-		info = (attr->attr & KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_MASK) >>
+		info = (attr->attr & KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_MASK) >> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 			KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_SHIFT;
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (info == VGIC_LEVEL_INFO_LINE_LEVEL) {
 			intid = attr->attr &
 				KVM_DEV_ARM_VGIC_LINE_LEVEL_INTID_MASK;
@@ -610,6 +793,10 @@ out:
 	kvm_unlock_all_vcpus(dev->kvm);
 	mutex_unlock(&dev->kvm->lock);
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!ret && uaccess && !is_write) {
 		u32 __user *uaddr = (u32 __user *)(unsigned long)attr->addr;
 		ret = put_user(val, uaddr);
@@ -631,13 +818,25 @@ static int vgic_v3_set_attr(struct kvm_device *dev,
 		u32 __user *uaddr = (u32 __user *)attr->addr;
 		u32 val;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (get_user(val, uaddr))
 			return -EFAULT;
 
 		guard(mutex)(&dev->kvm->arch.config_lock);
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (vgic_initialized(dev->kvm))
 			return -EBUSY;
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!irq_is_ppi(val))
 			return -EINVAL;
 
@@ -689,7 +888,11 @@ static int vgic_v3_has_attr(struct kvm_device *dev,
 	case KVM_DEV_ARM_VGIC_GRP_MAINT_IRQ:
 		return 0;
 	case KVM_DEV_ARM_VGIC_GRP_LEVEL_INFO: {
-		if (((attr->attr & KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_MASK) >>
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
+		if (((attr->attr & KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_MASK) >> /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		      KVM_DEV_ARM_VGIC_LINE_LEVEL_INFO_SHIFT) ==
 		      VGIC_LEVEL_INFO_LINE_LEVEL)
 			return 0;

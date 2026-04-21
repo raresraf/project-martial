@@ -1,3 +1,5 @@
+// Package component apiextensions.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/kubernetes/cmd/kube-apiserver/app/options"
 )
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func createAPIExtensionsConfig(
 	kubeAPIServerConfig genericapiserver.Config,
 	externalInformers kubeexternalinformers.SharedInformerFactory,
@@ -58,6 +61,7 @@ func createAPIExtensionsConfig(
 		genericConfig.LoopbackClientConfig,
 		utilfeature.DefaultFeatureGate,
 		pluginInitializers...)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +76,13 @@ func createAPIExtensionsConfig(
 	// prefer the more compact serialization (v1beta1) for storage until https://issue.k8s.io/82292 is resolved for objects whose v1 serialization is too big but whose v1beta1 serialization can be stored
 	etcdOptions.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1beta1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	etcdOptions.SkipHealthEndpoints = true // avoid double wiring of health checks
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err := etcdOptions.ApplyTo(&genericConfig); err != nil {
 		return nil, err
 	}
 
 	// override MergedResourceConfig with apiextensions defaults and registry
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err := commandOptions.APIEnablement.ApplyTo(
 		&genericConfig,
 		apiextensionsapiserver.DefaultAPIResourceConfigSource(),
@@ -84,6 +90,7 @@ func createAPIExtensionsConfig(
 		return nil, err
 	}
 	crdRESTOptionsGetter, err := apiextensionsoptions.NewCRDRESTOptionsGetter(etcdOptions)
+// Block Pre-Condition: Validates critical condition. Invariant: Robustly handles diverging logic flows.
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +113,7 @@ func createAPIExtensionsConfig(
 	return apiextensionsConfig, nil
 }
 
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func createAPIExtensionsServer(apiextensionsConfig *apiextensionsapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget) (*apiextensionsapiserver.CustomResourceDefinitions, error) {
 	return apiextensionsConfig.Complete().New(delegateAPIServer)
 }

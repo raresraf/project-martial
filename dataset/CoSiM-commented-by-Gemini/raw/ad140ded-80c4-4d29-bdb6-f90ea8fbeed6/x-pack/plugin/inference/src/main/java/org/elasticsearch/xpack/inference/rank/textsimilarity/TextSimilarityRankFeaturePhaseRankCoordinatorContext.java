@@ -1,3 +1,10 @@
+/**
+ * @raw/ad140ded-80c4-4d29-bdb6-f90ea8fbeed6/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/rank/textsimilarity/TextSimilarityRankFeaturePhaseRankCoordinatorContext.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -70,6 +77,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
 
             List<RankedDocsResults.RankedDoc> rankedDocs = ((RankedDocsResults) results).getRankedDocs();
             final float[] scores;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (featureDocs.length > 0 && featureDocs[0].snippets != null) {
                 scores = extractScoresFromRankedSnippets(rankedDocs, featureDocs);
             } else {
@@ -77,6 +88,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
             }
 
             // Ensure we get exactly as many final scores as the number of docs we passed, otherwise we may return incorrect results
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (scores.length != featureDocs.length) {
                 l.onFailure(
                     new IllegalStateException(
@@ -97,6 +112,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
             // The rerank inference endpoint may have an override to return top N documents only, in that case let's fail fast to avoid
             // assigning scores to the wrong input
             Integer configuredTopN = null;
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (r.getEndpoints().isEmpty() == false
                 && r.getEndpoints().get(0).getTaskSettings() instanceof CohereRerankTaskSettings cohereTaskSettings) {
                 configuredTopN = cohereTaskSettings.getTopNDocumentsOnly();
@@ -107,6 +126,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
                     && r.getEndpoints().get(0).getTaskSettings() instanceof HuggingFaceRerankTaskSettings huggingFaceRerankTaskSettings) {
                         configuredTopN = huggingFaceRerankTaskSettings.getTopNDocumentsOnly();
                     }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (configuredTopN != null && configuredTopN < rankWindowSize) {
                 l.onFailure(
                     new IllegalArgumentException(
@@ -123,11 +146,23 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
             }
 
             // Short circuit on empty results after request validation
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (featureDocs.length == 0) {
                 inferenceListener.onResponse(new InferenceAction.Response(new RankedDocsResults(List.of())));
             } else {
                 List<String> inferenceInputs = new ArrayList<>();
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (RankFeatureDoc featureDoc : featureDocs) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (featureDoc.snippets != null && featureDoc.snippets.isEmpty() == false) {
                         inferenceInputs.addAll(featureDoc.snippets);
                     } else {
@@ -155,12 +190,24 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
      */
     @Override
     protected RankFeatureDoc[] preprocess(RankFeatureDoc[] originalDocs, boolean rerankedScores) {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (rerankedScores == false) {
             // just return, don't normalize or apply minScore to scores that haven't been modified
             return originalDocs;
         }
         List<RankFeatureDoc> docs = new ArrayList<>(originalDocs.length);
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (RankFeatureDoc doc : originalDocs) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (minScore == null || doc.score >= minScore) {
                 doc.score = normalizeScore(doc.score);
                 docs.add(doc);
@@ -187,6 +234,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
 
     private float[] extractScoresFromRankedDocs(List<RankedDocsResults.RankedDoc> rankedDocs) {
         float[] scores = new float[rankedDocs.size()];
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (RankedDocsResults.RankedDoc rankedDoc : rankedDocs) {
             scores[rankedDoc.index()] = rankedDoc.relevanceScore();
         }
@@ -199,10 +250,18 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         float[] scores = new float[featureDocs.length];
         boolean[] hasScore = new boolean[featureDocs.length];
 
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < rankedDocs.size(); i++) {
             int docId = docMappings[i];
             float score = rankedDocs.get(i).relevanceScore();
 
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (hasScore[docId] == false) {
                 scores[docId] = score;
                 hasScore[docId] = true;
@@ -212,6 +271,10 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         }
 
         float[] result = new float[featureDocs.length];
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < featureDocs.length; i++) {
             result[i] = hasScore[i] ? normalizeScore(scores[i]) : 0f;
         }

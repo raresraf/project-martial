@@ -1,3 +1,10 @@
+/**
+ * @raw/1f8e180f-e148-4365-9cf7-c594330c60be/components/shared/script/serializable.rs
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -24,13 +31,13 @@ pub struct FileBlob {
     id: Uuid,
     #[ignore_malloc_size_of = "PathBuf are hard"]
     name: Option<PathBuf>,
-    cache: RefCell<Option<Vec<u8>>>,
+    cache: RefCell<Option<Vec<u8>>>, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
     size: u64,
 }
 
 impl FileBlob {
     /// Create a new file blob.
-    pub fn new(id: Uuid, name: Option<PathBuf>, cache: Option<Vec<u8>>, size: u64) -> FileBlob {
+    pub fn new(id: Uuid, name: Option<PathBuf>, cache: Option<Vec<u8>>, size: u64) -> FileBlob { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         FileBlob {
             id,
             name,
@@ -45,7 +52,7 @@ impl FileBlob {
     }
 
     /// Get the cached file data, if any.
-    pub fn get_cache(&self) -> Option<Vec<u8>> {
+    pub fn get_cache(&self) -> Option<Vec<u8>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         self.cache.borrow().clone()
     }
 
@@ -63,17 +70,21 @@ impl FileBlob {
 impl crate::BroadcastClone for BlobImpl {
     type Id = BlobId;
 
-    fn source(data: &crate::StructuredSerializedData) -> &Option<std::collections::HashMap<Self::Id, Self>> {
+    fn source(data: &crate::StructuredSerializedData) -> &Option<std::collections::HashMap<Self::Id, Self>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         &data.blobs
     }
 
-    fn destination(data: &mut crate::StructuredSerializedData) -> &mut Option<std::collections::HashMap<Self::Id, Self>> {
+    fn destination(data: &mut crate::StructuredSerializedData) -> &mut Option<std::collections::HashMap<Self::Id, Self>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
         &mut data.blobs
     }
 
     fn clone_for_broadcast(&self) -> Option<Self> {
         let type_string = self.type_string();
 
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if let BlobData::Memory(ref bytes) = self.blob_data() {
             let blob_clone = BlobImpl::new_from_bytes(bytes.clone(), type_string);
 

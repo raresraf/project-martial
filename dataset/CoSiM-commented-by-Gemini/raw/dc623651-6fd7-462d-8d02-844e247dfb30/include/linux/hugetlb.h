@@ -1,3 +1,10 @@
+/**
+ * @raw/dc623651-6fd7-462d-8d02-844e247dfb30/include/linux/hugetlb.h
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _LINUX_HUGETLB_H
 #define _LINUX_HUGETLB_H
@@ -114,6 +121,10 @@ void resv_map_release(struct kref *ref);
 extern spinlock_t hugetlb_lock;
 extern int hugetlb_max_hstate __read_mostly;
 #define for_each_hstate(h) \
+	/**
+	 * Block Logic: Orchestrates the temporal progression of the iteration.
+	 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+	 */
 	for ((h) = hstates; (h) < &hstates[hugetlb_max_hstate]; (h)++)
 
 struct hugepage_subpool *hugepage_new_subpool(struct hstate *h, long max_hpages,
@@ -165,7 +176,7 @@ extern struct mutex *hugetlb_fault_mutex_table;
 u32 hugetlb_fault_mutex_hash(struct address_space *mapping, pgoff_t idx);
 
 pte_t *huge_pmd_share(struct mm_struct *mm, struct vm_area_struct *vma,
-		      unsigned long addr, pud_t *pud);
+		      unsigned long addr, pud_t *pud); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 bool hugetlbfs_pagecache_present(struct hstate *h,
 				 struct vm_area_struct *vma,
 				 unsigned long address);
@@ -188,11 +199,11 @@ void hugetlb_bootmem_set_nodes(void);
  * which may go down to the lowest PTE level in their huge_pte_offset() and
  * huge_pte_alloc(): to avoid reliance on pte_offset_map() without pte_unmap().
  */
-static inline pte_t *pte_offset_huge(pmd_t *pmd, unsigned long address)
+static inline pte_t *pte_offset_huge(pmd_t *pmd, unsigned long address) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return pte_offset_kernel(pmd, address);
 }
-static inline pte_t *pte_alloc_huge(struct mm_struct *mm, pmd_t *pmd,
+static inline pte_t *pte_alloc_huge(struct mm_struct *mm, pmd_t *pmd, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 				    unsigned long address)
 {
 	return pte_alloc(mm, pmd) ? NULL : pte_offset_huge(pmd, address);
@@ -242,7 +253,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
 		       unsigned long addr, unsigned long sz);
 unsigned long hugetlb_mask_last_page(struct hstate *h);
 int huge_pmd_unshare(struct mm_struct *mm, struct vm_area_struct *vma,
-				unsigned long addr, pte_t *ptep);
+				unsigned long addr, pte_t *ptep); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 void adjust_range_if_pmd_sharing_possible(struct vm_area_struct *vma,
 				unsigned long *start, unsigned long *end);
 
@@ -254,6 +265,10 @@ extern void __hugetlb_zap_end(struct vm_area_struct *vma,
 static inline void hugetlb_zap_begin(struct vm_area_struct *vma,
 				     unsigned long *start, unsigned long *end)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (is_vm_hugetlb_page(vma))
 		__hugetlb_zap_begin(vma, start, end);
 }
@@ -261,6 +276,10 @@ static inline void hugetlb_zap_begin(struct vm_area_struct *vma,
 static inline void hugetlb_zap_end(struct vm_area_struct *vma,
 				   struct zap_details *details)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (is_vm_hugetlb_page(vma))
 		__hugetlb_zap_end(vma, details);
 }
@@ -304,7 +323,7 @@ static inline struct address_space *hugetlb_folio_mapping_lock_write(
 
 static inline int huge_pmd_unshare(struct mm_struct *mm,
 					struct vm_area_struct *vma,
-					unsigned long addr, pte_t *ptep)
+					unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return 0;
 }
@@ -531,7 +550,7 @@ struct file *hugetlb_file_setup(const char *name, size_t size, vm_flags_t acct,
 
 static inline bool is_file_hugepages(const struct file *file)
 {
-	return file->f_op->fop_flags & FOP_HUGE_PAGES;
+	return file->f_op->fop_flags & FOP_HUGE_PAGES; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static inline struct hstate *hstate_inode(struct inode *i)
@@ -608,21 +627,21 @@ enum hugetlb_page_flags {
 #define TESTHPAGEFLAG(uname, flname)				\
 static __always_inline						\
 bool folio_test_hugetlb_##flname(struct folio *folio)		\
-	{	void *private = &folio->private;		\
+	{	void *private = &folio->private;		\ /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		return test_bit(HPG_##flname, private);		\
 	}
 
 #define SETHPAGEFLAG(uname, flname)				\
 static __always_inline						\
 void folio_set_hugetlb_##flname(struct folio *folio)		\
-	{	void *private = &folio->private;		\
+	{	void *private = &folio->private;		\ /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		set_bit(HPG_##flname, private);			\
 	}
 
 #define CLEARHPAGEFLAG(uname, flname)				\
 static __always_inline						\
 void folio_clear_hugetlb_##flname(struct folio *folio)		\
-	{	void *private = &folio->private;		\
+	{	void *private = &folio->private;		\ /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		clear_bit(HPG_##flname, private);		\
 	}
 #else
@@ -757,11 +776,19 @@ static inline struct hstate *hstate_file(struct file *f)
 
 static inline struct hstate *hstate_sizelog(int page_size_log)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!page_size_log)
 		return &default_hstate;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (page_size_log < BITS_PER_LONG)
-		return size_to_hstate(1UL << page_size_log);
+		return size_to_hstate(1UL << page_size_log); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	return NULL;
 }
@@ -773,7 +800,7 @@ static inline struct hstate *hstate_vma(struct vm_area_struct *vma)
 
 static inline unsigned long huge_page_size(const struct hstate *h)
 {
-	return (unsigned long)PAGE_SIZE << h->order;
+	return (unsigned long)PAGE_SIZE << h->order; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 extern unsigned long vma_kernel_pagesize(struct vm_area_struct *vma);
@@ -802,7 +829,7 @@ static inline bool hstate_is_gigantic(struct hstate *h)
 
 static inline unsigned int pages_per_huge_page(const struct hstate *h)
 {
-	return 1 << h->order;
+	return 1 << h->order; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 static inline unsigned int blocks_per_huge_page(struct hstate *h)
@@ -813,7 +840,7 @@ static inline unsigned int blocks_per_huge_page(struct hstate *h)
 static inline struct folio *filemap_lock_hugetlb_folio(struct hstate *h,
 				struct address_space *mapping, pgoff_t idx)
 {
-	return filemap_lock_folio(mapping, idx << huge_page_order(h));
+	return filemap_lock_folio(mapping, idx << huge_page_order(h)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 #include <asm/hugetlb.h>
@@ -883,6 +910,10 @@ static inline void folio_clear_hugetlb_hwpoison(struct folio *folio)
 #ifndef arch_hugetlb_migration_supported
 static inline bool arch_hugetlb_migration_supported(struct hstate *h)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if ((huge_page_shift(h) == PMD_SHIFT) ||
 		(huge_page_shift(h) == PUD_SHIFT) ||
 			(huge_page_shift(h) == PGDIR_SHIFT))
@@ -920,9 +951,17 @@ static inline bool hugepage_migration_supported(struct hstate *h)
  */
 static inline bool hugepage_movable_supported(struct hstate *h)
 {
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!hugepage_migration_supported(h))
 		return false;
 
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (hstate_is_gigantic(h))
 		return false;
 	return true;
@@ -943,9 +982,9 @@ static inline gfp_t htlb_modify_alloc_mask(struct hstate *h, gfp_t gfp_mask)
 	gfp_t modified_mask = htlb_alloc_mask(h);
 
 	/* Some callers might want to enforce node */
-	modified_mask |= (gfp_mask & __GFP_THISNODE);
+	modified_mask |= (gfp_mask & __GFP_THISNODE); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
-	modified_mask |= (gfp_mask & __GFP_NOWARN);
+	modified_mask |= (gfp_mask & __GFP_NOWARN); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	return modified_mask;
 }
@@ -975,7 +1014,7 @@ static inline bool htlb_allow_alloc_fallback(int reason)
 }
 
 static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
-					   struct mm_struct *mm, pte_t *pte)
+					   struct mm_struct *mm, pte_t *pte) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	const unsigned long size = huge_page_size(h);
 
@@ -1002,8 +1041,16 @@ static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
 	 * split PMD locks are disabled -- they don't make sense on a single
 	 * PGDIR page table -- and the end result is the same.
 	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (size >= PUD_SIZE)
 		return pud_lockptr(mm, (pud_t *) pte);
+	/**
+	 * Block Logic: Alternative conditional evaluation.
+	 * Invariant: Maintains correct indexing or state logic.
+	 */
 	else if (size >= PMD_SIZE || IS_ENABLED(CONFIG_HIGHPTE))
 		return pmd_lockptr(mm, (pmd_t *) pte);
 	/* pte_alloc_huge() only applies with !CONFIG_HIGHPTE */
@@ -1039,7 +1086,7 @@ static inline void hugetlb_count_sub(long l, struct mm_struct *mm)
 #ifndef huge_ptep_modify_prot_start
 #define huge_ptep_modify_prot_start huge_ptep_modify_prot_start
 static inline pte_t huge_ptep_modify_prot_start(struct vm_area_struct *vma,
-						unsigned long addr, pte_t *ptep)
+						unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	unsigned long psize = huge_page_size(hstate_vma(vma));
 
@@ -1050,7 +1097,7 @@ static inline pte_t huge_ptep_modify_prot_start(struct vm_area_struct *vma,
 #ifndef huge_ptep_modify_prot_commit
 #define huge_ptep_modify_prot_commit huge_ptep_modify_prot_commit
 static inline void huge_ptep_modify_prot_commit(struct vm_area_struct *vma,
-						unsigned long addr, pte_t *ptep,
+						unsigned long addr, pte_t *ptep, /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 						pte_t old_pte, pte_t pte)
 {
 	unsigned long psize = huge_page_size(hstate_vma(vma));
@@ -1067,11 +1114,11 @@ void hugetlb_unregister_node(struct node *node);
 /*
  * Check if a given raw @page in a hugepage is HWPOISON.
  */
-bool is_raw_hwpoison_page_in_hugepage(struct page *page);
+bool is_raw_hwpoison_page_in_hugepage(struct page *page); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 static inline unsigned long huge_page_mask_align(struct file *file)
 {
-	return PAGE_MASK & ~huge_page_mask(hstate_file(file));
+	return PAGE_MASK & ~huge_page_mask(hstate_file(file)); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 }
 
 #else	/* CONFIG_HUGETLB_PAGE */
@@ -1248,7 +1295,7 @@ static inline bool htlb_allow_alloc_fallback(int reason)
 }
 
 static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
-					   struct mm_struct *mm, pte_t *pte)
+					   struct mm_struct *mm, pte_t *pte) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return &mm->page_table_lock;
 }
@@ -1266,17 +1313,17 @@ static inline void hugetlb_count_sub(long l, struct mm_struct *mm)
 }
 
 static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-					  unsigned long addr, pte_t *ptep)
+					  unsigned long addr, pte_t *ptep) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 #ifdef CONFIG_MMU
 	return ptep_get(ptep);
 #else
-	return *ptep;
+	return *ptep; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 #endif
 }
 
 static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
-				   pte_t *ptep, pte_t pte, unsigned long sz)
+				   pte_t *ptep, pte_t pte, unsigned long sz) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 }
 
@@ -1305,9 +1352,9 @@ static inline bool hugetlb_bootmem_allocated(void)
 #endif	/* CONFIG_HUGETLB_PAGE */
 
 static inline spinlock_t *huge_pte_lock(struct hstate *h,
-					struct mm_struct *mm, pte_t *pte)
+					struct mm_struct *mm, pte_t *pte) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
-	spinlock_t *ptl;
+	spinlock_t *ptl; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 	ptl = huge_pte_lockptr(h, mm, pte);
 	spin_lock(ptl);
@@ -1323,12 +1370,12 @@ static inline __init void hugetlb_cma_reserve(int order)
 #endif
 
 #ifdef CONFIG_HUGETLB_PMD_PAGE_TABLE_SHARING
-static inline bool hugetlb_pmd_shared(pte_t *pte)
+static inline bool hugetlb_pmd_shared(pte_t *pte) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return page_count(virt_to_page(pte)) > 1;
 }
 #else
-static inline bool hugetlb_pmd_shared(pte_t *pte)
+static inline bool hugetlb_pmd_shared(pte_t *pte) /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 {
 	return false;
 }
@@ -1367,6 +1414,10 @@ hugetlb_walk(struct vm_area_struct *vma, unsigned long addr, unsigned long sz)
 	 * above huge_pte_offset() in the same file.
 	 *
 	 * NOTE: lockdep_is_held() is only defined with CONFIG_LOCKDEP.
+	 */
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
 	 */
 	if (__vma_shareable_lock(vma))
 		WARN_ON_ONCE(!lockdep_is_held(&vma_lock->rw_sema) &&

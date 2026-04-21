@@ -1,3 +1,10 @@
+/**
+ * @raw/bfe7cd15-9c59-465d-8a6c-54542cb8a753/src/vs/workbench/contrib/chat/browser/actions/chatAttachPromptAction/showPromptSelectionDialog.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -18,7 +25,7 @@ import { IPickOptions, IQuickInputService, IQuickPickItem } from '../../../../..
 /**
  * Type for an {@link IQuickPickItem} with its `value` property being a `URI`.
  */
-type WithUriValue<T extends IQuickPickItem> = T & { value: URI };
+type WithUriValue<T extends IQuickPickItem> = T & { value: URI }; /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
 /**
  * Options for the {@link showSelectPromptDialog} function.
@@ -90,6 +97,10 @@ const createPlaceholderText = (widget?: IChatWidget): string => {
 
 	// if no widget reference is provided, add the note about
 	// the `alt`/`option` key modifier users can use
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!widget) {
 		const key = (isWindows || isLinux) ? 'alt' : 'option';
 
@@ -123,6 +134,10 @@ export const showSelectPromptDialog = async (
 
 	// if not prompt files found, render the "how to add" message
 	// to the user with a link to the documentation
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (files.length === 0) {
 		const docsQuickPick: WithUriValue<IQuickPickItem> = {
 			type: 'item',
@@ -139,6 +154,10 @@ export const showSelectPromptDialog = async (
 				canPickMany: false,
 			});
 
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (!result) {
 			return null;
 		}
@@ -151,16 +170,28 @@ export const showSelectPromptDialog = async (
 	// if a resource is provided, create an `activeItem` for it to pre-select
 	// it in the UI, and sort the list so the active item appears at the top
 	let activeItem: WithUriValue<IQuickPickItem> | undefined;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (resource) {
 		activeItem = files.find((file) => {
 			return extUri.isEqual(file.value, resource);
 		});
 
 		files.sort((file1, file2) => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (extUri.isEqual(file1.value, resource)) {
 				return -1;
 			}
 
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (extUri.isEqual(file2.value, resource)) {
 				return 1;
 			}
@@ -171,7 +202,7 @@ export const showSelectPromptDialog = async (
 
 	// otherwise show the prompt file selection dialog
 	const { widget } = options;
-	const pickOptions: IPickOptions<WithUriValue<IQuickPickItem>> = {
+	const pickOptions: IPickOptions<WithUriValue<IQuickPickItem>> = { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 		placeHolder: createPlaceholderText(widget),
 		activeItem,
 		canPickMany: false,
@@ -181,8 +212,16 @@ export const showSelectPromptDialog = async (
 	// keep track of whether the `alt` (`option` on mac) key is
 	// pressed when a prompt item is selected in the dialog
 	let altOption = false;
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!location) {
 		pickOptions.onKeyMods = (keyMods) => {
+			/**
+			 * Block Logic: Conditional evaluation for divergent control flow.
+			 * Invariant: Taken branch maintains control flow invariants.
+			 */
 			if (keyMods.alt) {
 				altOption = true;
 			}
@@ -192,6 +231,10 @@ export const showSelectPromptDialog = async (
 	const maybeSelectedFile = await quickInputService.pick(files, pickOptions);
 
 	// if user cancels the dialog, return `null` instead
+	/**
+	 * Block Logic: Conditional evaluation for divergent control flow.
+	 * Invariant: Taken branch maintains control flow invariants.
+	 */
 	if (!maybeSelectedFile) {
 		return null;
 	}

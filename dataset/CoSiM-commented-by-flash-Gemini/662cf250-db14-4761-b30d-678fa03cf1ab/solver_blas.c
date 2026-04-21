@@ -1,4 +1,10 @@
-
+/**
+ * @662cf250-db14-4761-b30d-678fa03cf1ab/solver_blas.c
+ * @brief Matrix expression solver utilizing high-performance Level 3 BLAS.
+ * Functional Utility: Solves Result = (A * B) * B^T + (A^T * A) where A is upper 
+ * triangular, using optimized triangular matrix-matrix multiplication (TRMM).
+ * Domain: HPC Numerical Optimization.
+ */
 
 #include "utils.h"
 #include <string.h>
@@ -7,6 +13,10 @@
 #include <math.h>
 #include <stddef.h>
 
+/**
+ * @brief Computes the matrix expression via BLAS routine delegation.
+ * Logic: Minimizes compute overhead by leveraging TRMM for triangular matrix factors.
+ */
 double *my_solver(int N, double *A, double *B) {
 
     double *Aux;
@@ -26,8 +36,10 @@ double *my_solver(int N, double *A, double *B) {
 	if(NULL == A_tA)
 		exit(EXIT_FAILURE);
 
-    
-
+    /**
+     * Block Logic: Compute Aux = A * B.
+     * Optimization: Uses cblas_dtrmm to take advantage of A being upper triangular.
+     */
     memcpy(Aux, B, N * N * sizeof(*Aux));
 
     cblas_dtrmm(
@@ -41,8 +53,10 @@ double *my_solver(int N, double *A, double *B) {
     	Aux, N
     );
 
-    
-
+    /**
+     * Block Logic: Compute Res = Aux * B^T.
+     * Functional Utility: General matrix multiplication with implicit transposition of B.
+     */
     memcpy(Res, B, N * N * sizeof(*Aux));
 
     cblas_dgemm(
@@ -55,8 +69,10 @@ double *my_solver(int N, double *A, double *B) {
     	0.0, Res, N
     );
 
-    
-
+    /**
+     * Block Logic: Compute A_tA = A^T * A.
+     * Optimization: In-place Gramian computation using TRMM with leading transposition.
+     */
     memcpy(A_tA, A, N * N * sizeof(*Res));
 
     cblas_dtrmm(
@@ -70,8 +86,9 @@ double *my_solver(int N, double *A, double *B) {
     	A_tA, N
     );
 
-    
-
+    /**
+     * Block Logic: Final summation pass.
+     */
     for(i = 0; i < N; i++)
     	for(j = 0; j < N; j++)
     			Res[i * N + j] += A_tA[i * N +j];

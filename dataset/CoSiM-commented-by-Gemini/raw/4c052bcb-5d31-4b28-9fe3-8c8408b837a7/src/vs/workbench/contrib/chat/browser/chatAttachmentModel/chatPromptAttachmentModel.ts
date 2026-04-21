@@ -1,3 +1,10 @@
+/**
+ * @raw/4c052bcb-5d31-4b28-9fe3-8c8408b837a7/src/vs/workbench/contrib/chat/browser/chatAttachmentModel/chatPromptAttachmentModel.ts
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -45,6 +52,10 @@ export class ChatPromptAttachmentModel extends ObservableDisposable {
 
 		// return no references if the attachment is disabled
 		// or if this object itself has an error
+		/**
+		 * Block Logic: Conditional evaluation for divergent control flow.
+		 * Invariant: Taken branch maintains control flow invariants.
+		 */
 		if (errorCondition) {
 			return [];
 		}

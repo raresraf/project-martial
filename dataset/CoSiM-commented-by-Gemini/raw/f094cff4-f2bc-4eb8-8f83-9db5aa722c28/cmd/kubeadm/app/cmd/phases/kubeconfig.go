@@ -1,3 +1,7 @@
+// @raw/f094cff4-f2bc-4eb8-8f83-9db5aa722c28/cmd/kubeadm/app/cmd/phases/kubeconfig.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -85,11 +89,15 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 			use:   "user",
 			short: "Outputs a kubeconfig file for an additional user.",
 			cmdFunc: func(outDir string, cfg *kubeadmapi.MasterConfiguration) error {
+				// Block Logic: Conditional evaluation for divergent control flow.
+				// Invariant: Taken branch maintains control flow invariants.
 				if clientName == "" {
 					return fmt.Errorf("missing required argument client-name")
 				}
 
 				// if the kubeconfig file for an additional user has to use a token, use it
+				// Block Logic: Conditional evaluation for divergent control flow.
+				// Invariant: Taken branch maintains control flow invariants.
 				if token != "" {
 					return kubeconfigphase.WriteKubeConfigWithToken(out, cfg, clientName, token)
 				}
@@ -100,6 +108,8 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 		},
 	}
 
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, properties := range subCmdProperties {
 		// Creates the UX Command
 		cmd := &cobra.Command{
@@ -109,15 +119,21 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 		}
 
 		// Add flags to the command
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if properties.use != "user" {
 			cmd.Flags().StringVar(&cfgPath, "config", cfgPath, "Path to kubeadm config file (WARNING: Usage of a configuration file is experimental)")
 		}
 		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, "The path where to save and store the certificates")
 		cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address the API Server will advertise it's listening on. 0.0.0.0 means the default network interface's address.")
 		cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "Port for the API Server to bind to")
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if properties.use == "all" || properties.use == "kubelet" {
 			cmd.Flags().StringVar(&cfg.NodeName, "node-name", cfg.NodeName, `Specify the node name`)
 		}
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if properties.use == "user" {
 			cmd.Flags().StringVar(&token, "token", token, "The path to the directory where the certificates are.")
 			cmd.Flags().StringVar(&clientName, "client-name", clientName, "The name of the client for which the KubeConfig file will be generated.")

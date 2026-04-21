@@ -1,3 +1,10 @@
+/**
+ * @raw/e4b768d4-39a9-45da-b521-c5eecc7cd66a/libs/simdvec/src/test/java/org/elasticsearch/simdvec/VectorScorerFactoryTests.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -75,7 +82,15 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
         var scalarQuantizer = new ScalarQuantizer(0.1f, 0.9f, (byte) 7);
 
         try (Directory dir = new MMapDirectory(createTempDir("testSimpleImpl"), maxChunkSize)) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (var sim : List.of(COSINE, DOT_PRODUCT, EUCLIDEAN, MAXIMUM_INNER_PRODUCT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int dims : List.of(31, 32, 33)) {
                     // dimensions that cross the scalar / native boundary (stride)
                     byte[] vec1 = new byte[dims];
@@ -85,6 +100,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                     float vec1Correction, vec2Correction;
                     String fileName = "testSimpleImpl-" + sim + "-" + dims + ".vex";
                     try (IndexOutput out = dir.createOutput(fileName, IOContext.DEFAULT)) {
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (int i = 0; i < dims; i++) {
                             query1[i] = (float) i;
                             query2[i] = (float) (dims - i);
@@ -107,6 +126,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                         scorer.setScoringOrdinal(0);
                         assertThat(scorer.score(1), equalTo(expected));
 
+                        /**
+                         * Block Logic: Conditional evaluation for divergent control flow.
+                         * Invariant: Taken branch maintains control flow invariants.
+                         */
                         if (Runtime.version().feature() >= 22) {
                             var qScorer = factory.getInt7SQVectorScorer(VectorSimilarityType.of(sim), values, query1).get();
                             assertThat(qScorer.score(1), equalTo(expected));
@@ -202,6 +225,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
             String fileName = "testRandom-" + dims;
             logger.info("Testing " + fileName);
             try (IndexOutput out = dir.createOutput(fileName, IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < size; i++) {
                     var vec = byteArraySupplier.apply(dims);
                     var off = randomFloat();
@@ -212,9 +239,17 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                 }
             }
             try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int times = 0; times < TIMES; times++) {
                     int idx0 = randomIntBetween(0, size - 1);
                     int idx1 = randomIntBetween(0, size - 1); // may be the same as idx0 - which is ok.
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (var sim : List.of(COSINE, DOT_PRODUCT, EUCLIDEAN, MAXIMUM_INNER_PRODUCT)) {
                         var values = vectorValues(dims, size, in, VectorSimilarityType.of(sim));
                         float expected = luceneScore(sim, vectors[idx0], vectors[idx1], correction, offsets[idx0], offsets[idx1]);
@@ -249,6 +284,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
         var scalarQuantizer = new ScalarQuantizer(0.1f, 0.9f, (byte) 7);
 
         try (Directory dir = new MMapDirectory(createTempDir("testRandom"), maxChunkSize)) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (var sim : List.of(COSINE, DOT_PRODUCT, EUCLIDEAN, MAXIMUM_INNER_PRODUCT)) {
                 // Use the random supplier for COSINE, which returns values in the normalized range
                 floatArraySupplier = sim == COSINE ? FLOAT_ARRAY_RANDOM_FUNC : floatArraySupplier;
@@ -263,6 +302,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                 String fileName = "testRandom-" + sim + "-" + dims + ".vex";
                 logger.info("Testing " + fileName);
                 try (IndexOutput out = dir.createOutput(fileName, IOContext.DEFAULT)) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int i = 0; i < size; i++) {
                         vectors[i] = floatArraySupplier.apply(dims);
                         qVectors[i] = new byte[dims];
@@ -272,6 +315,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                     }
                 }
                 try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int times = 0; times < TIMES; times++) {
                         int idx0 = randomIntBetween(0, size - 1);
                         int idx1 = randomIntBetween(0, size - 1);
@@ -297,6 +344,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
         var factory = AbstractVectorTestCase.factory.get();
 
         try (Directory dir = new MMapDirectory(createTempDir("testRandomSliceImpl"), maxChunkSize)) {
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int times = 0; times < TIMES; times++) {
                 final int size = randomIntBetween(2, 100);
                 final float correction = randomFloat();
@@ -308,6 +359,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                 try (IndexOutput out = dir.createOutput(fileName, IOContext.DEFAULT)) {
                     byte[] ba = new byte[initialPadding];
                     out.writeBytes(ba, 0, ba.length);
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int i = 0; i < size; i++) {
                         var vec = byteArraySupplier.apply(dims);
                         var off = randomFloat();
@@ -321,9 +376,17 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                     var outter = dir.openInput(fileName, IOContext.DEFAULT);
                     var in = outter.slice("slice", initialPadding, outter.length() - initialPadding)
                 ) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int itrs = 0; itrs < TIMES / 10; itrs++) {
                         int idx0 = randomIntBetween(0, size - 1);
                         int idx1 = randomIntBetween(0, size - 1); // may be the same as idx0 - which is ok.
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (var sim : List.of(COSINE, DOT_PRODUCT, EUCLIDEAN, MAXIMUM_INNER_PRODUCT)) {
                             var values = vectorValues(dims, size, in, VectorSimilarityType.of(sim));
                             float expected = luceneScore(sim, vectors[idx0], vectors[idx1], correction, offsets[idx0], offsets[idx1]);
@@ -352,6 +415,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
             String fileName = "testLarge-" + dims;
             logger.info("Testing " + fileName);
             try (IndexOutput out = dir.createOutput(fileName, IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < size; i++) {
                     var vec = vector(i, dims);
                     var off = (float) i;
@@ -360,11 +427,19 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                 }
             }
             try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int times = 0; times < TIMES; times++) {
                     int idx0 = randomIntBetween(0, size - 1);
                     int idx1 = size - 1;
                     float off0 = (float) idx0;
                     float off1 = (float) idx1;
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (var sim : List.of(COSINE, DOT_PRODUCT, EUCLIDEAN, MAXIMUM_INNER_PRODUCT)) {
                         var values = vectorValues(dims, size, in, VectorSimilarityType.of(sim));
                         float expected = luceneScore(sim, vector(idx0, dims), vector(idx1, dims), correction, off0, off1);
@@ -409,7 +484,7 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
             try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
                 var values = vectorValues(dims, 4, in, VectorSimilarityType.of(sim));
                 var scoreSupplier = factory.getInt7SQVectorScorerSupplier(sim, in, values, 1f).get();
-                var tasks = List.<Callable<Optional<Throwable>>>of(
+                var tasks = List.<Callable<Optional<Throwable>>>of( /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
                     new ScoreCallable(scoreSupplier.copy().scorer(), 0, 1, expectedScore1),
                     new ScoreCallable(scoreSupplier.copy().scorer(), 2, 3, expectedScore2)
                 );
@@ -418,6 +493,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
                 executor.shutdown();
                 assertTrue(executor.awaitTermination(60, TimeUnit.SECONDS));
                 assertThat(results.stream().filter(Predicate.not(Future::isDone)).count(), equalTo(0L));
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (var res : results) {
                     assertThat("Unexpected exception" + res.get(), res.get(), isEmpty());
                 }
@@ -425,7 +504,7 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
-    static class ScoreCallable implements Callable<Optional<Throwable>> {
+    static class ScoreCallable implements Callable<Optional<Throwable>> { /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
 
         final UpdateableRandomVectorScorer scorer;
         final int ord;
@@ -445,6 +524,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
         @Override
         public Optional<Throwable> call() {
             try {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < 100; i++) {
                     assertThat(scorer.score(ord), equalTo(expectedScore));
                 }
@@ -469,6 +552,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
     static byte[] vector(int ord, int dims) {
         var random = new Random(Objects.hash(ord, dims));
         byte[] ba = new byte[dims];
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < dims; i++) {
             ba[i] = (byte) RandomNumbers.randomIntBetween(random, MIN_INT7_VALUE, MAX_INT7_VALUE);
         }
@@ -477,6 +564,10 @@ public class VectorScorerFactoryTests extends AbstractVectorTestCase {
 
     static Function<Integer, float[]> FLOAT_ARRAY_RANDOM_FUNC = size -> {
         float[] fa = new float[size];
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < size; i++) {
             fa[i] = randomFloat();
         }

@@ -1,3 +1,10 @@
+/**
+ * @raw/780783b4-560e-469a-8037-15ea837f1e05/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/googlevertexai/response/GoogleVertexAiChatCompletionResponseEntity.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -135,6 +142,10 @@ public class GoogleVertexAiChatCompletionResponseEntity {
 
             StringBuilder fullText = new StringBuilder();
 
+            /**
+             * Block Logic: Condition check initialization for iterative traversal.
+             * Invariant: Condition remains true across iterations, ensuring execution state.
+             */
             while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                 Chunk chunk = Chunk.PARSER.apply(parser, null);

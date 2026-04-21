@@ -1,17 +1,32 @@
 
 >>>> file: helper.cpp
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file helper.cpp
+ * @brief OpenCL utility functions and texture compression implementation.
+ *
+ * This module provides helper functions for OpenCL error handling, kernel loading,
+ * and a complete implementation of ETC1 texture compression using OpenCL.
+ */
+
+/**
+ * @file helper.cpp
+ * @brief OpenCL host utility infrastructure.
+ * Functional Utility: Provides standardized error monitoring, hardware discovery, 
+ * and kernel I/O services for OpenCL applications.
+ */
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <CL/cl.h>
 
 #include "helper.hpp"
 
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Validates OpenCL API return codes.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +38,15 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Checks and reports OpenCL program compilation errors.
+ *
+ * Specifically handles errors during the building of OpenCL programs.
+ * If compilation fails, it retrieves and prints the build log for the specified device.
+ *
+ * @param cl_ret OpenCL return code from the build call.
+ * @param program The OpenCL program object being built.
+ * @param device The device for which the program was being built.
+ * @return int Returns 1 if an error occurred, 0 otherwise.
  */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
@@ -38,8 +61,13 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Reads OpenCL kernel source code from a file.
+ *
+ * Opens the specified file and reads its entire content into a string.
+ *
+ * @param file_name Path to the kernel source file.
+ * @param str_kernel String to store the loaded kernel source.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -53,7 +81,12 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Converts an OpenCL error code to a human-readable string.
+ *
+ * Provides descriptive text for various OpenCL error constants to facilitate debugging.
+ *
+ * @param err The OpenCL error code (cl_int).
+ * @return const char* A string describing the error.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -108,7 +141,13 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves and prints the build log for an OpenCL program.
+ *
+ * When an OpenCL program fails to build, this function fetches the detailed
+ * compiler output (log) for a specific device and prints it to the console.
+ *
+ * @param program The OpenCL program object.
+ * @param device The device for which the log is requested.
  */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
@@ -128,6 +167,11 @@ void cl_get_compiler_err_log(cl_program program,
 	cout << endl << build_log << endl;
 }
 >>>> file: helper.hpp
+/**
+ * @file helper.hpp
+ * @brief Header for OpenCL utility functions and error handling.
+ */
+
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
@@ -141,17 +185,39 @@ void cl_get_compiler_err_log(cl_program program,
 
 using namespace std;
 
+/**
+ * @brief Checks an OpenCL error code and prints a message if it's not success.
+ */
 int CL_ERR(int cl_ret);
+
+/**
+ * @brief Checks an OpenCL build error and prints the compiler log if it's not success.
+ */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device);
 
+/**
+ * @brief Returns a string representation of an OpenCL error code.
+ */
 const char* cl_get_string_err(cl_int err);
+
+/**
+ * @brief Fetches and prints the build log for an OpenCL program on a specific device.
+ */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device);
 
+/**
+ * @brief Reads the content of a file into a string, typically for kernel source.
+ */
 void read_kernel(string file_name, string &str_kernel);
 
+/**
+ * @brief Macro to terminate the program if an assertion fails.
+ *
+ * Prints the line number and a description of the failure before exiting.
+ */
 #define DIE(assertion, call_description)                    \
 
 
@@ -166,9 +232,20 @@ do {                                                        \
 
 #endif
 >>>> file: texture_compress_device.cl
+/**
+ * @file texture_compress_device.cl
+ * @brief OpenCL kernel for Ericsson Texture Compression (ETC1).
+ * Architectural Intent: Parallel implementation of the ETC1 standard, 
+ * utilizing work-item parallelism and cached block data for GPU optimization.
+ */
+
 #define UINT32_MAX   (4294967295U)
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * @struct Color
+ * @brief Unified BGRA color point representation.
+ */
 typedef union Color
 {
 	struct BgraColorType
@@ -185,12 +262,18 @@ typedef union Color
 
 
 
+/**
+ * @brief Device-side memory copy from private/local to global memory.
+ */
 void memcpy(char *from, __global char *to, int n)
 {
 	for (int i=0; i<n; i++)
 		from[i] = to[i];
 }
 
+/**
+ * @brief Device-side memory set for global uchar buffers.
+ */
 void memset(__global uchar *buff, int n)
 {
 	for (int i = 0; i < n; i++)
@@ -198,25 +281,35 @@ void memset(__global uchar *buff, int n)
 }
 
 
+/**
+ * @brief Clamps an integer value to a specified [min, max] range.
+ */
 uchar another_clamp(int val, int min, int max)
-
-
 {
-	return val  max ? max : val);
+	return val < min ? min : (val > max ? max : val);
 }
 
+/**
+ * @brief Rounds an 8-bit color component to a 5-bit representation.
+ */
 uchar round_to_5_bits(float val)
 {
 	return another_clamp((float)val * 31.0f / 255.0f + 0.5f, (uchar)0, (uchar)31);
 }
 
+/**
+ * @brief Rounds an 8-bit color component to a 4-bit representation.
+ */
 uchar round_to_4_bits(float val)
 {
 	return another_clamp(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
-// Codeword tables.
-// See: Table 3.17.2
+
+/**
+ * @brief ETC1 Codeword tables for luminance modulation.
+ * @see Table 3.17.2 in ETC1 specification.
+ */
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 		{-8, -2, 2, 8},
 		{-17, -5, 5, 17},
@@ -227,30 +320,15 @@ ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 		{-106, -33, 33, 106},
 		{-183, -47, 47, 183}};
 
-// Maps modifier indices to pixel index values.
-// See: Table 3.17.3
+/**
+ * @brief Maps modifier indices to pixel index values.
+ * @see Table 3.17.3 in ETC1 specification.
+ */
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
-// The ETC1 specification index texels as follows:
-// [a][e][i][m]     [ 0][ 4][ 8][12]
-// [b][f][j][n]  [ 1][ 5][ 9][13]
-// [c][g][k][o]     [ 2][ 6][10][14]
-// [d][h][l][p]     [ 3][ 7][11][15]
-
-// [ 0][ 1][ 2][ 3]     [ 0][ 1][ 4][ 5]
-// [ 4][ 5][ 6][ 7]  [ 8][ 9][12][13]
-// [ 8][ 9][10][11]     [ 2][ 3][ 6][ 7]
-// [12][13][14][15]     [10][11][14][15]
-
-// However, when extracting sub blocks from BGRA data the natural array
-// indexing order ends up different:
-// vertical0: [a][e][b][f]  horizontal0: [a][e][i][m]
-//            [c][g][d][h]               [b][f][j][n]
-// vertical1: [i][m][j][n]  horizontal1: [c][g][k][o]
-//            [k][o][l][p]               [d][h][l][p]
-
-// In order to translate from the natural array indices in a sub block to the
-// indices (number) used by specification and hardware we use this table.
+/**
+ * @brief Translation table from sub-block indices to specification texel numbers.
+ */
 __constant uchar g_idx_to_num[4][8] = {
 		{0, 4, 1, 5, 2, 6, 3, 7},        // Vertical block 0.
 		{8, 12, 9, 13, 10, 14, 11, 15},  // Vertical block 1.
@@ -260,7 +338,9 @@ __constant uchar g_idx_to_num[4][8] = {
 		{2, 6, 10, 14, 3, 7, 11, 15}     // Horizontal block 1.
 };
 
-// Constructs a color from a given base color and luminance value.
+/**
+ * @brief Constructs a color by adding luminance to a base color.
+ */
 Color makeColor(const Color base, short lum)
 {
 	int b = (int)(base.channels.b) + lum;
@@ -275,8 +355,9 @@ Color makeColor(const Color base, short lum)
 	return color;
 }
 
-// Calculates the error metric for two colors. A small error signals that the
-// colors are similar to each other, a large error the signals the opposite.
+/**
+ * @brief Calculates the squared error between two colors.
+ */
 uint getColorError(const Color u, const Color v)
 {
 #ifdef USE_PERCEIVED_ERROR_METRIC

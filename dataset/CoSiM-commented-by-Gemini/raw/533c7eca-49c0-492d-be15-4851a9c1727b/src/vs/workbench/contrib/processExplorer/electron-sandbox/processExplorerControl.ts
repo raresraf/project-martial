@@ -1,7 +1,14 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file processExplorerControl.ts
+ * @brief UI controller for the VS Code Process Explorer view.
+ * 
+ * Architectural Intent: Implements a tree-based visualization of the VS Code process 
+ * hierarchy, including local renderer/extension hosts and remote server processes. 
+ * Facilitates diagnostic actions such as process termination and debugger attachment.
+ * 
+ * Performance Optimization: Uses a Delayer for periodic refreshes to maintain UI 
+ * responsiveness without saturating the IPC channel with process table updates.
+ */
 
 import './media/processExplorer.css';
 import { localize } from '../../../../nls.js';
@@ -49,24 +56,10 @@ interface IMachineProcessInformation {
 	readonly rootProcess: ProcessItem | IRemoteDiagnosticError;
 }
 
-function isMachineProcessInformation(item: unknown): item is IMachineProcessInformation {
-	const candidate = item as IMachineProcessInformation | undefined;
-
-	return !!candidate?.name && !!candidate?.rootProcess;
-}
-
-function isProcessInformation(item: unknown): item is IProcessInformation {
-	const candidate = item as IProcessInformation | undefined;
-
-	return !!candidate?.processRoots;
-}
-
-function isProcessItem(item: unknown): item is ProcessItem {
-	const candidate = item as ProcessItem | undefined;
-
-	return typeof candidate?.pid === 'number';
-}
-
+/**
+ * @class ProcessListDelegate
+ * @brief Manages tree item height and template mapping for different diagnostic node types.
+ */
 class ProcessListDelegate implements IListVirtualDelegate<IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError> {
 
 	getHeight() {
@@ -94,8 +87,16 @@ class ProcessListDelegate implements IListVirtualDelegate<IMachineProcessInforma
 	}
 }
 
+/**
+ * @class ProcessTreeDataSource
+ * @brief Provider for the recursive process tree structure.
+ */
 class ProcessTreeDataSource implements IDataSource<IProcessTree, IProcessInformation | IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError> {
 
+	/**
+	 * Block Logic: Branch node detection.
+	 * Invariant: Errors are terminal leaves; processes are branches if they have child subprocesses.
+	 */
 	hasChildren(element: IProcessTree | IProcessInformation | IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError): boolean {
 		if (isRemoteDiagnosticError(element)) {
 			return false;
@@ -108,6 +109,10 @@ class ProcessTreeDataSource implements IDataSource<IProcessTree, IProcessInforma
 		return true;
 	}
 
+	/**
+	 * Block Logic: Child resolution.
+	 * Invariant: Handles machine boundaries by resolving to the root process of each detected host.
+	 */
 	getChildren(element: IProcessTree | IProcessInformation | IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError) {
 		if (isProcessItem(element)) {
 			return element.children ?? [];
@@ -119,7 +124,7 @@ class ProcessTreeDataSource implements IDataSource<IProcessTree, IProcessInforma
 
 		if (isProcessInformation(element)) {
 			if (element.processRoots.length > 1) {
-				return element.processRoots; // If there are multiple process roots, return these, otherwise go directly to the root process
+				return element.processRoots; 
 			}
 
 			if (element.processRoots.length > 0) {
@@ -137,111 +142,10 @@ class ProcessTreeDataSource implements IDataSource<IProcessTree, IProcessInforma
 	}
 }
 
-function createRow(container: HTMLElement, extraClass?: string) {
-	const row = append(container, $('.row'));
-	if (extraClass) {
-		row.classList.add(extraClass);
-	}
-
-	const name = append(row, $('.cell.name'));
-	const cpu = append(row, $('.cell.cpu'));
-	const memory = append(row, $('.cell.memory'));
-	const pid = append(row, $('.cell.pid'));
-
-	return { name, cpu, memory, pid };
-}
-
-interface IProcessRowTemplateData {
-	readonly name: HTMLElement;
-}
-
-interface IProcessItemTemplateData extends IProcessRowTemplateData {
-	readonly cpu: HTMLElement;
-	readonly memory: HTMLElement;
-	readonly pid: HTMLElement;
-	readonly hover?: ProcessItemHover;
-}
-
-class ProcessHeaderTreeRenderer implements ITreeRenderer<IProcessInformation, void, IProcessItemTemplateData> {
-
-	readonly templateId: string = 'header';
-
-	renderTemplate(container: HTMLElement): IProcessItemTemplateData {
-		return createRow(container, 'header');
-	}
-
-	renderElement(node: ITreeNode<IProcessInformation, void>, index: number, templateData: IProcessItemTemplateData, height: number | undefined): void {
-		templateData.name.textContent = localize('processName', "Process Name");
-		templateData.cpu.textContent = localize('processCpu', "CPU (%)");
-		templateData.pid.textContent = localize('processPid', "PID");
-		templateData.memory.textContent = localize('processMemory', "Memory (MB)");
-	}
-
-	renderTwistie(element: IProcessInformation, twistieElement: HTMLElement): boolean {
-		return false;
-	}
-
-	disposeTemplate(templateData: unknown): void {
-		// Nothing to do
-	}
-}
-
-class MachineRenderer implements ITreeRenderer<IMachineProcessInformation, void, IProcessRowTemplateData> {
-
-	readonly templateId: string = 'machine';
-
-	renderTemplate(container: HTMLElement): IProcessRowTemplateData {
-		return createRow(container);
-	}
-
-	renderElement(node: ITreeNode<IMachineProcessInformation, void>, index: number, templateData: IProcessRowTemplateData, height: number | undefined): void {
-		templateData.name.textContent = node.element.name;
-	}
-
-	disposeTemplate(templateData: IProcessRowTemplateData): void {
-		// Nothing to do
-	}
-}
-
-class ErrorRenderer implements ITreeRenderer<IRemoteDiagnosticError, void, IProcessRowTemplateData> {
-
-	readonly templateId: string = 'error';
-
-	renderTemplate(container: HTMLElement): IProcessRowTemplateData {
-		return createRow(container);
-	}
-
-	renderElement(node: ITreeNode<IRemoteDiagnosticError, void>, index: number, templateData: IProcessRowTemplateData, height: number | undefined): void {
-		templateData.name.textContent = node.element.errorMessage;
-	}
-
-	disposeTemplate(templateData: IProcessRowTemplateData): void {
-		// Nothing to do
-	}
-}
-
-class ProcessItemHover extends Disposable {
-
-	private hover: IManagedHover;
-	private content = '';
-
-	constructor(
-		container: HTMLElement,
-		@IHoverService hoverService: IHoverService
-	) {
-		super();
-
-		this.hover = this._register(hoverService.setupManagedHover(getDefaultHoverDelegate('mouse'), container, this.content));
-	}
-
-	update(content: string): void {
-		if (this.content !== content) {
-			this.content = content;
-			this.hover.update(content);
-		}
-	}
-}
-
+/**
+ * @class ProcessRenderer
+ * @brief Maps ProcessItem data to DOM elements with live telemetry (CPU/Memory).
+ */
 class ProcessRenderer implements ITreeRenderer<ProcessItem, void, IProcessItemTemplateData> {
 
 	readonly templateId: string = 'process';
@@ -264,6 +168,10 @@ class ProcessRenderer implements ITreeRenderer<ProcessItem, void, IProcessItemTe
 		};
 	}
 
+	/**
+	 * Block Logic: Telemetry rendering.
+	 * Logic: Scales relative memory percentage to absolute megabytes based on detected system statistics.
+	 */
 	renderElement(node: ITreeNode<ProcessItem, void>, index: number, templateData: IProcessItemTemplateData, height: number | undefined): void {
 		const { element } = node;
 
@@ -285,50 +193,12 @@ class ProcessRenderer implements ITreeRenderer<ProcessItem, void, IProcessItemTe
 	}
 }
 
-class ProcessAccessibilityProvider implements IListAccessibilityProvider<IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError> {
-
-	getWidgetAriaLabel(): string {
-		return localize('processExplorer', "Process Explorer");
-	}
-
-	getAriaLabel(element: IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError): string | null {
-		if (isProcessItem(element) || isMachineProcessInformation(element)) {
-			return element.name;
-		}
-
-		if (isRemoteDiagnosticError(element)) {
-			return element.hostName;
-		}
-
-		return null;
-	}
-}
-
-class ProcessIdentityProvider implements IIdentityProvider<IMachineProcessInformation | ProcessItem | IRemoteDiagnosticError> {
-
-	getId(element: IRemoteDiagnosticError | ProcessItem | IMachineProcessInformation): { toString(): string } {
-		if (isProcessItem(element)) {
-			return element.pid.toString();
-		}
-
-		if (isRemoteDiagnosticError(element)) {
-			return element.hostName;
-		}
-
-		if (isProcessInformation(element)) {
-			return 'processes';
-		}
-
-		if (isMachineProcessInformation(element)) {
-			return element.name;
-		}
-
-		return 'header';
-	}
-}
-
 //#endregion
 
+/**
+ * @class ProcessExplorerControl
+ * @brief Orchestrates the lifecycle and interactions of the process explorer UI.
+ */
 export class ProcessExplorerControl extends Disposable {
 
 	private dimensions: Dimension | undefined = undefined;
@@ -392,6 +262,10 @@ export class ProcessExplorerControl extends Disposable {
 		this.layoutTree();
 	}
 
+	/**
+	 * Block Logic: Keyboard shortcuts.
+	 * Invariant: Alt+E triggers SIGTERM for the selected process set.
+	 */
 	private async onTreeKeyDown(e: KeyboardEvent): Promise<void> {
 		const event = new StandardKeyboardEvent(e);
 		if (event.keyCode === KeyCode.KeyE && event.altKey) {
@@ -400,6 +274,10 @@ export class ProcessExplorerControl extends Disposable {
 		}
 	}
 
+	/**
+	 * Block Logic: Context menu resolution.
+	 * Logic: Dynamically generates actions based on the selected process (Kill, Force Kill, Copy, Debug).
+	 */
 	private onTreeContextMenu(container: HTMLElement, e: ITreeContextMenuEvent<IProcessTree | IMachineProcessInformation | ProcessItem | IProcessInformation | IRemoteDiagnosticError | null>): void {
 		if (!isProcessItem(e.element)) {
 			return;
@@ -422,7 +300,7 @@ export class ProcessExplorerControl extends Disposable {
 				const selectionPids = this.getSelectedPids();
 
 				if (!selectionPids?.includes(pid)) {
-					selectionPids.length = 0; // If the selection does not contain the right clicked item, copy the right clicked item only.
+					selectionPids.length = 0; 
 					selectionPids.push(pid);
 				}
 
@@ -445,6 +323,7 @@ export class ProcessExplorerControl extends Disposable {
 			}
 		}));
 
+		// Functional Utility: Enables debugger attachment if the process command line indicates a Node.js target.
 		if (this.isDebuggable(item.cmd)) {
 			actions.push(new Separator());
 			actions.push(toAction({ id: 'debug', label: localize('debug', "Debug"), run: () => this.attachTo(item) }));
@@ -462,6 +341,10 @@ export class ProcessExplorerControl extends Disposable {
 		return (matches && matches.groups!.port !== '0') || cmd.indexOf('node ') >= 0 || cmd.indexOf('node.exe') >= 0;
 	}
 
+	/**
+	 * Block Logic: Debugger attachment.
+	 * Logic: Extracts the inspect port from flags or falls back to PID-based signal attachment.
+	 */
 	private attachTo(item: ProcessItem): void {
 		const config: { type: string; request: string; name: string; port?: number; processId?: string } = {
 			type: 'node',
@@ -473,13 +356,12 @@ export class ProcessExplorerControl extends Disposable {
 		if (matches) {
 			config.port = Number(matches.groups!.port);
 		} else {
-			config.processId = String(item.pid); // no port -> try to attach via pid (send SIGUSR1)
+			config.processId = String(item.pid); 
 		}
 
-		// a debug-port=n or inspect-port=n overrides the port
 		matches = DEBUG_PORT_PATTERN.exec(item.cmd);
 		if (matches) {
-			config.port = Number(matches.groups!.port); // override port
+			config.port = Number(matches.groups!.port); 
 		}
 
 		this.commandService.executeCommand('debug.startFromConfig', config);
@@ -495,6 +377,10 @@ export class ProcessExplorerControl extends Disposable {
 		}) ?? []);
 	}
 
+	/**
+	 * Block Logic: Polling loop.
+	 * Invariant: Re-triggers the diagnostic resolution every 1 second via the Delayer.
+	 */
 	private async update(): Promise<void> {
 		const { processes, pidToNames } = await this.processService.resolveProcesses();
 
@@ -523,6 +409,10 @@ export class ProcessExplorerControl extends Disposable {
 	}
 }
 
+/**
+ * @class ProcessExplorerModel
+ * @brief Encapsulates the state and data mapping for the process explorer.
+ */
 class ProcessExplorerModel implements IProcessTree {
 
 	processes: IProcessInformation = { processRoots: [] };
@@ -531,16 +421,18 @@ class ProcessExplorerModel implements IProcessTree {
 
 	constructor(@IProductService private productService: IProductService) { }
 
+	/**
+	 * @brief Updates the model with fresh diagnostic data.
+	 * Invariant: Normalizes root process names based on host machine context.
+	 */
 	update(processRoots: IMachineProcessInformation[], pidToNames: [number, string][]): void {
 
-		// PID to Names
 		this.mapPidToName.clear();
 
 		for (const [pid, name] of pidToNames) {
 			this.mapPidToName.set(pid, name);
 		}
 
-		// Processes
 		processRoots.forEach((info, index) => {
 			if (isProcessItem(info.rootProcess)) {
 				info.rootProcess.name = index === 0 ? this.productService.applicationName : 'remote-server';

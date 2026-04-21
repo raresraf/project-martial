@@ -1,3 +1,5 @@
+// Package component kubelet.go: Delivers robust system orchestration and data processing.
+// Intent: Scalable service handling, leveraging efficient concurrency patterns.
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -23,6 +25,7 @@ import (
 
 // NewKubelet creates a new hyperkube Server object that includes the
 // description and flags.
+// Execution Pre-Condition: Arguments meet system contract. Invariant: Validated state emitted on return.
 func NewKubelet() *Server {
 	s := options.NewKubeletServer()
 	hks := Server{

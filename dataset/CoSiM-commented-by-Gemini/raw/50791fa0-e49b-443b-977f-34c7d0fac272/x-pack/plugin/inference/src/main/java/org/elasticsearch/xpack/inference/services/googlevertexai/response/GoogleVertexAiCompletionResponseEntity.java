@@ -5,6 +5,12 @@
  * 2.0.
  */
 
+/**
+ * MODULE: GoogleVertexAiCompletionResponseEntity
+ * 
+ * Maps external Google Vertex AI HTTP responses to internal InferenceServiceResults,
+ * utilizing streaming chunks and common model abstraction paradigms.
+ */
 package org.elasticsearch.xpack.inference.services.googlevertexai.response;
 
 import org.elasticsearch.inference.InferenceServiceResults;

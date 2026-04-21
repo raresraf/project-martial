@@ -1,3 +1,10 @@
+/**
+ * @raw/9020c670-79a4-462c-bc71-13e0071c8621/server/src/main/java/org/elasticsearch/search/rank/rerank/RerankingRankFeaturePhaseRankShardContext.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -51,18 +58,38 @@ public class RerankingRankFeaturePhaseRankShardContext extends RankFeaturePhaseR
         try {
             RankFeatureDoc[] rankFeatureDocs = new RankFeatureDoc[hits.getHits().length];
             int docIndex = 0;
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int i = 0; i < hits.getHits().length; i++) {
                 rankFeatureDocs[i] = new RankFeatureDoc(hits.getHits()[i].docId(), hits.getHits()[i].getScore(), shardId);
                 SearchHit hit = hits.getHits()[i];
                 DocumentField docField = hit.field(field);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (docField != null && snippets == null) {
                     rankFeatureDocs[i].featureData(List.of(docField.getValue().toString()));
                 }
                 Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (highlightFields != null) {
+                    /**
+                     * Block Logic: Conditional evaluation for divergent control flow.
+                     * Invariant: Taken branch maintains control flow invariants.
+                     */
                     if (highlightFields.containsKey(field)) {
                         List<String> snippets = Arrays.stream(highlightFields.get(field).fragments()).map(Text::string).toList();
                         List<Integer> docIndices = new ArrayList<>();
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (String s : snippets) {
                             docIndices.add(docIndex);
                         }

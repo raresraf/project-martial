@@ -1,93 +1,78 @@
+/**
+ * @662cf250-db14-4761-b30d-678fa03cf1ab/solver_neopt.c
+ * @brief Baseline implementation of a matrix expression solver.
+ * Functional Utility: Computes Result = (A * B) * B^T + (A^T * A) using basic 
+ * iterative triple-nested loops.
+ * Domain: HPC Numerical Baselines.
+ */
 
 #include "utils.h"
+#include <string.h>
+#include <stdlib.h>
 
 
-
+/**
+ * @brief Naive matrix solver kernel.
+ * Logic: Implements the target matrix expression using standard row-column dot products.
+ */
 double* my_solver(int N, double *A, double* B) {
 	
-	double *AB;
-	double *ABB_t;
-	double *A_tA;
-	double *Res;
-	double *A_t;
-	double *B_t;
+	double *AB = (double*)malloc(N * N * sizeof(double));
+	double *ABBt = (double*)malloc(N * N * sizeof(double));
+	double *AtA = (double*)malloc(N * N * sizeof(double));
+	double *Res = (double*)malloc(N * N * sizeof(double));
 	int i, j, k;
-	double suma;
 
-	AB = malloc(N * N * sizeof(*AB));
-	if(NULL == AB)
-		exit(EXIT_FAILURE);
-
-	ABB_t = malloc(N * N * sizeof(*ABB_t));	
-	if(NULL == ABB_t)
-		exit(EXIT_FAILURE);
-
-	A_tA = malloc(N * N * sizeof(*A_tA));
-	if(NULL == A_tA)
-		exit(EXIT_FAILURE);
-
-	A_t = malloc(N * N * sizeof(*A_t));
-	if(NULL == A_t)
-		exit(EXIT_FAILURE);
-
-	B_t = malloc(N * N * sizeof(*B_t));
-	if(NULL == B_t)
-		exit(EXIT_FAILURE);
-
-	Res = malloc(N * N * sizeof(*Res));
-	if(NULL == Res)
-		exit(EXIT_FAILURE);
-
-	for(i = 0; i < N; i++)
-		for(j = 0; j < N; j++)
-			B_t[i * N + j] = B[j * N + i];
-
-	
-
-	for (i = 0; i < N; i++)
-		for (j = 0; j < N; j++){
-			suma = 0;
-			for (k = i; k < N; k++)
-				suma += A[i * N + k] * B[k * N + j];
-			AB[i * N + j] = suma;
+	/**
+	 * Block Logic: Compute AB = A * B.
+	 * Invariant: Exploits A's upper triangular sparsity (k starts at i).
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			AB[i * N + j] = 0;
+			for (k = i; k < N; k++) {
+				AB[i * N + j] += A[i * N + k] * B[k * N + j];
+			}
 		}
+	}
 
-	
-
-	for (i = 0; i < N; i++)
-		for (j = 0; j < N; j++){
-			suma = 0;
-			for (k = 0; k < N; k++)
-				suma += AB[i * N + k] * B_t[k * N + j];
-			ABB_t[i * N + j] = suma;
+	/**
+	 * Block Logic: Compute ABBt = AB * B^T.
+	 * Logic: Accesses B with indices swapped to simulate transposition.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			ABBt[i * N + j] = 0;
+			for (k = 0; k < N; k++) {
+				ABBt[i * N + j] += AB[i * N + k] * B[j * N + k];
+			}
 		}
+	}
 
-	
-
-	for(i = 0; i < N; i++)
-		for(j = 0; j < N; j++)
-			A_t[i * N + j] = A[j * N + i];
-
-	for (i = 0; i < N; i++)
-		for (j = 0; j < N; j++){
-			suma = 0;
-			for (k = 0; k <= j; k++)
-				suma += A_t[i * N + k] * A[k * N + j];
-			A_tA[i * N + j] = suma;
+	/**
+	 * Block Logic: Compute AtA = A^T * A.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			AtA[i * N + j] = 0;
+			for (k = 0; k < N; k++) {
+				AtA[i * N + j] += A[k * N + i] * A[k * N + j];
+			}
 		}
+	}
 
-	
-
-	for (i = 0; i < N; i++)
-		for (j = 0; j < N; j++)
-			Res[i * N + j] = ABB_t[i * N + j] + A_tA[i * N + j];
-
+	/**
+	 * Block Logic: Result aggregation.
+	 */
+	for (i = 0; i < N; i++) {
+		for (j = 0; j < N; j++) {
+			Res[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
+		}
+	}
 
 	free(AB);
-	free(A_t);
-	free(B_t);
-	free(A_tA);
-	free(ABB_t);
+	free(ABBt);
+	free(AtA);
 
 	return Res;
 }

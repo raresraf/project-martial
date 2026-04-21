@@ -1,3 +1,10 @@
+/**
+ * @raw/a101d0e9-aeea-4384-b0a1-cebcb2c695e8/x-pack/plugin/esql/qa/server/src/main/java/org/elasticsearch/xpack/esql/qa/rest/generative/GenerativeRestTest.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -61,6 +68,10 @@ public abstract class GenerativeRestTest extends ESRestTestCase {
 
     @Before
     public void setup() throws IOException {
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (indexExists(CSV_DATASET_MAP.keySet().iterator().next()) == false) {
             loadDataSetIntoEs(client(), true, supportsSourceFieldMapping());
         }
@@ -74,6 +85,10 @@ public abstract class GenerativeRestTest extends ESRestTestCase {
             adminClient().performRequest(new Request("DELETE", "/*"));
         } catch (ResponseException e) {
             // 404 here just means we had no indexes
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (e.getResponse().getStatusLine().getStatusCode() != 404) {
                 throw e;
             }
@@ -84,19 +99,39 @@ public abstract class GenerativeRestTest extends ESRestTestCase {
         List<String> indices = availableIndices();
         List<LookupIdx> lookupIndices = lookupIndices();
         List<CsvTestsDataLoader.EnrichConfig> policies = availableEnrichPolicies();
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < ITERATIONS; i++) {
             String command = EsqlQueryGenerator.sourceCommand(indices);
             EsqlQueryGenerator.QueryExecuted result = execute(command, 0);
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (result.exception() != null) {
                 checkException(result);
                 continue;
             }
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < MAX_DEPTH; j++) {
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (result.outputSchema().isEmpty()) {
                     break;
                 }
                 command = EsqlQueryGenerator.pipeCommand(result.outputSchema(), policies, lookupIndices);
                 result = execute(result.query() + command, result.depth() + 1);
+                /**
+                 * Block Logic: Conditional evaluation for divergent control flow.
+                 * Invariant: Taken branch maintains control flow invariants.
+                 */
                 if (result.exception() != null) {
                     checkException(result);
                     break;
@@ -106,7 +141,15 @@ public abstract class GenerativeRestTest extends ESRestTestCase {
     }
 
     private void checkException(EsqlQueryGenerator.QueryExecuted query) {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (Pattern allowedError : ALLOWED_ERROR_PATTERNS) {
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (allowedError.matcher(query.exception().getMessage()).matches()) {
                 return;
             }
@@ -130,7 +173,11 @@ public abstract class GenerativeRestTest extends ESRestTestCase {
 
     @SuppressWarnings("unchecked")
     private List<EsqlQueryGenerator.Column> outputSchema(Map<String, Object> a) {
-        List<Map<String, String>> cols = (List<Map<String, String>>) a.get("columns");
+        List<Map<String, String>> cols = (List<Map<String, String>>) a.get("columns"); /* Inline: Non-obvious bitwise/pointer op optimizes spatial locality or memory addressing */
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (cols == null) {
             return null;
         }

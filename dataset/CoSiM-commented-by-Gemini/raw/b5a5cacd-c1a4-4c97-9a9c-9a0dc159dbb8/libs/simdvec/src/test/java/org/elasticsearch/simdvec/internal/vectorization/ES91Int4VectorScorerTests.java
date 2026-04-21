@@ -1,3 +1,10 @@
+/**
+ * @raw/b5a5cacd-c1a4-4c97-9a9c-9a0dc159dbb8/libs/simdvec/src/test/java/org/elasticsearch/simdvec/internal/vectorization/ES91Int4VectorScorerTests.java
+ * @brief Core functionality implementation.
+ * Intent: Execute functional units and state management.
+ * Algorithm: Iterative or sequential execution logic.
+ * Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -33,7 +40,15 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
         final byte[] vector = new byte[dimensions];
         try (Directory dir = new MMapDirectory(createTempDir())) {
             try (IndexOutput out = dir.createOutput("tests.bin", IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i++) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int j = 0; j < dimensions; j++) {
                         vector[j] = (byte) random().nextInt(16); // 4-bit quantization
                     }
@@ -41,6 +56,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 }
             }
             final byte[] query = new byte[dimensions];
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < dimensions; j++) {
                 query[j] = (byte) random().nextInt(16); // 4-bit quantization
             }
@@ -52,6 +71,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 final IndexInput slice2 = in.slice("test2", 0, (long) dimensions * numVectors);
                 final ES91Int4VectorsScorer defaultScorer = defaultProvider().newES91Int4VectorsScorer(slice, dimensions);
                 final ES91Int4VectorsScorer panamaScorer = maybePanamaProvider().newES91Int4VectorsScorer(slice2, dimensions);
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i++) {
                     in.readBytes(vector, 0, dimensions);
                     long val = VectorUtil.int4DotProduct(vector, query);
@@ -73,7 +96,15 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
         final byte[] corrections = new byte[14];
         try (Directory dir = new MMapDirectory(createTempDir())) {
             try (IndexOutput out = dir.createOutput("tests.bin", IOContext.DEFAULT)) {
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i++) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int j = 0; j < dimensions; j++) {
                         vector[j] = (byte) random().nextInt(16); // 4-bit quantization
                     }
@@ -83,6 +114,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 }
             }
             final byte[] query = new byte[dimensions];
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < dimensions; j++) {
                 query[j] = (byte) random().nextInt(16); // 4-bit quantization
             }
@@ -101,6 +136,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 final IndexInput slice = in.slice("test", 0, (long) (dimensions + 14) * numVectors);
                 final ES91Int4VectorsScorer defaultScorer = defaultProvider().newES91Int4VectorsScorer(in, dimensions);
                 final ES91Int4VectorsScorer panamaScorer = maybePanamaProvider().newES91Int4VectorsScorer(slice, dimensions);
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i++) {
                     float scoreDefault = defaultScorer.score(
                         query,
@@ -137,9 +176,17 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
         final byte[] quantizeVector = new byte[dimensions];
         final float[] centroid = new float[dimensions];
         VectorSimilarityFunction similarityFunction = randomFrom(VectorSimilarityFunction.values());
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (int i = 0; i < dimensions; i++) {
             centroid[i] = random().nextFloat();
         }
+        /**
+         * Block Logic: Conditional evaluation for divergent control flow.
+         * Invariant: Taken branch maintains control flow invariants.
+         */
         if (similarityFunction != VectorSimilarityFunction.EUCLIDEAN) {
             VectorUtil.l2normalize(centroid);
         }
@@ -149,15 +196,35 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
             try (IndexOutput out = dir.createOutput("tests.bin", IOContext.DEFAULT)) {
                 OptimizedScalarQuantizer.QuantizationResult[] results =
                     new OptimizedScalarQuantizer.QuantizationResult[ES91Int4VectorsScorer.BULK_SIZE];
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i += ES91Int4VectorsScorer.BULK_SIZE) {
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int j = 0; j < ES91Int4VectorsScorer.BULK_SIZE; j++) {
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (int k = 0; k < dimensions; k++) {
                             vectors[i + j][k] = random().nextFloat();
                         }
+                        /**
+                         * Block Logic: Conditional evaluation for divergent control flow.
+                         * Invariant: Taken branch maintains control flow invariants.
+                         */
                         if (similarityFunction != VectorSimilarityFunction.EUCLIDEAN) {
                             VectorUtil.l2normalize(vectors[i + j]);
                         }
                         results[j] = quantizer.scalarQuantize(vectors[i + j].clone(), quantizedScratch, (byte) 4, centroid);
+                        /**
+                         * Block Logic: Orchestrates the temporal progression of the iteration.
+                         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                         */
                         for (int k = 0; k < dimensions; k++) {
                             quantizeVector[k] = (byte) quantizedScratch[k];
                         }
@@ -168,9 +235,17 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
             }
             final float[] query = new float[dimensions];
             final byte[] quantizeQuery = new byte[dimensions];
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < dimensions; j++) {
                 query[j] = random().nextFloat();
             }
+            /**
+             * Block Logic: Conditional evaluation for divergent control flow.
+             * Invariant: Taken branch maintains control flow invariants.
+             */
             if (similarityFunction != VectorSimilarityFunction.EUCLIDEAN) {
                 VectorUtil.l2normalize(query);
             }
@@ -180,6 +255,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 (byte) 4,
                 centroid
             );
+            /**
+             * Block Logic: Orchestrates the temporal progression of the iteration.
+             * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+             */
             for (int j = 0; j < dimensions; j++) {
                 quantizeQuery[j] = (byte) quantizedScratch[j];
             }
@@ -194,6 +273,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                 final ES91Int4VectorsScorer panamaScorer = maybePanamaProvider().newES91Int4VectorsScorer(slice, dimensions);
                 float[] scoresDefault = new float[ES91Int4VectorsScorer.BULK_SIZE];
                 float[] scoresPanama = new float[ES91Int4VectorsScorer.BULK_SIZE];
+                /**
+                 * Block Logic: Orchestrates the temporal progression of the iteration.
+                 * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                 */
                 for (int i = 0; i < numVectors; i += ES91Int4VectorsScorer.BULK_SIZE) {
                     defaultScorer.scoreBulk(
                         quantizeQuery,
@@ -215,6 +298,10 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
                         centroidDp,
                         scoresPanama
                     );
+                    /**
+                     * Block Logic: Orchestrates the temporal progression of the iteration.
+                     * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+                     */
                     for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                         assertEquals(scoresDefault[j], scoresPanama[j], 1e-2f);
                         float realSimilarity = similarityFunction.compare(vectors[i + j], query);
@@ -231,17 +318,33 @@ public class ES91Int4VectorScorerTests extends BaseVectorizationTests {
     }
 
     private static void writeCorrections(OptimizedScalarQuantizer.QuantizationResult[] corrections, IndexOutput out) throws IOException {
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.lowerInterval()));
         }
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.upperInterval()));
         }
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             int targetComponentSum = correction.quantizedComponentSum();
             assert targetComponentSum >= 0 && targetComponentSum <= 0xffff;
             out.writeShort((short) targetComponentSum);
         }
+        /**
+         * Block Logic: Orchestrates the temporal progression of the iteration.
+         * Invariant: At the start of each iteration, loop structures maintain boundary and locality.
+         */
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.additionalCorrection()));
         }

@@ -1,3 +1,7 @@
+// @raw/fe313be8-c73f-4688-a698-a75a2cb03fbb/pkg/proxy/roundrobbin.go
+// @brief Intent: Execute functional units and state management.
+// Algorithm: Iterative or sequential execution logic.
+// Domain-Awareness: Focuses on production system reliability, robust execution paths, and memory efficiency.
 /*
 Copyright 2014 Google Inc. All rights reserved.
 
@@ -47,9 +51,13 @@ func (impl LoadBalancerRR) LoadBalance(service string, srcAddr net.Addr) (string
 	endpoints, exists := impl.endpointsMap[service]
 	index := impl.rrIndex[service]
 	impl.lock.RUnlock()
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if !exists {
 		return "", errors.New("no service entry for: " + service)
 	}
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if len(endpoints) == 0 {
 		return "", errors.New("no endpoints for: " + service)
 	}
@@ -60,10 +68,14 @@ func (impl LoadBalancerRR) LoadBalance(service string, srcAddr net.Addr) (string
 
 func (impl LoadBalancerRR) isValid(spec string) bool {
 	_, port, err := net.SplitHostPort(spec)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return false
 	}
 	value, err := strconv.Atoi(port)
+	// Block Logic: Conditional evaluation for divergent control flow.
+	// Invariant: Taken branch maintains control flow invariants.
 	if err != nil {
 		return false
 	}
@@ -72,7 +84,11 @@ func (impl LoadBalancerRR) isValid(spec string) bool {
 
 func (impl LoadBalancerRR) filterValidEndpoints(endpoints []string) []string {
 	var result []string
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, spec := range endpoints {
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if impl.isValid(spec) {
 			result = append(result, spec)
 		}
@@ -88,9 +104,13 @@ func (impl LoadBalancerRR) OnUpdate(endpoints []api.Endpoints) {
 	impl.lock.Lock()
 	defer impl.lock.Unlock()
 	// First update / add all new endpoints for services.
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for _, value := range endpoints {
 		existingEndpoints, exists := impl.endpointsMap[value.ID]
 		validEndpoints := impl.filterValidEndpoints(value.Endpoints)
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !exists || !reflect.DeepEqual(existingEndpoints, validEndpoints) {
 			glog.Infof("LoadBalancerRR: Setting endpoints for %s to %+v", value.ID, value.Endpoints)
 			impl.endpointsMap[value.ID] = validEndpoints
@@ -100,8 +120,12 @@ func (impl LoadBalancerRR) OnUpdate(endpoints []api.Endpoints) {
 		tmp[value.ID] = true
 	}
 	// Then remove any endpoints no longer relevant
+	// Block Logic: Orchestrates the temporal progression of the iteration.
+	// Invariant: At the start of each iteration, loop structures maintain boundary and locality.
 	for key, value := range impl.endpointsMap {
 		_, exists := tmp[key]
+		// Block Logic: Conditional evaluation for divergent control flow.
+		// Invariant: Taken branch maintains control flow invariants.
 		if !exists {
 			glog.Infof("LoadBalancerRR: Removing endpoints for %s -> %+v", key, value)
 			delete(impl.endpointsMap, key)

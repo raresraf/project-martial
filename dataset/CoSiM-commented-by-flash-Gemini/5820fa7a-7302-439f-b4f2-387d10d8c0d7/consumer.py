@@ -1,14 +1,35 @@
 
+"""
+@file consumer.py
+@brief Concurrent marketplace simulation implementing the Producer-Consumer pattern.
+
+Functional Intent: Provides a thread-safe environment for multiple Producers to 
+publish products and Consumers to acquire them via shopping carts. Utilizes 
+binary semaphores for mutual exclusion on shared resources and implements 
+polling-based retry logic for handling stock depletion or quota limits.
+
+Domain: Production Systems, Concurrency and Synchronization.
+"""
 
 
 from threading import Thread
 import time
 
 class Consumer(Thread):
+    """
+    @brief Represents a consumer entity that interacts with the marketplace in its own thread.
     
+    Logic: Sequentially processes assigned carts, attempting to add or remove 
+    products until all target quantities are achieved.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        @brief Initializes the consumer with specific shopping goals.
+        @param carts List of carts containing operation sequences (add/remove).
+        @param marketplace Reference to the central Marketplace instance.
+        @param retry_wait_time Interval to wait when a requested item is unavailable.
+        """
         Thread.__init__(self, **kwargs)
 
         self.carts = carts
@@ -16,7 +37,9 @@ class Consumer(Thread):
         self.retry_wait_time = retry_wait_time
 
     def print_order(self, products):
-        
+        """
+        @brief Aggregates and prints the final purchase receipt to standard output.
+        """
         output = ""
         for product in products:
             output += self.name + ' bought ' + str(product) + '\n'
@@ -24,22 +47,32 @@ class Consumer(Thread):
         print(output)
 
     def run(self):
+        """
+        @brief Core execution loop for the consumer thread.
+        
+        Algorithm: Iterative cart processing with nested retry polling.
+        """
         for cart in self.carts:
+            # Block Logic: Registration of a new shopping session.
             cart_id = self.marketplace.new_cart()
             for item in cart:
                 action = item['type']
                 product = item['product']
                 quantity = item['quantity']
 
-
+                # Block Logic: Sequential item processing loop.
                 for _ in range(quantity):
                     if action == 'add':
                         ret_value = self.marketplace.add_to_cart(cart_id, product)
+                        
+                        # Invariant: Continues polling until the marketplace grants the reservation.
                         while not ret_value:
                             time.sleep(self.retry_wait_time)
                             ret_value = self.marketplace.add_to_cart(cart_id, product)
                     elif action == 'remove':
                         self.marketplace.remove_from_cart(cart_id, product)
+            
+            # Functional Intent: Commits the cart and retrieves final items for logging.
             products = self.marketplace.place_order(cart_id)
             self.print_order(products)
 
@@ -51,10 +84,13 @@ from tema.product import Tea, Coffee
 
 
 class Booth:
-    
+    """
+    @brief State container for an individual producer's inventory and quota.
+    """
     def __init__(self, producer):
         self.producer = producer
         self.num_products = 0
+        # Synchronization: Mutex for protecting producer-local occupancy count.
         self.num_products_mutex = Semaphore(1)
 
     def __eq__(self, other):
@@ -64,7 +100,9 @@ class Booth:
 
 
 class Cart:
-    
+    """
+    @brief Container for items reserved by a consumer during a shopping session.
+    """
     def __init__(self, cart_id):
         self.cart_id = cart_id
         self.products = []
@@ -76,9 +114,18 @@ class Cart:
 
 
 class Marketplace:
+    """
+    @brief Central broker responsible for thread-safe item publishing and transactions.
+    
+    Functional Utility: Manages global inventory, producer registration, and 
+    consumer carts. Uses multiple semaphores to coordinate access to shared 
+    data structures and prevent race conditions during parallel execution.
+    """
     
     def __init__(self, queue_size_per_producer):
-        
+        """
+        @brief Initializes the marketplace with capacity and logging configuration.
+        """
         handler = logging.handlers.RotatingFileHandler(filename='marketplace.log',
                                                        mode='a',
                                                        maxBytes=10000,
@@ -94,23 +141,27 @@ class Marketplace:
             format='%(asctime)s %(levelname)-8s %(message)s',
             level=logging.ERROR,
             datefmt='%d-%m-%Y %H:%M:%S')
+            
         self.queue_size_per_producer = queue_size_per_producer
         self.producers = {}
         self.num_producers = 0
         self.carts = {}
         self.num_carts = 0
-        self.products = []
+        self.products = [] # Logic: Global list of available items and their origin IDs.
+        
+        # Synchronization: Binary semaphores acting as mutexes for distinct shared resources.
         self.shopping_mutex = Semaphore(1)
         self.carts_mutex = Semaphore(1)
         self.register_mutex = Semaphore(1)
 
     def register_producer(self):
-        
+        """
+        @brief Onboards a new producer and assigns a unique ID.
+        """
         logging.info('A producer wants to register')
 
-        
+        # Synchronization: Critical section for producer count and map update.
         self.register_mutex.acquire()
-        
         producer_id = self.num_producers
         self.producers[producer_id] = Booth(producer_id)
         self.num_producers += 1
@@ -120,38 +171,42 @@ class Marketplace:
         return str(producer_id)
 
     def publish(self, producer_id, product):
-        
+        """
+        @brief Adds a product to the shop if the producer's quota is not exceeded.
+        """
         logging.info('Producer ' + producer_id + ' wants to publish product: ' + str(product))
 
-        
         pid = int(producer_id)
         booth = self.producers[pid]
+        
+        # Synchronization: Check quota under the producer's local mutex.
         booth.num_products_mutex.acquire()
         if booth.num_products < self.queue_size_per_producer:
             
+            # Synchronization: Global shopping mutex for updating the shared inventory list.
             self.shopping_mutex.acquire()
-            
             self.products.append((product, pid))
             booth.num_products += 1
             self.shopping_mutex.release()
+            
             booth.num_products_mutex.release()
             logging.info('Producer ' + producer_id
                          + ' published product ' + str(product) + ' successfully')
             return True
 
-        
         logging.error('Producer ' + producer_id
                       + ' could not publish product, because its queue is full')
         booth.num_products_mutex.release()
         return False
 
     def new_cart(self):
-        
+        """
+        @brief Allocates a new shopping cart session.
+        """
         logging.info('A consumer wants a new cart')
 
-        
+        # Synchronization: Mutex for thread-safe cart ID generation.
         self.carts_mutex.acquire()
-        
         cart_id = self.num_carts
         self.carts[cart_id] = Cart(cart_id)
         self.num_carts += 1
@@ -161,38 +216,43 @@ class Marketplace:
         return cart_id
 
     def add_to_cart(self, cart_id, product):
+        """
+        @brief Transfers a product from the global inventory to a specific cart.
         
+        Algorithm: First-match linear search.
+        Logic: Atomically removes the item from the global pool if found.
+        """
         logging.info('Consumer with cart id ' + str(cart_id)
                      + ' wants to add to cart the product ' + str(product))
 
-        
         self.shopping_mutex.acquire()
         for i in range(len(self.products)):
             if product == self.products[i][0]:
-                
+                # Logic: Successfully claimed an available product.
                 self.carts[cart_id].products.append(self.products[i])
+                # Invariant: Product must be removed from global pool to prevent over-selling.
                 self.products = self.products[:i] + self.products[i+1:]
                 self.shopping_mutex.release()
                 logging.info('Consumer with cart id ' + str(cart_id)
                              + ' added to cart the product ' + str(product) + ' successfully')
                 return True
 
-        
         self.shopping_mutex.release()
         logging.error('Consumer with cart id ' + str(cart_id)
                       + ' could not add to cart the product ' + str(product))
         return False
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        @brief Returns an item from a cart back to the global marketplace inventory.
+        """
         logging.info('Consumer with cart id ' + str(cart_id)
                      + ' wants to remove the product ' + str(product) + ' from the cart')
 
-        
         self.shopping_mutex.acquire()
         for i in range(len(self.carts[cart_id].products)):
             if product == self.carts[cart_id].products[i][0]:
-                
+                # Logic: Move item from cart back to global pool.
                 self.products.append(self.carts[cart_id].products[i])
                 self.carts[cart_id].products = self.carts[cart_id].products[:i] \
                                                + self.carts[cart_id].products[i+1:]
@@ -203,22 +263,24 @@ class Marketplace:
                 break
 
     def place_order(self, cart_id):
-        
+        """
+        @brief Finalizes the transaction, releasing producer quotas and clearing session state.
+        """
         logging.info('Consumer with cart id ' + str(cart_id) + ' wants to place the order')
 
         cart = self.carts[cart_id].products
         products = []
+        # Block Logic: Final checkout pass.
         for (product, producer_id) in cart:
-            
             products.append(product)
             
-            
+            # Synchronization: Decrements the producer's active item count under local mutex.
             booth = self.producers[producer_id]
             booth.num_products_mutex.acquire()
             booth.num_products -= 1
             booth.num_products_mutex.release()
 
-        
+        # Finalization: Purges the cart record after successful checkout.
         del self.carts[cart_id]
 
         logging.info('Consumer with cart id ' + str(cart_id) + ' placed the order successfully')
@@ -226,12 +288,13 @@ class Marketplace:
 
 
 class TestMarketplace(unittest.TestCase):
-    
+    """
+    @brief Unit tests for validating Marketplace synchronization and data integrity.
+    """
     def setUp(self) -> None:
         self.marketplace = Marketplace(3)
 
     def test_register_producer(self):
-        
         self.assertEqual(self.marketplace.register_producer(), '0')
         self.assertEqual(self.marketplace.register_producer(), '1')
         self.assertEqual(self.marketplace.register_producer(), '2')
@@ -239,7 +302,6 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.producers, {0: Booth(0), 1: Booth(1), 2: Booth(2)})
 
     def test_publish(self):
-        
         p_1 = Tea(name='Linden', type='Herbal', price=9)
         pid = self.marketplace.register_producer()
         products = [(p_1, int(pid)), (p_1, int(pid)), (p_1, int(pid))]
@@ -252,7 +314,6 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.products, products)
 
     def test_new_cart(self):
-        
         self.assertEqual(self.marketplace.new_cart(), 0)
         self.assertEqual(self.marketplace.new_cart(), 1)
         self.assertEqual(self.marketplace.new_cart(), 2)
@@ -260,7 +321,6 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.carts, {0: Cart(0), 1: Cart(1), 2: Cart(2)})
 
     def test_add_to_cart(self):
-        
         p_1 = Tea(name='Linden', type='Herbal', price=9)
         p_2 = Coffee(name='Indonezia', acidity='5.05', roast_level='MEDIUM', price=1)
 
@@ -277,7 +337,6 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.products, [])
 
     def test_remove_from_cart(self):
-        
         p_1 = Tea(name='Linden', type='Herbal', price=9)
         p_2 = Coffee(name='Indonezia', acidity='5.05', roast_level='MEDIUM', price=1)
 
@@ -299,7 +358,6 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.products, [(p_1, int(pid))])
 
     def test_place_order(self):
-        
         p_1 = Tea(name='Linden', type='Herbal', price=9)
         p_2 = Coffee(name='Indonezia', acidity='5.05', roast_level='MEDIUM', price=1)
 
@@ -322,10 +380,14 @@ from threading import Thread
 import time
 
 class Producer(Thread):
-    
+    """
+    @brief Represents a producer entity that generates items for the marketplace.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        @brief Initializes the producer with a product catalog and manufacturing info.
+        """
         Thread.__init__(self, **kwargs)
 
         self.products = products
@@ -333,19 +395,29 @@ class Producer(Thread):
         self.republish_wait_time = republish_wait_time
 
     def run(self):
+        """
+        @brief Core production loop.
+        
+        Logic: Registers its ID, then continuously iterates through its catalog, 
+        publishing items according to their individual production times.
+        """
         pid = self.marketplace.register_producer()
         while True:
             for item in self.products:
                 product = item[0]
                 quantity = item[1]
                 waiting = item[2]
+                
+                # Block Logic: Batch manufacturing loop.
                 for _ in range(quantity):
-
-
                     ret_value = self.marketplace.publish(pid, product)
+                    
+                    # Invariant: Continues polling until the marketplace grants the quota for publishing.
                     while not ret_value:
                         time.sleep(self.republish_wait_time)
                         ret_value = self.marketplace.publish(pid, product)
+                    
+                    # Optimization: Simulate device manufacturing latency.
                     time.sleep(waiting)
 
 
@@ -354,7 +426,9 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    @brief Base immutable representation of a market product.
+    """
     name: str
     price: int
 
@@ -364,7 +438,9 @@ class Product:
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    @brief Specialized product type for tea.
+    """
     type: str
 
     def __eq__(self, other):
@@ -377,7 +453,9 @@ class Tea(Product):
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    @brief Specialized product type for coffee.
+    """
     acidity: str
     roast_level: str
 

@@ -2,6 +2,10 @@ import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ProgressBarMode } from '@angular/material/progress-bar';
+import {
+  LLM_DEFAULT_PROMPT, LLM_DEMO_LEFT, LLM_DEMO_RIGHT,
+  LLM_ANNOTATED_LEFT, LLM_ANNOTATED_RIGHT, computeAnnotationColors,
+} from './llm-data';
 
 export interface Tile {
   color: string[];
@@ -49,7 +53,9 @@ export class DiffComponent {
         }
       }
       reader.readAsBinaryString(file);
-      this.similarity = NaN
+      this.similarity = NaN;
+      this.llmIsAnnotated = false;
+      this.llmAnnotatedWithModel = '';
     }
   }
 
@@ -235,9 +241,324 @@ export class DiffComponent {
   SomethingEnabled() {
     return this.chosenAnalysis != ""
   }
+  selectedCommentExample = 'hello-world';
+
   CommentsEntry() {
+    this.selectedCommentExample = 'hello-world';
     this.mockInputFilesComments()
     this.chosenAnalysis = "comments"
+  }
+
+  loadCommentExample(id: string) {
+    this.selectedCommentExample = id;
+    const pairs: Record<string, [string, string]> = {
+      'hello-world': [
+        `#include <iostream>
+
+using namespace std;
+
+int main() {
+  cout << "Hello World!";
+  // If it's one original sentence, yes, it's plagiarism.
+  cout << "This is project Martial!";
+  // But what about longer comments, split with small typo?
+  cout << "One more log";
+  // The computer was born to
+  // solve problems that did not exist before.
+  // Again, if it's one original sentence, yes, it's plagiarism.
+  return 0;
+}
+`,
+        `#include <iostream>
+// The computer was created to
+// solve problems that did not exist.
+using namespace std;
+
+int main() {
+  // Welcome to Project Martial!
+  //
+  cout << "Hello World!";
+  // If it's one original sentence, yes, it's plagiarism.
+  cout << "This is project Martial!";
+  /* But
+  what
+  about */
+  cout << "Still going on..."
+  // longer
+  // comments
+  // split with small typoss?
+  cout << "One more log";
+
+  // Again, if it's one original sentence, yes, it's plagiarism.
+  return 0;
+}
+`,
+      ],
+      'go-kubernetes-96': [
+        `// Package validation_test tests Kubernetes object validation logic.
+// These tests ensure that invalid configurations are properly rejected.
+package validation_test
+
+import "testing"
+
+// TestValidateServicePort checks service port validation rules.
+// Valid ports must be in range [1, 65535].
+func TestValidateServicePort(t *testing.T) {
+	// Test boundary conditions for port numbers
+	cases := []struct {
+		port    int32
+		isValid bool
+	}{
+		{80, true},     // Standard HTTP port - valid
+		{0, false},     // Port 0 is reserved - invalid
+		{65535, true},  // Maximum valid port
+		{65536, false}, // Exceeds maximum - invalid
+	}
+	for _, c := range cases {
+		err := validatePort(c.port)
+		if (err == nil) != c.isValid {
+			t.Errorf("port %d: expected valid=%v", c.port, c.isValid)
+		}
+	}
+}
+
+// TestValidateLabel verifies that label keys follow Kubernetes naming rules.
+// Labels must consist of alphanumeric characters, dashes, underscores, or dots.
+func TestValidateLabel(t *testing.T) {
+	// Valid labels should pass without errors
+	validLabels := []string{"app", "my-app", "v1.2", "env_prod"}
+	for _, l := range validLabels {
+		if errs := validateLabelKey(l); len(errs) != 0 {
+			t.Errorf("expected %q to be valid, got %v", l, errs)
+		}
+	}
+	// Labels with illegal characters should fail validation
+	if errs := validateLabelKey("invalid/key"); len(errs) == 0 {
+		t.Error("expected invalid/key to fail validation")
+	}
+}
+`,
+        `// Package validation_test contains tests for Kubernetes API validation.
+// Covers edge cases and boundary conditions for field validators.
+package validation_test
+
+import "testing"
+
+// TestValidateContainerPort verifies container port validation.
+// Container ports follow the same rules: range [1, 65535].
+func TestValidateContainerPort(t *testing.T) {
+	// Define test scenarios covering valid and invalid ports
+	scenarios := []struct {
+		portNum int32
+		valid   bool
+	}{
+		{8080, true},    // Application port - valid
+		{-1, false},     // Negative port - invalid
+		{443, true},     // HTTPS port - valid
+		{99999, false},  // Port too large - invalid
+	}
+	for _, s := range scenarios {
+		result := validateContainerPort(s.portNum)
+		if (result == nil) != s.valid {
+			t.Errorf("port %d: wanted valid=%v", s.portNum, s.valid)
+		}
+	}
+}
+
+// TestValidateAnnotation checks annotation key and value constraints.
+// Annotation keys must be valid DNS subdomain names or simple identifiers.
+func TestValidateAnnotation(t *testing.T) {
+	// Annotation values can be any string, including empty
+	validAnnotations := map[string]string{
+		"description":              "a useful service",
+		"prometheus.io/scrape":     "true",
+		"kubectl.kubernetes.io/last-applied-configuration": "{}",
+	}
+	for k, v := range validAnnotations {
+		if errs := validateAnnotation(k, v); len(errs) != 0 {
+			t.Errorf("annotation %q=%q: unexpected errors %v", k, v, errs)
+		}
+	}
+}
+`,
+      ],
+      'cpp-codeforces-1595': [
+        `#include <bits/stdc++.h>
+using namespace std;
+
+// Lucky numbers contain only digits 4 and 7.
+// This function checks if a given number qualifies as lucky.
+bool isLucky(int n) {
+    // Repeatedly extract the last digit and verify it
+    while (n > 0) {
+        int d = n % 10;
+        // Only digits 4 and 7 are allowed in lucky numbers
+        if (d != 4 && d != 7) return false;
+        n /= 10;
+    }
+    return true;
+}
+
+// Count how many lucky numbers exist in range [1, n].
+// Uses brute force since lucky numbers are sparse.
+int countLucky(int n) {
+    int cnt = 0;
+    // Generate all lucky numbers up to n by treating 4/7 as binary digits
+    for (int i = 1; i <= n; i++) {
+        if (isLucky(i)) cnt++;
+    }
+    return cnt;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    // Read query count
+    int t;
+    cin >> t;
+    while (t--) {
+        int n;
+        cin >> n;
+        // Output count of lucky numbers up to n
+        cout << countLucky(n) << "\\n";
+    }
+    return 0;
+}
+`,
+        `#include <iostream>
+#include <string>
+using namespace std;
+
+// A number is "lucky" if all its digits are exactly 4 or 7.
+// Returns true if the number is lucky, false otherwise.
+bool lucky(const string& s) {
+    // Iterate through each character in the number
+    for (char c : s) {
+        // Any digit other than 4 or 7 makes the number non-lucky
+        if (c != '4' && c != '7') return false;
+    }
+    return true;
+}
+
+// Generate all lucky numbers with at most maxLen digits.
+// Recursively builds strings containing only 4s and 7s.
+void generate(string cur, int maxLen, vector<string>& res) {
+    if (!cur.empty()) res.push_back(cur);
+    // Base case: reached maximum length
+    if ((int)cur.size() == maxLen) return;
+    // Branch on adding digit 4 or digit 7
+    generate(cur + "4", maxLen, res);
+    generate(cur + "7", maxLen, res);
+}
+
+int main() {
+    // Pre-generate all lucky numbers up to 10 digits
+    vector<string> lucky_nums;
+    generate("", 10, lucky_nums);
+    int t;
+    cin >> t;
+    while (t--) {
+        string n;
+        cin >> n;
+        // Count generated lucky numbers that are <= n
+        int cnt = 0;
+        for (auto& l : lucky_nums) {
+            if (l.size() < n.size() || (l.size() == n.size() && l <= n)) cnt++;
+        }
+        // Print the result for this query
+        cout << cnt << "\\n";
+    }
+    return 0;
+}
+`,
+      ],
+      'java-elastic-2344': [
+        `package org.elasticsearch.xpack.ql.execution.search;
+
+/**
+ * Provides physical operation implementations for Elasticsearch queries.
+ * Maps logical query operations to their Elasticsearch-specific counterparts.
+ */
+public class EsPhysicalOperationProviders {
+
+    /**
+     * Creates a filter operation wrapping an Elasticsearch query.
+     * The filter is pushed down to the shard level for efficiency.
+     *
+     * @param filter the logical filter expression to translate
+     * @return a physical operation backed by an ES query
+     */
+    public PhysicalOperation filterOperation(Filter filter) {
+        // Translate the logical filter into an ES query builder
+        QueryBuilder qb = toQueryBuilder(filter.condition());
+        // Wrap the query in an executable plan node
+        return new EsQueryExec(filter.child(), qb);
+    }
+
+    /**
+     * Translates a logical sort order to an Elasticsearch SortBuilder.
+     * Null handling follows ANSI SQL semantics: nulls last for ASC order.
+     *
+     * @param order the logical ordering expression
+     * @return an ES SortBuilder configured with matching sort direction
+     */
+    private SortBuilder<?> toSort(Order order) {
+        // Map the logical direction to ES sort order enum
+        SortOrder esOrder = order.direction() == ASC ? SortOrder.ASC : SortOrder.DESC;
+        return SortBuilders.fieldSort(order.child().toString()).order(esOrder);
+    }
+}
+`,
+        `package org.elasticsearch.xpack.ql.util;
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+/**
+ * Unit tests for query utility functions and physical operation providers.
+ * Verifies correct translation of logical plans to Elasticsearch operations.
+ */
+public class UtilTests {
+
+    /**
+     * Tests that filterOperation correctly wraps a logical filter condition.
+     * The resulting physical operation should be an EsQueryExec node.
+     *
+     * @throws Exception if the translation fails unexpectedly
+     */
+    @Test
+    public void testFilterTranslation() throws Exception {
+        // Build a simple equality filter for testing
+        Filter filter = new Filter(source(), EMPTY, new Equals(source(), field, literal));
+        // Translate to an Elasticsearch physical operation
+        PhysicalOperation op = new EsPhysicalOperationProviders().filterOperation(filter);
+        // Verify the output is a properly constructed ES query node
+        assertNotNull("Physical operation should not be null", op);
+        assertEquals("Should produce an EsQueryExec node",
+            EsQueryExec.class, op.getClass());
+    }
+
+    /**
+     * Tests null handling in sort translation.
+     * Ascending order should produce SortOrder.ASC in the ES sort builder.
+     */
+    @Test
+    public void testSortTranslation() {
+        // Create an ascending order expression pointing to a field
+        Order asc = new Order(source(), field, ASC, LAST);
+        // Translate to ES sort and verify the direction is preserved
+        SortBuilder<?> sort = new EsPhysicalOperationProviders().toSort(asc);
+        assertEquals("Ascending order should map to SortOrder.ASC",
+            SortOrder.ASC, ((FieldSortBuilder) sort).order());
+    }
+}
+`,
+      ],
+    };
+    const [left, right] = pairs[id] ?? pairs['hello-world'];
+    this.inputFiles = [left, right];
+    this.setupTiles(Math.max(left.split(/\r?\n/).length, right.split(/\r?\n/).length));
+    this.similarity = NaN;
   }
   EnableComments() {
     return this.chosenAnalysis == "comments"
@@ -259,8 +580,67 @@ export class DiffComponent {
     return this.chosenAnalysis == "networkTrafficAnalysis"
   }
 
+  LlmAnnotateEntry() {
+    this.mockInputFilesLlmAnnotate();
+    this.chosenAnalysis = "llmAnnotate";
+  }
+  EnableLlmAnnotate() {
+    return this.chosenAnalysis === "llmAnnotate";
+  }
+  llmAnnotate() {
+    this.progress_bar_mode = "indeterminate";
+    const model = this.llmSelectedModel;
+    setTimeout(() => {
+      const al = LLM_ANNOTATED_LEFT[model] ?? LLM_ANNOTATED_LEFT['gemini-1.5-pro'];
+      const ar = LLM_ANNOTATED_RIGHT[model] ?? LLM_ANNOTATED_RIGHT['gemini-1.5-pro'];
+      const leftLines = al.split(/\r?\n/);
+      const rightLines = ar.split(/\r?\n/);
+      this.tiles[0].text = leftLines;
+      this.tiles[0].color = computeAnnotationColors(al);
+      this.tiles[1].text = rightLines;
+      this.tiles[1].color = computeAnnotationColors(ar);
+      this.llmIsAnnotated = true;
+      this.llmAnnotatedWithModel = this.llmModels.find(m => m.id === model)?.name ?? model;
+      this.progress_bar_mode = "determinate";
+    }, 2200);
+  }
+  resetLlmAnnotation() {
+    const leftLines = this.inputFiles[0].split(/\r?\n/);
+    const rightLines = this.inputFiles[1].split(/\r?\n/);
+    this.tiles[0].text = leftLines;
+    this.tiles[0].color = leftLines.map(() => '#FDFDFD');
+    this.tiles[1].text = rightLines;
+    this.tiles[1].color = rightLines.map(() => '#FDFDFD');
+    this.llmIsAnnotated = false;
+    this.llmAnnotatedWithModel = '';
+  }
+  onLlmModelChange() {
+    if (this.llmIsAnnotated) {
+      this.resetLlmAnnotation();
+    }
+  }
+  toggleLlmPrompt() {
+    this.llmPromptExpanded = !this.llmPromptExpanded;
+  }
+  resetLlmPrompt() {
+    this.llmSystemPrompt = LLM_DEFAULT_PROMPT;
+  }
+
   similarity: number = NaN;
   backendSelectedNgram: number;
+
+  llmModels = [
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+    { id: 'gpt-4o', name: 'GPT-4o' },
+    { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus' },
+  ];
+  llmSelectedModel = 'gemini-1.5-pro';
+  llmSystemPrompt = LLM_DEFAULT_PROMPT;
+  llmPromptExpanded = false;
+  llmIsAnnotated = false;
+  llmAnnotatedWithModel = '';
   UpdatedSimilarity() {
     return !isNaN(this.similarity)
   }
@@ -288,6 +668,10 @@ export class DiffComponent {
         this.networkTrafficAnalysis();
         break;
       }
+      case "llmAnnotate": {
+        this.llmAnnotate();
+        break;
+      }
       default: {
         console.log("unknown chosenAnalysis: %s", this.chosenAnalysis)
       }
@@ -308,46 +692,7 @@ export class DiffComponent {
     if (this.chosenAnalysis == "comments") {
       return
     }
-    this.inputFiles = [`#include <iostream>
-
-using namespace std;
-
-int main() {
-  cout << "Hello World!";
-  // If it's one original sentence, yes, it's plagiarism.
-  cout << "This is project Martial!";
-  // But what about longer comments, split with small typo?
-  cout << "One more log";
-  // The computer was born to
-  // solve problems that did not exist before.
-  // Again, if it's one original sentence, yes, it's plagiarism.
-  return 0;
-}
-`, `#include <iostream>
-// The computer was created to 
-// solve problems that did not exist.
-using namespace std;
-
-int main() {
-  // Welcome to Project Martial!
-  // 
-  cout << "Hello World!";
-  // If it's one original sentence, yes, it's plagiarism.
-  cout << "This is project Martial!";
-  /* But
-  what
-  about */
-  cout << "Still going on..."
-  // longer
-  // comments
-  // split with small typoss?
-  cout << "One more log";
-  
-  // Again, if it's one original sentence, yes, it's plagiarism.
-  return 0;
-}
-`]
-    this.setupTiles(Math.max(this.inputFiles[0].split(/\r?\n/).length, this.inputFiles[1].split(/\r?\n/).length))
+    this.loadCommentExample('hello-world');
   }
 
 
@@ -500,6 +845,19 @@ program_name     mysql
 mysql_native_password`,
     ]
     this.setupTiles(Math.max(this.inputFiles[0].split(/\r?\n/).length, this.inputFiles[1].split(/\r?\n/).length))
+  }
+
+  mockInputFilesLlmAnnotate() {
+    if (this.chosenAnalysis === "llmAnnotate") {
+      return;
+    }
+    this.inputFiles = [LLM_DEMO_LEFT, LLM_DEMO_RIGHT];
+    this.setupTiles(Math.max(
+      LLM_DEMO_LEFT.split(/\r?\n/).length,
+      LLM_DEMO_RIGHT.split(/\r?\n/).length,
+    ));
+    this.llmIsAnnotated = false;
+    this.llmAnnotatedWithModel = '';
   }
 }
 

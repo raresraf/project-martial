@@ -1,0 +1,33 @@
+.leaderboard-breadcrumb {
+  margin-top: 60px; padding: 8px 20px; background: #161616;
+  border-bottom: 1px solid #3C4043; font-size: 13px; color: #9AA0A6;
+  display: flex; align-items: center; gap: 6px;
+}
+.leaderboard-breadcrumb a { color: #4285F4; text-decoration: none; }
+.leaderboard-breadcrumb span.current { color: #DADCE0; }
+.leaderboard-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; color: #333; }
+.page-header h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; }
+.page-header .subtitle { font-size: 15px; color: #555; margin: 0 0 16px; }
+.dataset-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.meta-chip { background: #f1f3f4; border-radius: 16px; padding: 4px 12px; font-size: 12px; color: #444; }
+.meta-chip .label { font-weight: 600; color: #1a73e8; margin-right: 4px; }
+.dataset-link { font-size: 13px; color: #4285F4; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.section { margin-bottom: 40px; }
+.section h2 { font-size: 18px; font-weight: 600; margin: 16px 0 12px; border-bottom: 2px solid #4285F4; padding-bottom: 6px; }
+.table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid #e0e0e0; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+thead { background: #f8f9fa; }
+th { padding: 11px 14px; text-align: left; font-weight: 600; color: #444; border-bottom: 2px solid #e0e0e0; white-space: nowrap; }
+th .hint { display: block; font-size: 11px; font-weight: 400; color: #888; }
+td { padding: 9px 14px; border-bottom: 1px solid #f0f0f0; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f8f9fa; }
+tbody tr.best-row { background: #e6f4ea; font-weight: 600; }
+.rank-cell { font-weight: 700; color: #4285F4; }
+.model-cell { font-weight: 600; }
+.model-cell a { color: #1a73e8; text-decoration: none; }
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #e8f0fe; color: #1a73e8; }
+.f1-cell { font-weight: 700; color: #188038; }
+.best-dot { display: inline-block; width: 6px; height: 6px; background: #fbbc04; border-radius: 50%; margin-left: 4px; vertical-align: middle; }
+.submit-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px 24px; font-size: 14px; color: #444; line-height: 1.6; }
+.submit-box a { color: #1a73e8; }

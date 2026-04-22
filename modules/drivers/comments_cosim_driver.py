@@ -32,7 +32,7 @@ flags.DEFINE_string("output", "results_cosim/results.json", "Output file for the
 flags.DEFINE_integer("limit", 1000000, "Limit number of pairs to process")
 flags.DEFINE_integer("workers", 4, "Number of parallel worker processes")
 flags.DEFINE_bool("use_smaller_sample", False, "Use only a small sample for testing (e.g., 10 pairs from each)")
-flags.DEFINE_float("threshold", 0.5, "Similarity threshold for detection")
+flags.DEFINE_list("thresholds", None, "Similarity thresholds for detection (comma-separated). If unspecified, uses 0 to 1 in 0.01 increments.")
 flags.DEFINE_string("embeddings_cache_dir", "results_cosim/embeddings_cache", "Directory to cache USE embeddings")
 
 # Global results dictionary and its lock for thread-safe updates in the main process
@@ -211,7 +211,7 @@ def init_worker():
     from modules.comments import CommentsAnalysis
     worker_ca = CommentsAnalysis()
 
-def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, cache_dir):
+def process_single_pair(pair_id, pair_uuids, label, commented_dir, thresholds, cache_dir):
     """Processes a single pair of UUIDs. This runs in a worker process."""
     global worker_ca
     
@@ -232,10 +232,12 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
     
     print(f"[{time.strftime('%H:%M:%S')}] Pair {pair_id} has {len(seq1)} and {len(seq2)} comment sequences.")
     
-    coverage_sim_6 = 0.0
-    coverage_sim_3 = 0.0
-    coverage_sim_1 = 0.0
-    coverage_sim = 0.0
+    result_data = {
+        "pair_id": pair_id,
+        "uuids": pair_uuids,
+        "label": label,
+        "thresholds": {}
+    }
 
     if seq1 and seq2:
         # embeddings in seq are already numpy arrays from get_cached_embeddings
@@ -245,9 +247,6 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         arr2 = np.vstack(emb2)
         sim_matrix = cosine_similarity(arr1, arr2)
         
-        best_matches_A = np.max(sim_matrix, axis=1)
-        best_matches_B = np.max(sim_matrix, axis=0)
-
         # To calculate coverage, we need original findings counts and line numbers
         findings1 = get_all_comments_for_uuid(u1, commented_dir)
         findings2 = get_all_comments_for_uuid(u2, commented_dir)
@@ -255,93 +254,68 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         from modules.comments_helpers import generate_comm_sequences
         indices_seq1_6 = generate_comm_sequences(range(len(findings1)), 6)
         indices_seq2_6 = generate_comm_sequences(range(len(findings2)), 6)
-        
-        # Track coverage for each line individually to compute the union
-        matched_indices_1 = set()
-        matched_indices_2 = set()
 
-        # Coverage for r=6 (Union of all similar sequences in C+6)
-        # Any sequence in C+6 that matches another sequence in C+6 above threshold 
-        # contributes its lines to the coverage.
-        similar_pairs = np.argwhere(sim_matrix >= threshold)
-        for i, j in similar_pairs:
-            for idx in indices_seq1_6[i]:
-                matched_indices_1.add(idx)
-            for idx in indices_seq2_6[j]:
-                matched_indices_2.add(idx)
-        
-        coverage_1_6 = len(matched_indices_1) / len(findings1)
-        coverage_2_6 = len(matched_indices_2) / len(findings2)
-        coverage_sim_6 = (coverage_1_6 + coverage_2_6) / 2.0
+        indices_seq1_3_mask = [len(idx_tuple) <= 3 for idx_tuple in indices_seq1_6]
+        indices_seq2_3_mask = [len(idx_tuple) <= 3 for idx_tuple in indices_seq2_6]
+        indices_seq1_1_mask = [len(idx_tuple) == 1 for idx_tuple in indices_seq1_6]
+        indices_seq2_1_mask = [len(idx_tuple) == 1 for idx_tuple in indices_seq2_6]
 
-        # Coverage for r=3
-        mask1_3 = [len(idx_tuple) <= 3 for idx_tuple in indices_seq1_6]
-        mask2_3 = [len(idx_tuple) <= 3 for idx_tuple in indices_seq2_6]
-        
-        if any(mask1_3) and any(mask2_3):
-            sim_matrix_3 = sim_matrix[np.ix_(mask1_3, mask2_3)]
-            similar_pairs_3 = np.argwhere(sim_matrix_3 >= threshold)
+        for t in thresholds:
+            threshold = float(t)
+            # Track coverage for each line individually to compute the union
+            matched_indices_1 = set()
+            matched_indices_2 = set()
+
+            similar_pairs = np.argwhere(sim_matrix >= threshold)
+            for i, j in similar_pairs:
+                for idx in indices_seq1_6[i]:
+                    matched_indices_1.add(idx)
+                for idx in indices_seq2_6[j]:
+                    matched_indices_2.add(idx)
             
-            indices_seq1_3_only = [idx_tuple for idx_tuple in indices_seq1_6 if len(idx_tuple) <= 3]
-            indices_seq2_3_only = [idx_tuple for idx_tuple in indices_seq2_6 if len(idx_tuple) <= 3]
-            
+            coverage_1_6 = len(matched_indices_1) / len(findings1)
+            coverage_2_6 = len(matched_indices_2) / len(findings2)
+            coverage_sim_6 = (coverage_1_6 + coverage_2_6) / 2.0
+
+            # Coverage for r=3
             matched_indices_1_3 = set()
             matched_indices_2_3 = set()
-            for i, j in similar_pairs_3:
-                for idx in indices_seq1_3_only[i]:
-                    matched_indices_1_3.add(idx)
-                for idx in indices_seq2_3_only[j]:
-                    matched_indices_2_3.add(idx)
-            
-            coverage_1_3 = len(matched_indices_1_3) / len(findings1)
-            coverage_2_3 = len(matched_indices_2_3) / len(findings2)
-            coverage_sim_3 = (coverage_1_3 + coverage_2_3) / 2.0
+            for i, j in similar_pairs:
+                if indices_seq1_3_mask[i] and indices_seq2_3_mask[j]:
+                    for idx in indices_seq1_6[i]:
+                        matched_indices_1_3.add(idx)
+                    for idx in indices_seq2_6[j]:
+                        matched_indices_2_3.add(idx)
+            coverage_sim_3 = (len(matched_indices_1_3) / (len(findings1) or 1) + len(matched_indices_2_3) / (len(findings2) or 1)) / 2.0
 
-        # Coverage for r=1
-        mask1_1 = [len(idx_tuple) == 1 for idx_tuple in indices_seq1_6]
-        mask2_1 = [len(idx_tuple) == 1 for idx_tuple in indices_seq2_6]
-        
-        if any(mask1_1) and any(mask2_1):
-            sim_matrix_1 = sim_matrix[np.ix_(mask1_1, mask2_1)]
-            similar_pairs_1 = np.argwhere(sim_matrix_1 >= threshold)
-            
-            indices_seq1_1_only = [idx_tuple for idx_tuple in indices_seq1_6 if len(idx_tuple) == 1]
-            indices_seq2_1_only = [idx_tuple for idx_tuple in indices_seq2_6 if len(idx_tuple) == 1]
-            
+            # Coverage for r=1
             matched_indices_1_1 = set()
             matched_indices_2_1 = set()
-            for i, j in similar_pairs_1:
-                for idx in indices_seq1_1_only[i]:
-                    matched_indices_1_1.add(idx)
-                for idx in indices_seq2_1_only[j]:
-                    matched_indices_2_1.add(idx)
-            
-            coverage_1_1 = len(matched_indices_1_1) / len(findings1)
-            coverage_2_1 = len(matched_indices_2_1) / len(findings2)
-            coverage_sim_1 = (coverage_1_1 + coverage_2_1) / 2.0
+            for i, j in similar_pairs:
+                if indices_seq1_1_mask[i] and indices_seq2_1_mask[j]:
+                    for idx in indices_seq1_6[i]:
+                        matched_indices_1_1.add(idx)
+                    for idx in indices_seq2_6[j]:
+                        matched_indices_2_1.add(idx)
+            coverage_sim_1 = (len(matched_indices_1_1) / (len(findings1) or 1) + len(matched_indices_2_1) / (len(findings2) or 1)) / 2.0
 
-        # Combined Coverage (Union of all matches found)
-        # Since r=6 is a superset of r=3 and r=1 in terms of sequences, 
-        # the coverage_sim_6 using the full matrix is effectively the union.
-        coverage_sim = coverage_sim_6
-        
-        # Extract actual line numbers for the result
-        matched_lines_1 = sorted([findings1[idx][1] for idx in matched_indices_1])
-        matched_lines_2 = sorted([findings2[idx][1] for idx in matched_indices_2])
+            # Combined Coverage (Union of r=1, 3, 6)
+            coverage_sim = coverage_sim_6
+            
+            result_data["thresholds"][str(t)] = {
+                "coverage_similarity": coverage_sim,
+                "coverage_similarity_6": coverage_sim_6,
+                "coverage_similarity_3": coverage_sim_3,
+                "coverage_similarity_1": coverage_sim_1,
+                "matched_count_1": len(matched_indices_1),
+                "matched_count_2": len(matched_indices_2)
+            }
     
-    print(f"[{time.strftime('%H:%M:%S')}] Worker finished pair {pair_id}. Sim (Combined): {coverage_sim:.4f}, Sim (r=6): {coverage_sim_6:.4f}, Sim (r=3): {coverage_sim_3:.4f}, Sim (r=1): {coverage_sim_1:.4f}")
+    # Use middle threshold for logging if available
+    logging_t = str(thresholds[len(thresholds)//2])
+    coverage_sim_log = result_data["thresholds"].get(logging_t, {}).get("coverage_similarity", 0.0)
+    print(f"[{time.strftime('%H:%M:%S')}] Worker finished pair {pair_id}. Sim (Combined @ {logging_t}): {coverage_sim_log:.4f}")
     res_key = f"{label}_{pair_id}"
-    result_data = {
-        "pair_id": pair_id,
-        "uuids": pair_uuids,
-        "label": label,
-        "coverage_similarity": coverage_sim,
-        "coverage_similarity_6": coverage_sim_6,
-        "coverage_similarity_3": coverage_sim_3,
-        "coverage_similarity_1": coverage_sim_1,
-        "matched_lines_1": matched_lines_1,
-        "matched_lines_2": matched_lines_2
-    }
     return res_key, result_data
 
 def main(_):
@@ -403,6 +377,13 @@ def main(_):
     remaining_pairs = [p for p in pairs_to_process if f"{p[2]}_{p[0]}" not in global_results]
     print(f"Total pairs to evaluate: {total}. Remaining: {len(remaining_pairs)}")
     
+    # Determine thresholds to evaluate
+    if FLAGS.thresholds:
+        thresholds = [float(t) for t in FLAGS.thresholds]
+    else:
+        thresholds = [round(x * 0.01, 2) for x in range(101)]
+    print(f"Evaluating {len(thresholds)} thresholds: {thresholds[0]} to {thresholds[-1]}")
+
     if not remaining_pairs:
         print("No new pairs to process.")
     else:
@@ -416,7 +397,7 @@ def main(_):
             initializer=init_worker
         ) as executor:
             future_to_pair = {
-                executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir, FLAGS.threshold, FLAGS.embeddings_cache_dir): (pid, puuids, lbl)
+                executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir, thresholds, FLAGS.embeddings_cache_dir): (pid, puuids, lbl)
                 for pid, puuids, lbl in remaining_pairs
             }
             
@@ -435,10 +416,12 @@ def main(_):
                             eta = remaining / speed if speed > 0 else 0
                             
                             if processed_this_run % 1 == 0: # Log every pair for better visibility
+                                logging_t = str(thresholds[len(thresholds)//2])
+                                cur_sim = result_data["thresholds"].get(logging_t, {}).get("coverage_similarity", 0.0)
                                 print(f"[{time.strftime('%H:%M:%S')}] Progress: {count_finished}/{total} "
                                       f"({processed_this_run}/{num_to_process} this run) | "
                                       f"Speed: {speed:.2f} pairs/s | ETA: {eta:.1f}s | "
-                                      f"Latest: {res_key} (Sim: {result_data['coverage_similarity']:.4f})")
+                                      f"Latest: {res_key} (Sim @ {logging_t}: {cur_sim:.4f})")
                             
                             if count_finished % 100 == 0:
                                 atomic_save(global_results, FLAGS.checkpoint)
@@ -448,12 +431,12 @@ def main(_):
 
     # Final save and analysis
     print(f"\nSaving final results to {FLAGS.output}")
-    save_results_and_analyze(global_results, FLAGS.output)
+    save_results_and_analyze(global_results, FLAGS.output, thresholds)
     with results_lock:
         atomic_save(global_results, FLAGS.checkpoint)
     print("Done!")
 
-def save_results_and_analyze(results, output_path):
+def save_results_and_analyze(results, output_path, thresholds):
     from sklearn.metrics import confusion_matrix, classification_report
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=4)
@@ -462,20 +445,35 @@ def save_results_and_analyze(results, output_path):
     y_true = [r['label'] for r in results.values()]
     metrics = ['coverage_similarity', 'coverage_similarity_6', 'coverage_similarity_3', 'coverage_similarity_1']
     
-    analysis = {}
+    full_analysis = {}
     print("\n--- Model Performance Analysis ---")
-    for m in metrics:
-        print(f"\nMetric: {m}")
-        y_scores = [r.get(m, 0.0) for r in results.values()]
-        y_pred = [1 if s >= FLAGS.threshold else 0 for s in y_scores]
-        try:
-            print(confusion_matrix(y_true, y_pred))
-            print(classification_report(y_true, y_pred))
-            analysis[m] = classification_report(y_true, y_pred, output_dict=True)
-        except: pass
+    
+    for t in thresholds:
+        t_str = str(t)
+        full_analysis[t_str] = {}
+        
+        for m in metrics:
+            # Extract score for this specific threshold from nested result data
+            y_scores = []
+            for r in results.values():
+                if "thresholds" in r and t_str in r["thresholds"]:
+                    y_scores.append(r["thresholds"][t_str].get(m, 0.0))
+                else:
+                    # Fallback for old formats
+                    y_scores.append(r.get(m, 0.0))
+            
+            y_pred = [1 if s >= t else 0 for s in y_scores]
+            try:
+                report = classification_report(y_true, y_pred, output_dict=True)
+                full_analysis[t_str][m] = report
+            except: pass
+        
+        # Log progress for every 10th threshold to stdout
+        if thresholds.index(t) % 10 == 0:
+            print(f"Analyzed threshold {t_str}...")
 
     with open(output_path.replace(".json", "_summary.json"), "w") as f:
-        json.dump(analysis, f, indent=4)
+        json.dump(full_analysis, f, indent=4)
 
 if __name__ == "__main__":
     app.run(main)

@@ -182,3 +182,6 @@ dataset/CoSiM/notsimilar/notsimdataset.json
 dataset/CoSiM/shuffle_uuid.py
 dataset/CoSiM/fix_notsim.py
 dataset/CoSiM/moss_checkpoint.json
+paper.tex
+scripts/analyze_cosim_results.py
+scripts/generate_cosim_plots.py

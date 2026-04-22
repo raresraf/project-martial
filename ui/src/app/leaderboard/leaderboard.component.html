@@ -1,0 +1,130 @@
+<!-- Breadcrumb -->
+<div class="leaderboard-breadcrumb">
+  <a routerLink="/">Home</a>
+  <span>›</span>
+  <span class="current">CoSiM Leaderboard</span>
+</div>
+
+<div class="leaderboard-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>CoSiM Leaderboard</h1>
+    <p class="subtitle">
+      Public benchmark for code similarity detection models evaluated on the CoSiM dataset
+      (<strong>Co</strong>de <strong>Si</strong>milarity Dataset by Project <strong>M</strong>artial).
+    </p>
+    <div class="dataset-meta">
+      <span class="meta-chip"><span class="label">Pairs</span> {{ datasetSize | number }}</span>
+      <span class="meta-chip"><span class="label">Similar</span> {{ similarPairs | number }}</span>
+      <span class="meta-chip"><span class="label">Not Similar</span> {{ notSimilarPairs | number }}</span>
+      <span class="meta-chip"><span class="label">Languages</span> Go, TypeScript, C, Java, Rust, Python, C++, CUDA, OpenCL</span>
+    </div>
+    <a class="dataset-link" [href]="datasetUrl" target="_blank" rel="noopener">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="#4285F4">
+        <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      View CoSiM dataset on GitHub
+    </a>
+  </div>
+
+  <!-- Rankings -->
+  <div class="section">
+    <h2>Rankings</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">
+      Ranked by best F1-score across all evaluated configurations. Metrics are reported at the threshold that maximises F1.
+    </p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center;">Rank</th>
+            <th>Model</th>
+            <th>Category</th>
+            <th>Best F1 <span class="hint">&uarr; higher is better</span></th>
+            <th>Precision <span class="hint">at best F1</span></th>
+            <th>Recall (TPR) <span class="hint">at best F1</span></th>
+            <th>Accuracy <span class="hint">at best F1</span></th>
+            <th>FPR <span class="hint">&darr; lower is better</span></th>
+            <th>Optimal&nbsp;Threshold</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of entries">
+            <td class="rank-cell">{{ entry.rank }}</td>
+            <td class="model-cell">
+              <ng-container *ngIf="entry.link; else noLink">
+                <a [href]="entry.link" target="_blank" rel="noopener">{{ entry.model }}</a>
+              </ng-container>
+              <ng-template #noLink>{{ entry.model }}</ng-template>
+            </td>
+            <td><span class="badge">{{ entry.category }}</span></td>
+            <td class="f1-cell">
+              {{ entry.bestF1 | number:'1.4-4' }}
+              <span class="best-dot" title="Best reported F1 on CoSiM"></span>
+            </td>
+            <td>{{ entry.precision | number:'1.4-4' }}</td>
+            <td>{{ entry.recall | number:'1.4-4' }}</td>
+            <td>{{ entry.accuracy | number:'1.4-4' }}</td>
+            <td>{{ entry.fpr | number:'1.4-4' }}</td>
+            <td>{{ entry.optimalThreshold }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MOSS detail -->
+  <div class="section">
+    <h2>MOSS — Full Threshold Analysis</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">
+      MOSS evaluated across detection thresholds from 0% to 95% on all 4,000 pairs. The highlighted row marks the best F1.
+    </p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Threshold</th>
+            <th>TPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
+            <th>FPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
+            <th>Accuracy</th>
+            <th>Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+            <th>F1</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of mossThresholdData" [class.best-row]="row.threshold === 10">
+            <td>{{ row.threshold }}%</td>
+            <td>{{ row.tpr | number:'1.4-4' }}</td>
+            <td>{{ row.fpr | number:'1.4-4' }}</td>
+            <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            <td>{{ row.precision | number:'1.4-4' }}</td>
+            <td>
+              {{ row.f1 | number:'1.4-4' }}
+              <span *ngIf="row.threshold === 10" class="best-dot" title="Best F1"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="section">
+    <h2>Submit Results</h2>
+    <div class="submit-box">
+      <p>
+        We welcome submissions from researchers benchmarking models on the CoSiM dataset.
+        Evaluate your model against the
+        <a [href]="datasetUrl" target="_blank" rel="noopener">CoSiM dataset</a>
+        and open an issue or pull request on
+        <a href="https://github.com/raresraf/project-martial" target="_blank" rel="noopener">Project Martial's GitHub repository</a>
+        with your results — best F1, precision, recall, accuracy, FPR, and the optimal threshold configuration used.
+      </p>
+      <p>
+        Please include the full threshold sweep that produced the reported numbers so results are reproducible and comparable to existing baselines.
+      </p>
+    </div>
+  </div>
+
+</div>

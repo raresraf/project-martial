@@ -14,6 +14,7 @@ import concurrent.futures
 import signal
 import sys
 import tempfile
+import time
 from absl import app
 from absl import flags
 import numpy as np
@@ -31,6 +32,7 @@ flags.DEFINE_string("output", "comments_cosim_results.json", "Output file for th
 flags.DEFINE_integer("limit", 1000000, "Limit number of pairs to process")
 flags.DEFINE_integer("workers", 4, "Number of parallel worker processes")
 flags.DEFINE_bool("use_smaller_sample", False, "Use only a small sample for testing (e.g., 10 pairs from each)")
+flags.DEFINE_float("threshold", 0.5, "Similarity threshold for detection")
 
 # Global results dictionary and its lock for thread-safe updates in the main process
 global_results = {}
@@ -143,25 +145,30 @@ def init_worker():
     from modules.comments import CommentsAnalysis
     worker_ca = CommentsAnalysis()
 
-def process_single_pair(pair_id, pair_uuids, label, commented_dir):
+def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold):
     """Processes a single pair of UUIDs. This runs in a worker process."""
     global worker_ca
     
     u1, u2 = pair_uuids
+    print(f"[{time.strftime('%H:%M:%S')}] Worker starting pair {pair_id} ({u1}, {u2})")
+    
     if not is_uuid_processed(u1, commented_dir) or not is_uuid_processed(u2, commented_dir):
+        print(f"[{time.strftime('%H:%M:%S')}] Pair {pair_id} skipped: UUIDs not processed")
         return None, None
 
     findings1 = get_all_comments_for_uuid(u1, commented_dir)
     findings2 = get_all_comments_for_uuid(u2, commented_dir)
     
     if not findings1 or not findings2:
+        print(f"[{time.strftime('%H:%M:%S')}] Pair {pair_id} skipped: No comments found (F1: {len(findings1)}, F2: {len(findings2)})")
         return None, None
+    
+    print(f"[{time.strftime('%H:%M:%S')}] Pair {pair_id} has {len(findings1)} and {len(findings2)} comments. Computing USE embeddings...")
     
     max_sim = 0.0
     avg_best_match_sim = 0.0
     holistic_sim = 0.0
     coverage_sim = 0.0
-    threshold = 0.8
 
     seq1 = worker_ca.comm_to_seq_use(findings1)
     seq2 = worker_ca.comm_to_seq_use(findings2)
@@ -201,6 +208,7 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir):
         coverage_2 = sum(covered_indices_2) / len(findings2)
         coverage_sim = (coverage_1 + coverage_2) / 2.0
     
+    print(f"[{time.strftime('%H:%M:%S')}] Worker finished pair {pair_id}. Sim: {coverage_sim:.4f}")
     res_key = f"{label}_{pair_id}"
     result_data = {
         "pair_id": pair_id,
@@ -276,24 +284,39 @@ def main(_):
         print("No new pairs to process.")
     else:
         print(f"Starting parallel processing with {FLAGS.workers} worker processes...")
+        start_time = time.time()
+        num_to_process = len(remaining_pairs)
+        processed_this_run = 0
+
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=FLAGS.workers, 
             initializer=init_worker
         ) as executor:
             future_to_pair = {
-                executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir): (pid, puuids, lbl)
+                executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir, FLAGS.threshold): (pid, puuids, lbl)
                 for pid, puuids, lbl in remaining_pairs
             }
             
             for future in concurrent.futures.as_completed(future_to_pair):
                 try:
                     res_key, result_data = future.result()
+                    processed_this_run += 1
                     if res_key:
                         with results_lock:
                             global_results[res_key] = result_data
                             count_finished = len(global_results)
-                            if count_finished % 10 == 0:
-                                print(f"Progress: {count_finished}/{total} (Latest: {res_key}, Sim: {result_data['coverage_similarity']:.4f})")
+                            
+                            elapsed = time.time() - start_time
+                            speed = processed_this_run / elapsed if elapsed > 0 else 0
+                            remaining = num_to_process - processed_this_run
+                            eta = remaining / speed if speed > 0 else 0
+                            
+                            if processed_this_run % 1 == 0: # Log every pair for better visibility
+                                print(f"[{time.strftime('%H:%M:%S')}] Progress: {count_finished}/{total} "
+                                      f"({processed_this_run}/{num_to_process} this run) | "
+                                      f"Speed: {speed:.2f} pairs/s | ETA: {eta:.1f}s | "
+                                      f"Latest: {res_key} (Sim: {result_data['coverage_similarity']:.4f})")
+                            
                             if count_finished % 100 == 0:
                                 atomic_save(global_results, FLAGS.checkpoint)
                 except Exception as e:
@@ -321,7 +344,7 @@ def save_results_and_analyze(results, output_path):
     for m in metrics:
         print(f"\nMetric: {m}")
         y_scores = [r.get(m, 0.0) for r in results.values()]
-        y_pred = [1 if s >= 0.8 else 0 for s in y_scores]
+        y_pred = [1 if s >= FLAGS.threshold else 0 for s in y_scores]
         try:
             print(confusion_matrix(y_true, y_pred))
             print(classification_report(y_true, y_pred))

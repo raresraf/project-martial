@@ -62,6 +62,7 @@ def get_cached_embeddings(uuid, commented_dir, cache_dir, worker_ca):
             res = []
             for i in range(len(long_comms)):
                 res.append((long_comms[i], coming_froms[i], embeddings[i]))
+            print(f"[{time.strftime('%H:%M:%S')}] Cache hit for {uuid}")
             return res
         except Exception as e:
             print(f"Error loading cache for {uuid}: {e}")
@@ -85,7 +86,11 @@ def get_cached_embeddings(uuid, commented_dir, cache_dir, worker_ca):
         # Atomic-ish save with numpy
         temp_fd, temp_path = tempfile.mkstemp(dir=cache_dir)
         os.close(temp_fd)
-        np.savez_compressed(temp_path, long_comms=long_comms, coming_froms=coming_froms, embeddings=embeddings)
+        # Use dtype=object for inhomogeneous lists (long_comms and coming_froms)
+        np.savez_compressed(temp_path, 
+                            long_comms=np.array(long_comms, dtype=object), 
+                            coming_froms=np.array(coming_froms, dtype=object), 
+                            embeddings=np.array(embeddings))
         os.replace(temp_path, cache_path)
     except Exception as e:
         print(f"Error saving cache for {uuid}: {e}")
@@ -243,7 +248,7 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         best_matches_A = np.max(sim_matrix, axis=1)
         best_matches_B = np.max(sim_matrix, axis=0)
 
-        # To calculate coverage, we need original findings counts
+        # To calculate coverage, we need original findings counts and line numbers
         findings1 = get_all_comments_for_uuid(u1, commented_dir)
         findings2 = get_all_comments_for_uuid(u2, commented_dir)
         
@@ -252,25 +257,21 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         indices_seq2_6 = generate_comm_sequences(range(len(findings2)), 6)
         
         # Track coverage for each line individually to compute the union
-        total_covered_1 = [False] * len(findings1)
-        total_covered_2 = [False] * len(findings2)
+        matched_indices_1 = set()
+        matched_indices_2 = set()
 
-        # Coverage for r=6
-        covered_indices_1_6 = [False] * len(findings1)
-        for i, best_sim in enumerate(best_matches_A):
-            if best_sim >= threshold:
-                for idx in indices_seq1_6[i]:
-                    covered_indices_1_6[idx] = True
-                    total_covered_1[idx] = True
-        coverage_1_6 = sum(covered_indices_1_6) / len(findings1)
+        # Coverage for r=6 (Union of all similar sequences in C+6)
+        # Any sequence in C+6 that matches another sequence in C+6 above threshold 
+        # contributes its lines to the coverage.
+        similar_pairs = np.argwhere(sim_matrix >= threshold)
+        for i, j in similar_pairs:
+            for idx in indices_seq1_6[i]:
+                matched_indices_1.add(idx)
+            for idx in indices_seq2_6[j]:
+                matched_indices_2.add(idx)
         
-        covered_indices_2_6 = [False] * len(findings2)
-        for j, best_sim in enumerate(best_matches_B):
-            if best_sim >= threshold:
-                for idx in indices_seq2_6[j]:
-                    covered_indices_2_6[idx] = True
-                    total_covered_2[idx] = True
-        coverage_2_6 = sum(covered_indices_2_6) / len(findings2)
+        coverage_1_6 = len(matched_indices_1) / len(findings1)
+        coverage_2_6 = len(matched_indices_2) / len(findings2)
         coverage_sim_6 = (coverage_1_6 + coverage_2_6) / 2.0
 
         # Coverage for r=3
@@ -279,27 +280,21 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         
         if any(mask1_3) and any(mask2_3):
             sim_matrix_3 = sim_matrix[np.ix_(mask1_3, mask2_3)]
-            best_matches_A_3 = np.max(sim_matrix_3, axis=1)
-            best_matches_B_3 = np.max(sim_matrix_3, axis=0)
+            similar_pairs_3 = np.argwhere(sim_matrix_3 >= threshold)
             
             indices_seq1_3_only = [idx_tuple for idx_tuple in indices_seq1_6 if len(idx_tuple) <= 3]
             indices_seq2_3_only = [idx_tuple for idx_tuple in indices_seq2_6 if len(idx_tuple) <= 3]
             
-            covered_indices_1_3 = [False] * len(findings1)
-            for i, best_sim in enumerate(best_matches_A_3):
-                if best_sim >= threshold:
-                    for idx in indices_seq1_3_only[i]:
-                        covered_indices_1_3[idx] = True
-                        total_covered_1[idx] = True
-            coverage_1_3 = sum(covered_indices_1_3) / len(findings1)
+            matched_indices_1_3 = set()
+            matched_indices_2_3 = set()
+            for i, j in similar_pairs_3:
+                for idx in indices_seq1_3_only[i]:
+                    matched_indices_1_3.add(idx)
+                for idx in indices_seq2_3_only[j]:
+                    matched_indices_2_3.add(idx)
             
-            covered_indices_2_3 = [False] * len(findings2)
-            for j, best_sim in enumerate(best_matches_B_3):
-                if best_sim >= threshold:
-                    for idx in indices_seq2_3_only[j]:
-                        covered_indices_2_3[idx] = True
-                        total_covered_2[idx] = True
-            coverage_2_3 = sum(covered_indices_2_3) / len(findings2)
+            coverage_1_3 = len(matched_indices_1_3) / len(findings1)
+            coverage_2_3 = len(matched_indices_2_3) / len(findings2)
             coverage_sim_3 = (coverage_1_3 + coverage_2_3) / 2.0
 
         # Coverage for r=1
@@ -308,33 +303,31 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         
         if any(mask1_1) and any(mask2_1):
             sim_matrix_1 = sim_matrix[np.ix_(mask1_1, mask2_1)]
-            best_matches_A_1 = np.max(sim_matrix_1, axis=1)
-            best_matches_B_1 = np.max(sim_matrix_1, axis=0)
+            similar_pairs_1 = np.argwhere(sim_matrix_1 >= threshold)
             
             indices_seq1_1_only = [idx_tuple for idx_tuple in indices_seq1_6 if len(idx_tuple) == 1]
             indices_seq2_1_only = [idx_tuple for idx_tuple in indices_seq2_6 if len(idx_tuple) == 1]
             
-            covered_indices_1_1 = [False] * len(findings1)
-            for i, best_sim in enumerate(best_matches_A_1):
-                if best_sim >= threshold:
-                    for idx in indices_seq1_1_only[i]:
-                        covered_indices_1_1[idx] = True
-                        total_covered_1[idx] = True
-            coverage_1_1 = sum(covered_indices_1_1) / len(findings1)
+            matched_indices_1_1 = set()
+            matched_indices_2_1 = set()
+            for i, j in similar_pairs_1:
+                for idx in indices_seq1_1_only[i]:
+                    matched_indices_1_1.add(idx)
+                for idx in indices_seq2_1_only[j]:
+                    matched_indices_2_1.add(idx)
             
-            covered_indices_2_1 = [False] * len(findings2)
-            for j, best_sim in enumerate(best_matches_B_1):
-                if best_sim >= threshold:
-                    for idx in indices_seq2_1_only[j]:
-                        covered_indices_2_1[idx] = True
-                        total_covered_2[idx] = True
-            coverage_2_1 = sum(covered_indices_2_1) / len(findings2)
+            coverage_1_1 = len(matched_indices_1_1) / len(findings1)
+            coverage_2_1 = len(matched_indices_2_1) / len(findings2)
             coverage_sim_1 = (coverage_1_1 + coverage_2_1) / 2.0
 
-        # Combined Coverage (Union of r=1, 3, 6)
-        coverage_1_combined = sum(total_covered_1) / len(findings1)
-        coverage_2_combined = sum(total_covered_2) / len(findings2)
-        coverage_sim = (coverage_1_combined + coverage_2_combined) / 2.0
+        # Combined Coverage (Union of all matches found)
+        # Since r=6 is a superset of r=3 and r=1 in terms of sequences, 
+        # the coverage_sim_6 using the full matrix is effectively the union.
+        coverage_sim = coverage_sim_6
+        
+        # Extract actual line numbers for the result
+        matched_lines_1 = sorted([findings1[idx][1] for idx in matched_indices_1])
+        matched_lines_2 = sorted([findings2[idx][1] for idx in matched_indices_2])
     
     print(f"[{time.strftime('%H:%M:%S')}] Worker finished pair {pair_id}. Sim (Combined): {coverage_sim:.4f}, Sim (r=6): {coverage_sim_6:.4f}, Sim (r=3): {coverage_sim_3:.4f}, Sim (r=1): {coverage_sim_1:.4f}")
     res_key = f"{label}_{pair_id}"
@@ -345,7 +338,9 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir, threshold, ca
         "coverage_similarity": coverage_sim,
         "coverage_similarity_6": coverage_sim_6,
         "coverage_similarity_3": coverage_sim_3,
-        "coverage_similarity_1": coverage_sim_1
+        "coverage_similarity_1": coverage_sim_1,
+        "matched_lines_1": matched_lines_1,
+        "matched_lines_2": matched_lines_2
     }
     return res_key, result_data
 

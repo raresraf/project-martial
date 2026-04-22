@@ -26,7 +26,7 @@ import modules.comments_helpers as comments_helpers
 FLAGS = flags.FLAGS
 flags.DEFINE_string("simdataset", "dataset/CoSiM/similar/simdataset.json", "Path to simdataset.json")
 flags.DEFINE_string("notsimdataset", "dataset/CoSiM/notsimilar/notsimdataset.json", "Path to notsimdataset.json")
-flags.DEFINE_string("commented_dir", "dataset/CoSiM-commented-by-Gemini/raw/", "Path to commented files")
+flags.DEFINE_string("commented_dir", "dataset/CoSiM-commented-by-flash-Gemini/", "Path to commented files")
 flags.DEFINE_string("checkpoint", "results_cosim/checkpoint.json", "Checkpoint file for persistence")
 flags.DEFINE_string("output", "results_cosim/results.json", "Output file for the full results")
 flags.DEFINE_integer("limit", 1000000, "Limit number of pairs to process")

@@ -79,6 +79,12 @@ export class DiffComponent {
       .map((n, index) => index + 1);
   }
 
+  resetTileColors() {
+    for (let i = 0; i < this.tiles.length; i++) {
+      this.tiles[i].color = this.tiles[i].color.map(() => "#FDFDFD")
+    }
+  }
+
   colorBasedOnResp(resp, label, colors) {
     let colorPick = -1
     for (let match in resp[label]) {
@@ -105,6 +111,7 @@ export class DiffComponent {
       let get$ = this.getComments()
       get$?.subscribe(resp => {
         console.log(resp);
+        this.resetTileColors()
         this.colorBasedOnResp(resp, "comment_use_lines_files", ["#EE6611", "#EE6612", "#EE6613", "#EE6614"])
         this.colorBasedOnResp(resp, "comment_roberta_lines_files", ["#EE22EE", "#EE23EE", "#EE24EE", "#EE25EE"])
         this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
@@ -184,6 +191,7 @@ export class DiffComponent {
       let get$ = this.runRComplexity()
       get$?.subscribe(resp => {
         console.log(resp);
+        this.resetTileColors()
         this.colorBasedOnResp(resp, "identical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
         this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#EF0000", "#DF0000", "#CF0000"])
         this.similarity = resp["similarity"]
@@ -206,10 +214,11 @@ export class DiffComponent {
       let get$ = this.runNetworkTrafficAnalysis(this.selectedNgram)
       get$?.subscribe(resp => {
         console.log(resp);
+        this.resetTileColors()
         this.colorBasedOnResp(resp, "identical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
         this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#EF0000", "#DF0000", "#CF0000"])
         this.similarity = resp["similarity"]
-        this.backendSelectedNgram = resp["selected_ngram"]; // Set the value from backend
+        this.backendSelectedNgram = resp["selected_ngram"]
         this.progress_bar_mode = "determinate"
       });
     });
@@ -257,9 +266,11 @@ export class DiffComponent {
   }
 
   GetColorUpdatedSimilarity(): string {
-    if (this.similarity > 0.5)
-      return "#FF0000"
-    return "#0000FF"
+    if (this.similarity >= 0.7)
+      return "#0F9D58"
+    if (this.similarity >= 0.4)
+      return "#F4B400"
+    return "#DB4437"
   }
 
   startAnalysis() {
@@ -336,7 +347,7 @@ int main() {
   return 0;
 }
 `]
-    this.setupTiles(24)
+    this.setupTiles(Math.max(this.inputFiles[0].split(/\r?\n/).length, this.inputFiles[1].split(/\r?\n/).length))
   }
 
 
@@ -463,7 +474,7 @@ int main() {
   }
 }
 `]
-    this.setupTiles(62)
+    this.setupTiles(Math.max(this.inputFiles[0].split(/\r?\n/).length, this.inputFiles[1].split(/\r?\n/).length))
   }
 
   mockInputFilesNetworkTrafficAnalysis() {
@@ -487,7 +498,8 @@ os_user    raresraf
 program_name     mysql
 5.7.44-google-log
 mysql_native_password`,
-    ],    this.setupTiles(12)
+    ]
+    this.setupTiles(Math.max(this.inputFiles[0].split(/\r?\n/).length, this.inputFiles[1].split(/\r?\n/).length))
   }
 }
 

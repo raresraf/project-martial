@@ -220,9 +220,9 @@ class CommentsAnalysis():
         similarity = cosine_similarity(f1[2], f2[2])
         return similarity > comments_config.config.threshold_use(), similarity
 
-    def comm_to_seq_use(self, file):
+    def comm_to_seq_use(self, file, t=6):
         """Similar to comm_to_seq."""
-        resp = comments_helpers.comm_to_seq_default(file, 6)
+        resp = comments_helpers.comm_to_seq_default(file, t)
         ret = []
         for long_comm, coming_from in resp:
             ret.append((long_comm, coming_from, self.use([long_comm])))

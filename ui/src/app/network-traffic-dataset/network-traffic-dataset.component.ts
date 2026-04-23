@@ -38,14 +38,21 @@ export class NetworkTrafficDatasetComponent {
     return cell.g4 >= 0.60 ? '#1b5e20' : '#7f0000';
   }
 
-  getGroupLabel(group: string): string {
-    if (group === 'mysql') return 'MySQL';
-    if (group === 'postgresql') return 'PostgreSQL';
-    return 'SQL Server';
+  private static readonly GROUP_LABELS: Record<'mysql' | 'postgresql' | 'sqlserver', string> = {
+    mysql: 'MySQL',
+    postgresql: 'PostgreSQL',
+    sqlserver: 'SQL Server',
+  };
+
+  getGroupLabel(group: 'mysql' | 'postgresql' | 'sqlserver'): string {
+    return NetworkTrafficDatasetComponent.GROUP_LABELS[group];
   }
 
-  isFirstInGroup(row: SimRow, i: number): boolean {
-    if (i === 0) return false;
-    return this.simRows[i - 1].group !== row.group;
+  getEngineLabel(row: SimRow): string {
+    return row.engine.slice(NetworkTrafficDatasetComponent.GROUP_LABELS[row.group].length + 1);
+  }
+
+  isFirstInGroup<T extends { group: string }>(items: T[], i: number): boolean {
+    return i > 0 && items[i - 1].group !== items[i].group;
   }
 }

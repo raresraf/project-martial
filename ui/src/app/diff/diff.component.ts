@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
+
+type AnalysisMode = '' | 'comments' | 'rComplexity' | 'networkTrafficAnalysis' | 'llmAnnotate';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ProgressBarMode } from '@angular/material/progress-bar';
@@ -19,7 +21,7 @@ export interface Tile {
   templateUrl: './diff.component.html',
   styleUrls: ['./diff.component.css'],
 })
-export class DiffComponent {
+export class DiffComponent implements OnDestroy {
   inputFiles = [``, ``]
 
   file_upload_tiles = [
@@ -28,8 +30,8 @@ export class DiffComponent {
   ];
 
   tiles = [
-    { text: this.inputFiles[0].split(/\r?\n/), cols: 1, rows: 2, color: Array.from({ length: 2 }, (_, i) => "#FDFDFD") },
-    { text: this.inputFiles[1].split(/\r?\n/), cols: 1, rows: 2, color: Array.from({ length: 2 }, (_, i) => "#FDFDFD") },
+    { text: this.inputFiles[0].split(/\r?\n/), cols: 1, rows: 2, color: Array.from({ length: 2 }, () => "#FDFDFD") },
+    { text: this.inputFiles[1].split(/\r?\n/), cols: 1, rows: 2, color: Array.from({ length: 2 }, () => "#FDFDFD") },
   ];
 
   fileName: string[] = ["", ""]
@@ -49,7 +51,7 @@ export class DiffComponent {
           if (len == undefined) {
             len = 1
           }
-          this.tiles[id].color = Array.from({ length: len }, (_, i) => "#FDFDFD")
+          this.tiles[id].color = Array.from({ length: len }, () => "#FDFDFD")
         }
       }
       reader.readAsBinaryString(file);
@@ -236,10 +238,10 @@ export class DiffComponent {
   }
 
 
-  chosenAnalysis: string = "";
+  chosenAnalysis: AnalysisMode = '';
   selectedNgram: number = 4;
   SomethingEnabled() {
-    return this.chosenAnalysis != ""
+    return this.chosenAnalysis !== ''
   }
   selectedCommentExample = 'hello-world';
 
@@ -249,9 +251,7 @@ export class DiffComponent {
     this.chosenAnalysis = "comments"
   }
 
-  loadCommentExample(id: string) {
-    this.selectedCommentExample = id;
-    const pairs: Record<string, [string, string]> = {
+  private static readonly COMMENT_EXAMPLES: Record<string, [string, string]> = {
       'hello-world': [
         `#include <iostream>
 
@@ -554,30 +554,34 @@ public class UtilTests {
 }
 `,
       ],
-    };
-    const [left, right] = pairs[id] ?? pairs['hello-world'];
+  };
+
+  loadCommentExample(id: string) {
+    this.selectedCommentExample = id;
+    const [left, right] = DiffComponent.COMMENT_EXAMPLES[id] ?? DiffComponent.COMMENT_EXAMPLES['hello-world'];
     this.inputFiles = [left, right];
     this.setupTiles(Math.max(left.split(/\r?\n/).length, right.split(/\r?\n/).length));
     this.similarity = NaN;
   }
+
   EnableComments() {
-    return this.chosenAnalysis == "comments"
+    return this.chosenAnalysis === 'comments';
   }
   RComplexityEntry() {
-    this.mockInputFilesRComplexity()
-    this.chosenAnalysis = "rComplexity"
+    this.mockInputFilesRComplexity();
+    this.chosenAnalysis = 'rComplexity';
   }
   EnableRComplexity() {
-    return this.chosenAnalysis == "rComplexity"
+    return this.chosenAnalysis === 'rComplexity';
   }
 
   NetworkTrafficAnalysisEntry() {
-    this.mockInputFilesNetworkTrafficAnalysis()
-    this.chosenAnalysis = "networkTrafficAnalysis"
+    this.mockInputFilesNetworkTrafficAnalysis();
+    this.chosenAnalysis = 'networkTrafficAnalysis';
     this.selectedNgram = 4;
   }
   EnableNetworkTrafficAnalysis() {
-    return this.chosenAnalysis == "networkTrafficAnalysis"
+    return this.chosenAnalysis === 'networkTrafficAnalysis';
   }
 
   LlmAnnotateEntry() {
@@ -588,9 +592,11 @@ public class UtilTests {
     return this.chosenAnalysis === "llmAnnotate";
   }
   llmAnnotate() {
+    clearTimeout(this.llmAnnotateTimer ?? undefined);
     this.progress_bar_mode = "indeterminate";
     const model = this.llmSelectedModel;
-    setTimeout(() => {
+    this.llmAnnotateTimer = setTimeout(() => {
+      this.llmAnnotateTimer = null;
       const al = LLM_ANNOTATED_LEFT[model] ?? LLM_ANNOTATED_LEFT['gemini-1.5-pro'];
       const ar = LLM_ANNOTATED_RIGHT[model] ?? LLM_ANNOTATED_RIGHT['gemini-1.5-pro'];
       const leftLines = al.split(/\r?\n/);
@@ -641,6 +647,11 @@ public class UtilTests {
   llmPromptExpanded = false;
   llmIsAnnotated = false;
   llmAnnotatedWithModel = '';
+  private llmAnnotateTimer: ReturnType<typeof setTimeout> | null = null;
+
+  ngOnDestroy() {
+    clearTimeout(this.llmAnnotateTimer ?? undefined);
+  }
   UpdatedSimilarity() {
     return !isNaN(this.similarity)
   }
@@ -682,24 +693,20 @@ public class UtilTests {
 
   setupTiles(noRows: number) {
     this.tiles = [
-      { text: this.inputFiles[0].split(/\r?\n/), cols: 1, rows: noRows, color: Array.from({ length: noRows }, (_, i) => "#FDFDFD") },
-      { text: this.inputFiles[1].split(/\r?\n/), cols: 1, rows: noRows, color: Array.from({ length: noRows }, (_, i) => "#FDFDFD") },
+      { text: this.inputFiles[0].split(/\r?\n/), cols: 1, rows: noRows, color: Array.from({ length: noRows }, () => "#FDFDFD") },
+      { text: this.inputFiles[1].split(/\r?\n/), cols: 1, rows: noRows, color: Array.from({ length: noRows }, () => "#FDFDFD") },
     ];
     return
   }
 
   mockInputFilesComments() {
-    if (this.chosenAnalysis == "comments") {
-      return
-    }
+    if (this.chosenAnalysis === 'comments') { return; }
     this.loadCommentExample('hello-world');
   }
 
 
   mockInputFilesRComplexity() {
-    if (this.chosenAnalysis == "rComplexity") {
-      return
-    }
+    if (this.chosenAnalysis === 'rComplexity') { return; }
     this.inputFiles = [`
 {
   "metrics": {
@@ -823,9 +830,7 @@ public class UtilTests {
   }
 
   mockInputFilesNetworkTrafficAnalysis() {
-    if (this.chosenAnalysis == "networkTrafficAnalysis") {
-      return
-    }
+    if (this.chosenAnalysis === 'networkTrafficAnalysis') { return; }
     this.inputFiles = [
       `5.6.51
 i&"sC1lL

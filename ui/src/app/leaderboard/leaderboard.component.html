@@ -57,14 +57,18 @@
                 <a [href]="entry.link" target="_blank" rel="noopener">{{ entry.model }}</a>
               </ng-container>
               <ng-template #noLink>{{ entry.model }}</ng-template>
+              <a *ngIf="entry.category === 'LLM + USE'"
+                (click)="scrollToLlmDisclaimer()"
+                style="color:#1565c0;text-decoration:none;font-size:11px;vertical-align:super;margin-left:2px;cursor:pointer;">†</a>
               <a *ngIf="entry.model === 'Complexity-Based Birthmarks'"
                 (click)="scrollToDisclaimer()"
                 style="color:#b06000;text-decoration:none;font-size:11px;vertical-align:super;margin-left:2px;cursor:pointer;">*</a>
             </td>
-            <td><span class="badge">{{ entry.category }}</span></td>
+            <td><span class="badge" [class.badge-llm]="entry.category === 'LLM + USE'">{{ entry.category }}</span></td>
             <td class="f1-cell">
               {{ entry.bestF1 | number:'1.4-4' }}
-              <span class="best-dot" [title]="entry.model === 'Complexity-Based Birthmarks' ? 'Weighted avg F1' : 'Similar-class F1'"></span>
+              <span class="best-dot"
+                [title]="entry.model === 'Complexity-Based Birthmarks' ? 'Weighted avg F1' : entry.category === 'LLM + USE' ? 'Macro F1' : 'Similar-class F1'"></span>
             </td>
             <td>{{ entry.precision | number:'1.4-4' }}</td>
             <td>{{ entry.recall | number:'1.4-4' }}</td>
@@ -170,9 +174,121 @@
     </div>
   </div>
 
+  <!-- Gemini 2.5 Pro detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="proExpanded = !proExpanded">
+      Gemini 2.5 Pro — Full Threshold Analysis (r=1)
+      <span class="collapse-chevron">{{ proExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="proExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 4px;">
+        Each code snippet in CoSiM was augmented by Gemini 2.5 Pro with dense semantic documentation,
+        then embedded by the Universal Sentence Encoder (USE) in windows of <em>r</em> concatenated comment
+        blocks. Similarity is a coverage metric: the fraction of comment lines in each program matched
+        by at least one USE embedding from the other (cosine ≥ threshold), averaged symmetrically.
+      </p>
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Results below are for <strong>r=1</strong> (best Pro configuration). Metrics are macro-averaged
+        over the balanced CoSiM classes; the highlighted row marks the optimal threshold (best macro F1).
+        Evaluated on 3,126 successfully augmented pairs.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiProR1ThresholdData" [class.best-row]="row.threshold === 0.31">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.31" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px; padding:16px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0; font-size:13px; color:#444; line-height:1.6;">
+        <strong>Peak performance summary (all three locality contexts):</strong>
+        <ul style="margin:8px 0 0 16px; padding:0;">
+          <li><strong>r=1</strong> — Macro F1: 0.9395 · Precision: 0.9393 · Recall: 0.9399 · Accuracy: 93.95% · Optimal t=0.31</li>
+          <li><strong>r=3</strong> — Macro F1: 0.9369 · Precision: 0.9368 · Recall: 0.9369 · Accuracy: 93.70% · Optimal t=0.74</li>
+          <li><strong>r=6</strong> — Macro F1: 0.9177 · Precision: 0.9175 · Recall: 0.9182 · Accuracy: 91.78% · Optimal t=0.94</li>
+          <li>Pro r=1 sustains macro F1 ≥ 0.90 across 23 consecutive threshold values (t ∈ [0.21, 0.43]), reflecting a wide and robust operating plateau.</li>
+          <li>Smaller locality context (r=1) outperforms larger r for Pro, suggesting that high-quality augmentation yields discriminative single-block embeddings.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini 2.5 Flash detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="flashExpanded = !flashExpanded">
+      Gemini 2.5 Flash — Full Threshold Analysis (r=6)
+      <span class="collapse-chevron">{{ flashExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="flashExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Same pipeline as Pro using Gemini 2.5 Flash for augmentation. Results below are for
+        <strong>r=6</strong> (best Flash configuration). Evaluated on 1,823 successfully augmented pairs.
+        The Flash model exhibits a narrower operating range: at low thresholds the model predicts all
+        pairs as similar (near-zero not-similar F1), then rises sharply around t≈0.55 to a peak near t=0.62.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiFlashR6ThresholdData" [class.best-row]="row.threshold === 0.62">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.62" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px; padding:16px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0; font-size:13px; color:#444; line-height:1.6;">
+        <strong>Peak performance summary (all three locality contexts):</strong>
+        <ul style="margin:8px 0 0 16px; padding:0;">
+          <li><strong>r=1</strong> — Macro F1: 0.8798 · Precision: 0.8810 · Recall: 0.8823 · Accuracy: 87.99% · Optimal t=0.44</li>
+          <li><strong>r=3</strong> — Macro F1: 0.8897 · Precision: 0.8928 · Recall: 0.8933 · Accuracy: 88.97% · Optimal t=0.56</li>
+          <li><strong>r=6</strong> — Macro F1: 0.8974 · Precision: 0.8994 · Recall: 0.9005 · Accuracy: 89.74% · Optimal t=0.62</li>
+          <li>For Flash the ordering is reversed (r=6 best), suggesting that lower-quality augmentation benefits from wider local context windows.</li>
+          <li>Flash r=6 maintains macro F1 ≥ 0.85 across 12 threshold values (t ∈ [0.57, 0.68]).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- LLM Disclaimer -->
+  <div id="llm-disclaimer" style="font-size:12px;color:#1565c0;background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:10px 14px;margin-bottom:16px;line-height:1.6;">
+    <strong>† LLM Disclaimer:</strong> Gemini 2.5 Pro was evaluated on 3,126 of 4,000 CoSiM pairs and Gemini 2.5 Flash on 1,823 pairs; the remainder were excluded due to token budget constraints.
+  </div>
+
   <!-- Disclaimer -->
   <div id="disclaimer" style="font-size:12px;color:#b06000;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;margin-bottom:32px;line-height:1.6;">
-    <strong>* Disclaimer:</strong> Complexity-Based Birthmarks requires fully compilable and executable code to collect runtime profiling metrics, so it was only applicable to the compilable C++ subset of CoSiM. All other models ran on the full CoSiM dataset. Metrics for all models are reported as if evaluated on the same benchmark for ranking purposes.
+    <strong>* Disclaimer:</strong> Complexity-Based Birthmarks requires fully compilable and executable code to collect runtime profiling metrics, so it was only applicable to the compilable C++ subset of CoSiM.
   </div>
 
   <!-- Submit -->

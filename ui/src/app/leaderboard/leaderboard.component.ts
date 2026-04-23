@@ -27,6 +27,78 @@ export class LeaderboardComponent {
   readonly entries: LeaderboardEntry[] = [
     {
       rank: 1,
+      model: 'Gemini 2.5 Pro (r=1)',
+      category: 'LLM + USE',
+      bestF1: 0.9395,
+      precision: 0.9393,
+      recall: 0.9399,
+      accuracy: 0.9395,
+      fpr: 0.0601,
+      optimalThreshold: '0.31',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 2,
+      model: 'Gemini 2.5 Pro (r=3)',
+      category: 'LLM + USE',
+      bestF1: 0.9369,
+      precision: 0.9368,
+      recall: 0.9369,
+      accuracy: 0.9370,
+      fpr: 0.0631,
+      optimalThreshold: '0.74',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 3,
+      model: 'Gemini 2.5 Pro (r=6)',
+      category: 'LLM + USE',
+      bestF1: 0.9177,
+      precision: 0.9175,
+      recall: 0.9182,
+      accuracy: 0.9178,
+      fpr: 0.0818,
+      optimalThreshold: '0.94',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 4,
+      model: 'Gemini 2.5 Flash (r=6)',
+      category: 'LLM + USE',
+      bestF1: 0.8974,
+      precision: 0.8994,
+      recall: 0.9005,
+      accuracy: 0.8974,
+      fpr: 0.0995,
+      optimalThreshold: '0.62',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 5,
+      model: 'Gemini 2.5 Flash (r=3)',
+      category: 'LLM + USE',
+      bestF1: 0.8897,
+      precision: 0.8928,
+      recall: 0.8933,
+      accuracy: 0.8897,
+      fpr: 0.1067,
+      optimalThreshold: '0.56',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 6,
+      model: 'Gemini 2.5 Flash (r=1)',
+      category: 'LLM + USE',
+      bestF1: 0.8798,
+      precision: 0.8810,
+      recall: 0.8823,
+      accuracy: 0.8799,
+      fpr: 0.1177,
+      optimalThreshold: '0.44',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 7,
       model: 'Complexity-Based Birthmarks',
       category: 'Dynamic Analysis',
       bestF1: 0.8200,
@@ -38,7 +110,7 @@ export class LeaderboardComponent {
       link: 'https://github.com/raresraf/project-martial',
     },
     {
-      rank: 2,
+      rank: 8,
       model: 'MOSS',
       category: 'Syntax-based',
       bestF1: 0.7230,
@@ -53,9 +125,15 @@ export class LeaderboardComponent {
 
   birthmarksExpanded = false;
   mossExpanded = false;
+  proExpanded = false;
+  flashExpanded = false;
 
   scrollToDisclaimer() {
     document.getElementById('disclaimer')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  scrollToLlmDisclaimer() {
+    document.getElementById('llm-disclaimer')?.scrollIntoView({ behavior: 'smooth' });
   }
 
   readonly birthmarkThresholdData = [
@@ -68,6 +146,32 @@ export class LeaderboardComponent {
     { threshold: 0.54, precision: 0.880, tpr: 0.830, f1: 0.809 },
     { threshold: 0.56, precision: 0.890, tpr: 0.790, f1: 0.795 },
     { threshold: 0.58, precision: 0.892, tpr: 0.750, f1: 0.784 },
+  ];
+
+  readonly geminiProR1ThresholdData = [
+    { threshold: 0.20, precision: 0.9060, recall: 0.8931, f1: 0.8950, accuracy: 0.8964 },
+    { threshold: 0.25, precision: 0.9311, recall: 0.9280, f1: 0.9290, accuracy: 0.9293 },
+    { threshold: 0.28, precision: 0.9343, recall: 0.9337, f1: 0.9339, accuracy: 0.9341 },
+    { threshold: 0.30, precision: 0.9390, recall: 0.9393, f1: 0.9391, accuracy: 0.9392 },
+    { threshold: 0.31, precision: 0.9393, recall: 0.9399, f1: 0.9395, accuracy: 0.9395 },
+    { threshold: 0.33, precision: 0.9388, recall: 0.9397, f1: 0.9389, accuracy: 0.9389 },
+    { threshold: 0.35, precision: 0.9379, recall: 0.9386, f1: 0.9373, accuracy: 0.9373 },
+    { threshold: 0.40, precision: 0.9241, recall: 0.9215, f1: 0.9187, accuracy: 0.9187 },
+    { threshold: 0.45, precision: 0.9062, recall: 0.8973, f1: 0.8932, accuracy: 0.8932 },
+    { threshold: 0.50, precision: 0.8781, recall: 0.8566, f1: 0.8506, accuracy: 0.8506 },
+  ];
+
+  readonly geminiFlashR6ThresholdData = [
+    { threshold: 0.55, precision: 0.8292, recall: 0.8200, f1: 0.8218, accuracy: 0.8245 },
+    { threshold: 0.58, precision: 0.8738, recall: 0.8740, f1: 0.8739, accuracy: 0.8744 },
+    { threshold: 0.60, precision: 0.8935, recall: 0.8952, f1: 0.8935, accuracy: 0.8936 },
+    { threshold: 0.61, precision: 0.8967, recall: 0.8982, f1: 0.8957, accuracy: 0.8958 },
+    { threshold: 0.62, precision: 0.8994, recall: 0.9005, f1: 0.8974, accuracy: 0.8974 },
+    { threshold: 0.63, precision: 0.8955, recall: 0.8953, f1: 0.8914, accuracy: 0.8914 },
+    { threshold: 0.65, precision: 0.8889, recall: 0.8861, f1: 0.8809, accuracy: 0.8810 },
+    { threshold: 0.68, precision: 0.8747, recall: 0.8602, f1: 0.8511, accuracy: 0.8519 },
+    { threshold: 0.70, precision: 0.8594, recall: 0.8328, f1: 0.8202, accuracy: 0.8223 },
+    { threshold: 0.75, precision: 0.7997, recall: 0.7095, f1: 0.6712, accuracy: 0.6906 },
   ];
 
   readonly mossThresholdData = [

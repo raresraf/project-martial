@@ -27,6 +27,7 @@ tbody tr.best-row { background: #e6f4ea; font-weight: 600; }
 .model-cell { font-weight: 600; }
 .model-cell a { color: #1a73e8; text-decoration: none; }
 .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #e8f0fe; color: #1a73e8; }
+.badge-llm { background: #e8f5e9; color: #1b5e20; }
 .f1-cell { font-weight: 700; color: #188038; }
 .best-dot { display: inline-block; width: 6px; height: 6px; background: #fbbc04; border-radius: 50%; margin-left: 4px; vertical-align: middle; }
 .submit-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px 24px; font-size: 14px; color: #444; line-height: 1.6; }

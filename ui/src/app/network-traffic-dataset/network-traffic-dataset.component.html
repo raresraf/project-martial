@@ -55,7 +55,7 @@
           </thead>
           <tbody>
             <tr *ngFor="let e of corpus; let i = index"
-                [class.group-sep]="i > 0 && corpus[i-1].group !== e.group">
+                [class.group-sep]="isFirstInGroup(corpus, i)">
               <td>
                 <span class="badge"
                   [class.badge-mysql]="e.group === 'mysql'"
@@ -109,7 +109,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let row of simRows; let i = index"
-              [class.group-sep]="isFirstInGroup(row, i)">
+              [class.group-sep]="isFirstInGroup(simRows, i)">
             <td class="engine-cell">
               <span class="badge"
                 [class.badge-mysql]="row.group === 'mysql'"
@@ -118,7 +118,7 @@
                 style="margin-right:6px;">
                 {{ getGroupLabel(row.group) }}
               </span>
-              {{ row.engine.replace('MySQL ', '').replace('PostgreSQL ', '').replace('SQL Server ', '') }}
+              {{ getEngineLabel(row) }}
             </td>
             <td *ngFor="let cell of row.scores"
                 [class.score-cell]="cell !== null"

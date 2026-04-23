@@ -106,7 +106,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of birtmarkThresholdData" [class.best-row]="row.threshold === 0.50">
+            <tr *ngFor="let row of birthmarkThresholdData" [class.best-row]="row.threshold === 0.50">
               <td>{{ row.threshold | number:'1.2-2' }}</td>
               <td>{{ row.precision | number:'1.4-4' }}</td>
               <td>{{ row.tpr | number:'1.4-4' }}</td>

@@ -24,7 +24,7 @@ export class LeaderboardComponent {
   readonly notSimilarPairs = 2000;
   readonly datasetUrl = 'https://github.com/raresraf/project-martial/tree/main/dataset/CoSiM';
 
-  entries: LeaderboardEntry[] = [
+  readonly entries: LeaderboardEntry[] = [
     {
       rank: 1,
       model: 'Complexity-Based Birthmarks',
@@ -58,7 +58,7 @@ export class LeaderboardComponent {
     document.getElementById('disclaimer')?.scrollIntoView({ behavior: 'smooth' });
   }
 
-  readonly birtmarkThresholdData = [
+  readonly birthmarkThresholdData = [
     { threshold: 0.42, precision: 0.800, tpr: 0.980, f1: 0.815 },
     { threshold: 0.44, precision: 0.820, tpr: 0.970, f1: 0.820 },
     { threshold: 0.46, precision: 0.830, tpr: 0.940, f1: 0.822 },

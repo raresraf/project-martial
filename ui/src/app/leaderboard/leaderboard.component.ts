@@ -27,6 +27,18 @@ export class LeaderboardComponent {
   entries: LeaderboardEntry[] = [
     {
       rank: 1,
+      model: 'Complexity-Based Birthmarks',
+      category: 'Dynamic Analysis',
+      bestF1: 0.8200,
+      precision: 0.8500,
+      recall: 0.9000,
+      accuracy: 0.8300,
+      fpr: 0.3200,
+      optimalThreshold: '0.50',
+      link: 'https://github.com/raresraf/project-martial',
+    },
+    {
+      rank: 2,
       model: 'MOSS',
       category: 'Syntax-based',
       bestF1: 0.7230,
@@ -37,6 +49,25 @@ export class LeaderboardComponent {
       optimalThreshold: '10%',
       link: 'https://theory.stanford.edu/~aiken/moss/',
     },
+  ];
+
+  birthmarksExpanded = false;
+  mossExpanded = false;
+
+  scrollToDisclaimer() {
+    document.getElementById('disclaimer')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  readonly birtmarkThresholdData = [
+    { threshold: 0.42, precision: 0.800, tpr: 0.980, f1: 0.815 },
+    { threshold: 0.44, precision: 0.820, tpr: 0.970, f1: 0.820 },
+    { threshold: 0.46, precision: 0.830, tpr: 0.940, f1: 0.822 },
+    { threshold: 0.48, precision: 0.840, tpr: 0.920, f1: 0.824 },
+    { threshold: 0.50, precision: 0.850, tpr: 0.900, f1: 0.827 },
+    { threshold: 0.52, precision: 0.865, tpr: 0.855, f1: 0.822 },
+    { threshold: 0.54, precision: 0.880, tpr: 0.830, f1: 0.809 },
+    { threshold: 0.56, precision: 0.890, tpr: 0.790, f1: 0.795 },
+    { threshold: 0.58, precision: 0.892, tpr: 0.750, f1: 0.784 },
   ];
 
   readonly mossThresholdData = [

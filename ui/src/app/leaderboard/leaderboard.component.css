@@ -31,3 +31,6 @@ tbody tr.best-row { background: #e6f4ea; font-weight: 600; }
 .best-dot { display: inline-block; width: 6px; height: 6px; background: #fbbc04; border-radius: 50%; margin-left: 4px; vertical-align: middle; }
 .submit-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px 24px; font-size: 14px; color: #444; line-height: 1.6; }
 .submit-box a { color: #1a73e8; }
+.collapsible-heading { cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+.collapsible-heading:hover { color: #1a73e8; }
+.collapse-chevron { font-size: 13px; color: #888; margin-left: 8px; }

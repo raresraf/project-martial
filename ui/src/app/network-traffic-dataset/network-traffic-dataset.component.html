@@ -1,0 +1,186 @@
+<!-- Breadcrumb -->
+<div class="page-breadcrumb">
+  <a routerLink="/">Home</a>
+  <span>›</span>
+  <span class="current">Network Traffic Dataset</span>
+</div>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>Network Traffic Dataset</h1>
+    <p class="subtitle">
+      A corpus of application-layer network traffic captured between standard database clients and
+      MySQL, PostgreSQL, and SQL Server engines running in Docker and Google Cloud SQL environments.
+      Similarity is computed as cosine distance over TF-IDF vectors of byte-level n-grams, with
+      best discrimination achieved at 4-grams.
+    </p>
+    <div class="meta-row">
+      <span class="meta-chip"><span class="label">Engines</span> MySQL, PostgreSQL, SQL Server</span>
+      <span class="meta-chip"><span class="label">Versions</span> 20 (2013 – 2023)</span>
+      <span class="meta-chip"><span class="label">Environments</span> Docker, Google Cloud SQL</span>
+      <span class="meta-chip"><span class="label">Best n-gram</span> 4-gram</span>
+    </div>
+    <a class="gh-link" [href]="datasetUrl" target="_blank" rel="noopener">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="#4285F4">
+        <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      View dataset on GitHub
+    </a>
+  </div>
+
+  <!-- Corpus -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="corpusExpanded = !corpusExpanded">
+      Corpus Composition
+      <span class="collapse-chevron">{{ corpusExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="corpusExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Total sizes (in kB) of application-layer bytes captured per engine, version, and environment.
+        The dataset spans ten years of releases (2013 – 2023). Cells marked <em>n/a</em> indicate that
+        edition is not available for that deployment environment.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Version / Edition</th>
+              <th>Initial Release</th>
+              <th>Corpus (kB) — Docker</th>
+              <th>Corpus (kB) — Cloud SQL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of corpus; let i = index"
+                [class.group-sep]="i > 0 && corpus[i-1].group !== e.group">
+              <td>
+                <span class="badge"
+                  [class.badge-mysql]="e.group === 'mysql'"
+                  [class.badge-postgresql]="e.group === 'postgresql'"
+                  [class.badge-sqlserver]="e.group === 'sqlserver'">
+                  {{ e.database }}
+                </span>
+              </td>
+              <td>{{ e.version }}</td>
+              <td style="color:#666;">{{ e.releaseDate }}</td>
+              <td style="text-align:right;">{{ e.dockerKb !== null ? (e.dockerKb | number:'1.1-1') : 'n/a' }}</td>
+              <td style="text-align:right;">{{ e.cloudKb  !== null ? (e.cloudKb  | number:'1.1-1') : 'n/a' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Similarity Matrix -->
+  <div class="section">
+    <h2>Similarity Matrix</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 8px;">
+      Cosine similarity (TF-IDF, byte-level n-grams) between each engine and the six MySQL reference
+      versions. Colors are fixed to the 4-gram score to highlight same-type vs cross-type similarity,
+      regardless of the selected n-gram.
+    </p>
+
+    <div class="gram-selector">
+      <button class="gram-btn" [class.active]="selectedGram === 2" (click)="selectedGram = 2">2-gram</button>
+      <button class="gram-btn" [class.active]="selectedGram === 3" (click)="selectedGram = 3">3-gram</button>
+      <button class="gram-btn" [class.active]="selectedGram === 4" (click)="selectedGram = 4">4-gram</button>
+    </div>
+
+    <div class="legend">
+      <span style="font-weight:500;">Color scale (4-gram):</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#a5d6a7;"></span> ≥ 0.67 — strong similarity</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#c8e6c9;"></span> ≥ 0.60 — high similarity</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#ffcdd2;"></span> ≥ 0.25 — low similarity</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#ef9a9a;"></span> ≥ 0.05 — very low</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#e57373;"></span> &lt; 0.05 — extremely low</span>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:240px;">Database Engine</th>
+            <th *ngFor="let col of simColumns" class="score-cell" style="text-align:center;">{{ col }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of simRows; let i = index"
+              [class.group-sep]="isFirstInGroup(row, i)">
+            <td class="engine-cell">
+              <span class="badge"
+                [class.badge-mysql]="row.group === 'mysql'"
+                [class.badge-postgresql]="row.group === 'postgresql'"
+                [class.badge-sqlserver]="row.group === 'sqlserver'"
+                style="margin-right:6px;">
+                {{ getGroupLabel(row.group) }}
+              </span>
+              {{ row.engine.replace('MySQL ', '').replace('PostgreSQL ', '').replace('SQL Server ', '') }}
+            </td>
+            <td *ngFor="let cell of row.scores"
+                [class.score-cell]="cell !== null"
+                [class.diag-cell]="cell === null"
+                [style.background]="getCellBg(cell)"
+                [style.color]="getCellTextColor(cell)">
+              {{ getScore(cell) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Classifier Results -->
+  <div class="section">
+    <h2>SVM Classifier Results</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 16px;">
+      Top-2000 4-gram TF-IDF features (from ~500,000 unique 4-grams) used to train a Support Vector
+      Classifier on 31 captured communication patterns. Evaluated on detecting database engine type,
+      major version, and deployment environment (Docker vs Cloud SQL).
+    </p>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value">85%</div>
+        <div class="stat-label">Overall accuracy<br>(engine + version + deployment)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Precision for engine type<br>(MySQL / PostgreSQL / SQL Server)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Precision for deployment location<br>(Docker vs Cloud SQL)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">31</div>
+        <div class="stat-label">Communication patterns evaluated</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-bottom:20px;">
+      <strong>Misclassified patterns (5 of 31):</strong> all are incremental version or edition
+      confusion within the same engine — the engine type and deployment location were never wrong.
+      <ul>
+        <li *ngFor="let m of misclassifications">
+          <strong>{{ m.actual }}</strong> → predicted as <em>{{ m.predicted }}</em>
+        </li>
+      </ul>
+    </div>
+
+    <div class="info-box">
+      <strong>Key findings:</strong>
+      <ul>
+        <li>Same-engine comparisons consistently yield 4-gram similarity ≥ 0.61 regardless of version.</li>
+        <li>Cross-engine 4-gram similarities: MySQL vs PostgreSQL ≈ 0.03–0.06; MySQL vs SQL Server ≈ 0.22–0.27.</li>
+        <li>PostgreSQL 14+ shows a drop in similarity vs earlier versions due to SCRAM-SHA-256 authentication adopted by the standard client.</li>
+        <li>Cloud SQL deployments score slightly lower vs Docker images of the same version, reflecting cloud-specific greeting packet modifications.</li>
+        <li>4-grams outperform 2-grams and 3-grams at cross-engine discrimination while maintaining high intra-engine similarity.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>

@@ -32,7 +32,7 @@
   <div class="section">
     <h2>Rankings</h2>
     <p style="font-size:13px;color:#666;margin:0 0 12px;">
-      Ranked by best F1-score across all evaluated configurations. Metrics are reported at the threshold that maximises F1.
+      Ranked by best F1-score (for similar class) across all evaluated configurations. Metrics are reported at the threshold that maximises F1.
     </p>
     <div class="table-wrapper">
       <table>
@@ -57,11 +57,14 @@
                 <a [href]="entry.link" target="_blank" rel="noopener">{{ entry.model }}</a>
               </ng-container>
               <ng-template #noLink>{{ entry.model }}</ng-template>
+              <a *ngIf="entry.model === 'Complexity-Based Birthmarks'"
+                (click)="scrollToDisclaimer()"
+                style="color:#b06000;text-decoration:none;font-size:11px;vertical-align:super;margin-left:2px;cursor:pointer;">*</a>
             </td>
             <td><span class="badge">{{ entry.category }}</span></td>
             <td class="f1-cell">
               {{ entry.bestF1 | number:'1.4-4' }}
-              <span class="best-dot" title="Best reported F1 on CoSiM"></span>
+              <span class="best-dot" [title]="entry.model === 'Complexity-Based Birthmarks' ? 'Weighted avg F1' : 'Similar-class F1'"></span>
             </td>
             <td>{{ entry.precision | number:'1.4-4' }}</td>
             <td>{{ entry.recall | number:'1.4-4' }}</td>
@@ -74,39 +77,102 @@
     </div>
   </div>
 
+  <!-- Birthmarks detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="birthmarksExpanded = !birthmarksExpanded">
+      Complexity-Based Birthmarks — Full Threshold Analysis
+      <span class="collapse-chevron">{{ birthmarksExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="birthmarksExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 4px;">
+        Evaluated on ~280,000 pairs of C++ Codeforces submissions (2/3 similar, 1/3 not similar).
+        The model uses 9 profiling metrics (branch-misses, branches, context-switches, cpu-migrations,
+        cycles, instructions, page-faults, stalled-cycles-frontend, task-clock), each approximated by a
+        4-feature regression regressor, yielding a 36-dimensional birthmark. Only 24 of the 36 weights
+        are non-zero after training.
+      </p>
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Precision and Recall are for the <em>similar</em> class. F1 is the weighted average across both classes.
+        The highlighted row marks the optimal threshold (best weighted F1).
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Precision (similar) <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Recall / TPR (similar) <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Weighted Avg F1</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of birtmarkThresholdData" [class.best-row]="row.threshold === 0.50">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.tpr | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.50" class="best-dot" title="Best weighted F1"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px; padding:16px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0; font-size:13px; color:#444; line-height:1.6;">
+        <strong>Model summary at t = 0.50:</strong>
+        <ul style="margin:8px 0 0 16px; padding:0;">
+          <li>Similar class — Precision: 0.85 · Recall: 0.90 · F1: 0.87</li>
+          <li>Not-similar class — Precision: 0.76 · Recall: 0.68 · F1: 0.72</li>
+          <li>Weighted avg — Precision: 0.82 · Recall: 0.83 · F1: 0.82 · Accuracy: 83%</li>
+          <li>Training: ~5,000 CPU-hours on a 3.5 GHz 8-Core Intel Xeon W (6 grid-search epochs + 2,000 gradient-descent iterations, lr = 10⁻⁷, batch = 25,000)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <!-- MOSS detail -->
   <div class="section">
-    <h2>MOSS — Full Threshold Analysis</h2>
-    <p style="font-size:13px;color:#666;margin:0 0 12px;">
-      MOSS evaluated across detection thresholds from 0% to 95% on all 4,000 pairs. The highlighted row marks the best F1.
-    </p>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Threshold</th>
-            <th>TPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
-            <th>FPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
-            <th>Accuracy</th>
-            <th>Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
-            <th>F1</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let row of mossThresholdData" [class.best-row]="row.threshold === 10">
-            <td>{{ row.threshold }}%</td>
-            <td>{{ row.tpr | number:'1.4-4' }}</td>
-            <td>{{ row.fpr | number:'1.4-4' }}</td>
-            <td>{{ row.accuracy | number:'1.4-4' }}</td>
-            <td>{{ row.precision | number:'1.4-4' }}</td>
-            <td>
-              {{ row.f1 | number:'1.4-4' }}
-              <span *ngIf="row.threshold === 10" class="best-dot" title="Best F1"></span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <h2 class="collapsible-heading" (click)="mossExpanded = !mossExpanded">
+      MOSS — Full Threshold Analysis
+      <span class="collapse-chevron">{{ mossExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="mossExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        MOSS evaluated across detection thresholds from 0% to 95% on all 4,000 pairs. The highlighted row marks the best F1.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>TPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
+              <th>FPR <span style="font-weight:400;color:#888">(&darr;)</span></th>
+              <th>Accuracy</th>
+              <th>Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>F1</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of mossThresholdData" [class.best-row]="row.threshold === 10">
+              <td>{{ row.threshold }}%</td>
+              <td>{{ row.tpr | number:'1.4-4' }}</td>
+              <td>{{ row.fpr | number:'1.4-4' }}</td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 10" class="best-dot" title="Best F1"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div id="disclaimer" style="font-size:12px;color:#b06000;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;margin-bottom:32px;line-height:1.6;">
+    <strong>* Disclaimer:</strong> Complexity-Based Birthmarks requires fully compilable and executable code to collect runtime profiling metrics, so it was only applicable to the compilable C++ subset of CoSiM. All other models ran on the full CoSiM dataset. Metrics for all models are reported as if evaluated on the same benchmark for ranking purposes.
   </div>
 
   <!-- Submit -->

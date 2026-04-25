@@ -25,6 +25,11 @@
                       {
                         "glob": "**/*",
                         "input": "threshold-app/public"
+                      },
+                      {
+                        "glob": "**/*",
+                        "input": "../dataset/CoSiM/raw",
+                        "output": "cosim/raw"
                       }
                     ],
                     "styles": [
@@ -42,8 +47,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "4kb"
+                  "maximumWarning": "3kb",
+                  "maximumError": "8kb"
                 }
               ],
               "outputHashing": "all"

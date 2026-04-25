@@ -25,6 +25,7 @@ import {MatRadioModule} from '@angular/material/radio';
 import { ThresholdAppComponent } from './threshold-app/threshold-app.component';
 import { LeaderboardComponent } from './leaderboard/leaderboard.component';
 import { NetworkTrafficDatasetComponent } from './network-traffic-dataset/network-traffic-dataset.component';
+import { CosimDatasetComponent } from './cosim-dataset/cosim-dataset.component';
 import { ParameterControlsComponent } from './threshold-app/components/parameter-controls/parameter-controls.component';
 import { ResultsDisplayComponent } from './threshold-app/components/results-display/results-display.component';
 import { BenchmarkDataEditorComponent } from './threshold-app/components/benchmark-data-editor/benchmark-data-editor.component';
@@ -42,6 +43,7 @@ import { PrecisionRecallChartComponent } from './threshold-app/components/precis
     BenchmarkDataEditorComponent,
     LeaderboardComponent,
     NetworkTrafficDatasetComponent,
+    CosimDatasetComponent,
   ],
   imports: [
     BrowserModule,

@@ -1,0 +1,364 @@
+<!-- Breadcrumb -->
+<div class="page-breadcrumb">
+  <a routerLink="/">Home</a>
+  <span>›</span>
+  <span class="current">CoSiM Dataset</span>
+</div>
+
+<div class="page">
+
+  <!-- ── Pair Viewer (shown when a pair is opened) ─────────────────── -->
+  <div *ngIf="activePairView" class="pair-viewer">
+    <div class="viewer-header">
+      <div class="viewer-title">
+        <span class="badge" [class.badge-similar]="activePairView.pair.label === 'similar'" [class.badge-notsimilar]="activePairView.pair.label === 'notsimilar'">
+          {{ activePairView.pair.label === 'similar' ? 'Similar' : 'Not Similar' }}
+        </span>
+        <span class="badge" [class]="langClass(activePairView.pair.language)">{{ activePairView.pair.language }}</span>
+        <strong>Pair #{{ activePairView.pair.index }}</strong>
+        <span class="viewer-source">{{ activePairView.pair.source }}</span>
+      </div>
+      <button class="close-btn" (click)="closePair()">✕ Close</button>
+    </div>
+
+    <div *ngIf="activePairView.loading" class="viewer-loading">
+      Loading pair metadata…
+    </div>
+
+    <div *ngIf="!activePairView.loading" class="viewer-body">
+      <!-- Snippet A -->
+      <div class="snippet-panel">
+        <div class="snippet-meta">
+          <span class="mono uuid-label">A — {{ shortUuid(activePairView.snippetA.uuid) }}</span>
+          <span *ngIf="activePairView.snippetA.source" class="snippet-source">{{ activePairView.snippetA.source }}</span>
+          <!-- file picker if multiple files -->
+          <select *ngIf="activePairView.snippetA.files.length > 1"
+                  class="file-select"
+                  [(ngModel)]="activePairView.snippetA.selectedFile"
+                  (change)="loadSnippetFile(activePairView!.snippetA)">
+            <option *ngFor="let f of activePairView.snippetA.files" [value]="f">{{ f }}</option>
+          </select>
+          <span *ngIf="activePairView.snippetA.files.length === 1" class="mono file-label">{{ activePairView.snippetA.selectedFile }}</span>
+          <span *ngIf="activePairView.snippetA.content" class="line-count">{{ lineCount(activePairView.snippetA.content) }} lines</span>
+        </div>
+        <div *ngIf="activePairView.snippetA.loading" class="code-loading">Loading…</div>
+        <div *ngIf="activePairView.snippetA.error"   class="code-error">{{ activePairView.snippetA.error }}</div>
+        <pre *ngIf="activePairView.snippetA.content" class="code-block"><code>{{ activePairView.snippetA.content }}</code></pre>
+      </div>
+
+      <!-- Snippet B -->
+      <div class="snippet-panel">
+        <div class="snippet-meta">
+          <span class="mono uuid-label">B — {{ shortUuid(activePairView.snippetB.uuid) }}</span>
+          <span *ngIf="activePairView.snippetB.source" class="snippet-source">{{ activePairView.snippetB.source }}</span>
+          <select *ngIf="activePairView.snippetB.files.length > 1"
+                  class="file-select"
+                  [(ngModel)]="activePairView.snippetB.selectedFile"
+                  (change)="loadSnippetFile(activePairView!.snippetB)">
+            <option *ngFor="let f of activePairView.snippetB.files" [value]="f">{{ f }}</option>
+          </select>
+          <span *ngIf="activePairView.snippetB.files.length === 1" class="mono file-label">{{ activePairView.snippetB.selectedFile }}</span>
+          <span *ngIf="activePairView.snippetB.content" class="line-count">{{ lineCount(activePairView.snippetB.content) }} lines</span>
+        </div>
+        <div *ngIf="activePairView.snippetB.loading" class="code-loading">Loading…</div>
+        <div *ngIf="activePairView.snippetB.error"   class="code-error">{{ activePairView.snippetB.error }}</div>
+        <pre *ngIf="activePairView.snippetB.content" class="code-block"><code>{{ activePairView.snippetB.content }}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Header ────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <h1>CoSiM Dataset</h1>
+    <p class="subtitle">
+      <strong>Co</strong>de <strong>Si</strong>milarity Dataset by Project <strong>M</strong>artial —
+      an open-source benchmark of 4,000 manually labelled code-pair entries spanning 9 programming languages,
+      designed to evaluate code similarity and clone-detection models.
+    </p>
+    <div class="meta-row">
+      <span class="meta-chip"><span class="label">Total pairs</span> 4,000</span>
+      <span class="meta-chip"><span class="label">Similar</span> 2,000</span>
+      <span class="meta-chip"><span class="label">Not similar</span> 2,000</span>
+      <span class="meta-chip"><span class="label">Languages</span> 9</span>
+      <span class="meta-chip"><span class="label">Snippets</span> 2,000</span>
+      <span class="meta-chip"><span class="label">Total LOC</span> 8.2 M</span>
+    </div>
+    <a class="gh-link" [href]="datasetUrl" target="_blank" rel="noopener">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="#4285F4">
+        <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      View dataset on GitHub
+    </a>
+  </div>
+
+  <!-- ── Dataset Pillars ────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>Dataset Pillars</h2>
+    <p class="section-desc">
+      The dataset is drawn from three distinct coding environments, each representing a real-world
+      context where code similarity arises or is absent.
+    </p>
+    <div class="pillar-grid">
+      <div class="pillar-card pillar-opensource">
+        <div class="pillar-pct">25%</div>
+        <div class="pillar-name">Open Source Projects</div>
+        <div class="pillar-count">1,000 pairs</div>
+        <div class="pillar-detail">500 similar · 500 not similar</div>
+        <div class="pillar-langs">Go · TypeScript · C · Java · Rust</div>
+        <div class="pillar-sources">Kubernetes · VSCode · Linux · Elastic · Servo</div>
+      </div>
+      <div class="pillar-card pillar-student">
+        <div class="pillar-pct">35%</div>
+        <div class="pillar-name">Student Assignments</div>
+        <div class="pillar-count">1,400 pairs</div>
+        <div class="pillar-detail">700 similar · 700 not similar</div>
+        <div class="pillar-langs">C · CUDA · Python · OpenCL</div>
+        <div class="pillar-sources">UPB Computer Systems Architecture</div>
+      </div>
+      <div class="pillar-card pillar-competitive">
+        <div class="pillar-pct">40%</div>
+        <div class="pillar-name">Competitive Programming</div>
+        <div class="pillar-count">1,600 pairs</div>
+        <div class="pillar-detail">800 similar · 800 not similar</div>
+        <div class="pillar-langs">C++</div>
+        <div class="pillar-sources">Codeforces (~30 problems)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Language Pairs Chart ───────────────────────────────────────── -->
+  <div class="section">
+    <h2>Language Distribution</h2>
+    <p class="section-desc">
+      Number of similar pairs per language. The not-similar subset mirrors the same distribution.
+    </p>
+    <div class="chart-container">
+      <canvas #pairsChartCanvas></canvas>
+    </div>
+  </div>
+
+  <!-- ── LOC Chart ─────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>Lines of Code</h2>
+    <p class="section-desc">
+      Total lines of code contributed by each language across all 2,000 raw snippets (log scale).
+    </p>
+    <div class="chart-container">
+      <canvas #locChartCanvas></canvas>
+    </div>
+  </div>
+
+  <!-- ── MOSS Chart ────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>MOSS Baseline Performance</h2>
+    <p class="section-desc">
+      MOSS evaluated across detection thresholds from 0 % to 95 % on all 4,000 pairs.
+      Peak F1 of <strong>0.7230</strong> is achieved at the 10 % threshold; precision reaches 1.0 beyond 50 %.
+    </p>
+    <div class="chart-container chart-container-tall">
+      <canvas #mossChartCanvas></canvas>
+    </div>
+  </div>
+
+  <!-- ── Provenance Table ───────────────────────────────────────────── -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="provenanceExpanded = !provenanceExpanded">
+      Index Range Provenance
+      <span class="collapse-chevron">{{ provenanceExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="provenanceExpanded">
+      <p class="section-desc">Mapping from pair index to language and source project.</p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Index range</th>
+              <th>Language</th>
+              <th>Source project</th>
+              <th>Pillar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of indexRanges">
+              <td class="mono">{{ r.from }}–{{ r.to }}</td>
+              <td><span class="badge" [class]="langClass(r.language)">{{ r.language }}</span></td>
+              <td>{{ r.source }}</td>
+              <td><span class="badge" [class]="'badge-pillar-' + r.pillar">{{ pillarLabel(r.pillar) }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Stats Table ────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="statsTableExpanded = !statsTableExpanded">
+      Per-Language Statistics
+      <span class="collapse-chevron">{{ statsTableExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="statsTableExpanded">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Language</th>
+              <th>Similar pairs</th>
+              <th style="text-align:right;">Total LOC</th>
+              <th style="text-align:right;">File count</th>
+              <th style="text-align:right;">Avg. LOC / file</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of langStats">
+              <td><span class="badge" [class]="langClass(s.language)">{{ s.language }}</span></td>
+              <td>{{ s.pairs }}</td>
+              <td style="text-align:right;">{{ s.totalLoc | number }}</td>
+              <td style="text-align:right;">{{ s.fileCount | number }}</td>
+              <td style="text-align:right;">{{ s.avgLoc | number:'1.1-1' }}</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>Total</strong></td>
+              <td><strong>2,000</strong></td>
+              <td style="text-align:right;"><strong>8,213,729</strong></td>
+              <td style="text-align:right;"><strong>11,651</strong></td>
+              <td style="text-align:right;"><strong>704.9</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MOSS Results Table ─────────────────────────────────────────── -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="mossTableExpanded = !mossTableExpanded">
+      MOSS — Full Threshold Results
+      <span class="collapse-chevron">{{ mossTableExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="mossTableExpanded">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>TPR <span class="hint">↓</span></th>
+              <th>FPR <span class="hint">↓</span></th>
+              <th>Accuracy</th>
+              <th>Precision <span class="hint">↑</span></th>
+              <th>F1</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of mossResults" [class.best-row]="r.threshold === 10">
+              <td>{{ r.threshold }}%</td>
+              <td>{{ r.tpr | number:'1.4-4' }}</td>
+              <td>{{ r.fpr | number:'1.4-4' }}</td>
+              <td>{{ r.accuracy | number:'1.4-4' }}</td>
+              <td>{{ r.precision | number:'1.4-4' }}</td>
+              <td>
+                {{ r.f1 | number:'1.4-4' }}
+                <span *ngIf="r.threshold === 10" class="best-dot" title="Best F1"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dataset Browser ───────────────────────────────────────────── -->
+  <div class="section">
+    <h2>Dataset Browser</h2>
+    <p class="section-desc">
+      Browse all {{ allPairsCount | number }} entries. Click <strong>View</strong> on any row to inspect the two code snippets side by side.
+    </p>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Label</span>
+        <button class="filter-btn" [class.active]="labelFilter === 'all'"        (click)="labelFilter = 'all';        applyFilters()">All</button>
+        <button class="filter-btn" [class.active]="labelFilter === 'similar'"    (click)="labelFilter = 'similar';    applyFilters()">Similar</button>
+        <button class="filter-btn" [class.active]="labelFilter === 'notsimilar'" (click)="labelFilter = 'notsimilar'; applyFilters()">Not Similar</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Language</span>
+        <button class="filter-btn" [class.active]="languageFilter === 'all'" (click)="languageFilter = 'all'; applyFilters()">All</button>
+        <button *ngFor="let lang of languages"
+                class="filter-btn"
+                [class.active]="languageFilter === lang"
+                (click)="languageFilter = lang; applyFilters()">{{ lang }}</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Pillar</span>
+        <button class="filter-btn" [class.active]="pillarFilter === 'all'"         (click)="pillarFilter = 'all';         applyFilters()">All</button>
+        <button class="filter-btn" [class.active]="pillarFilter === 'open-source'" (click)="pillarFilter = 'open-source'; applyFilters()">Open Source</button>
+        <button class="filter-btn" [class.active]="pillarFilter === 'student'"     (click)="pillarFilter = 'student';     applyFilters()">Student</button>
+        <button class="filter-btn" [class.active]="pillarFilter === 'competitive'" (click)="pillarFilter = 'competitive'; applyFilters()">Competitive</button>
+      </div>
+    </div>
+
+    <!-- Result count -->
+    <div class="result-count">
+      Showing {{ filteredPairs.length | number }} pairs
+      <ng-container *ngIf="filteredPairs.length > 0">
+        — page {{ currentPage + 1 }} of {{ totalPages }}
+        (rows {{ currentPage * pageSize + 1 }}–{{ currentPage * pageSize + displayedPairs.length }})
+      </ng-container>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper" *ngIf="displayedPairs.length > 0; else emptyState">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center;">Pair #</th>
+            <th>Label</th>
+            <th>Language</th>
+            <th>Source</th>
+            <th>Pillar</th>
+            <th style="text-align:center;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of displayedPairs"
+              [class.active-pair]="activePairView?.pair === p">
+            <td class="mono" style="text-align:center;">{{ p.index }}</td>
+            <td>
+              <span class="badge" [class.badge-similar]="p.label === 'similar'" [class.badge-notsimilar]="p.label === 'notsimilar'">
+                {{ p.label === 'similar' ? 'Similar' : 'Not Similar' }}
+              </span>
+            </td>
+            <td><span class="badge" [class]="langClass(p.language)">{{ p.language }}</span></td>
+            <td>{{ p.source }}</td>
+            <td><span class="badge" [class]="'badge-pillar-' + p.pillar">{{ pillarLabel(p.pillar) }}</span></td>
+            <td style="text-align:center;">
+              <button class="view-btn" (click)="openPair(p)">View</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state">No pairs match the selected filters.</div>
+    </ng-template>
+
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="totalPages > 1">
+      <button class="page-btn" [disabled]="currentPage === 0"              (click)="goToPage(0)">«</button>
+      <button class="page-btn" [disabled]="currentPage === 0"              (click)="goToPage(currentPage - 1)">‹</button>
+      <button *ngFor="let p of pageNumbers"
+              class="page-btn"
+              [class.active]="p === currentPage"
+              (click)="goToPage(p)">{{ p + 1 }}</button>
+      <button class="page-btn" [disabled]="currentPage === totalPages - 1" (click)="goToPage(currentPage + 1)">›</button>
+      <button class="page-btn" [disabled]="currentPage === totalPages - 1" (click)="goToPage(totalPages - 1)">»</button>
+    </div>
+
+  </div>
+
+</div>

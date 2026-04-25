@@ -185,3 +185,4 @@ dataset/CoSiM/moss_checkpoint.json
 paper.tex
 scripts/analyze_cosim_results.py
 scripts/generate_cosim_plots.py
+modules/drivers/lexical_cosim_driver.py

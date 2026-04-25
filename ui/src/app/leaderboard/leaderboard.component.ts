@@ -125,8 +125,12 @@ export class LeaderboardComponent {
 
   birthmarksExpanded = false;
   mossExpanded = false;
-  proExpanded = false;
-  flashExpanded = false;
+  proR1Expanded = false;
+  proR3Expanded = false;
+  proR6Expanded = false;
+  flashR1Expanded = false;
+  flashR3Expanded = false;
+  flashR6Expanded = false;
 
   scrollToDisclaimer() {
     document.getElementById('disclaimer')?.scrollIntoView({ behavior: 'smooth' });
@@ -157,8 +161,61 @@ export class LeaderboardComponent {
     { threshold: 0.33, precision: 0.9388, recall: 0.9397, f1: 0.9389, accuracy: 0.9389 },
     { threshold: 0.35, precision: 0.9379, recall: 0.9386, f1: 0.9373, accuracy: 0.9373 },
     { threshold: 0.40, precision: 0.9241, recall: 0.9215, f1: 0.9187, accuracy: 0.9187 },
-    { threshold: 0.45, precision: 0.9062, recall: 0.8973, f1: 0.8932, accuracy: 0.8932 },
-    { threshold: 0.50, precision: 0.8781, recall: 0.8566, f1: 0.8506, accuracy: 0.8506 },
+    { threshold: 0.45, precision: 0.9062, recall: 0.8973, f1: 0.8928, accuracy: 0.8932 },
+    { threshold: 0.50, precision: 0.8781, recall: 0.8566, f1: 0.8491, accuracy: 0.8506 },
+  ];
+
+  readonly geminiProR3ThresholdData = [
+    { threshold: 0.40, precision: 0.8803, recall: 0.8466, f1: 0.8480, accuracy: 0.8525 },
+    { threshold: 0.50, precision: 0.9080, recall: 0.8920, f1: 0.8941, accuracy: 0.8957 },
+    { threshold: 0.60, precision: 0.9238, recall: 0.9173, f1: 0.9188, accuracy: 0.9194 },
+    { threshold: 0.65, precision: 0.9293, recall: 0.9261, f1: 0.9270, accuracy: 0.9274 },
+    { threshold: 0.70, precision: 0.9333, recall: 0.9322, f1: 0.9326, accuracy: 0.9328 },
+    { threshold: 0.72, precision: 0.9342, recall: 0.9337, f1: 0.9339, accuracy: 0.9341 },
+    { threshold: 0.74, precision: 0.9368, recall: 0.9369, f1: 0.9369, accuracy: 0.9370 },
+    { threshold: 0.76, precision: 0.9358, recall: 0.9362, f1: 0.9359, accuracy: 0.9360 },
+    { threshold: 0.80, precision: 0.9363, recall: 0.9371, f1: 0.9363, accuracy: 0.9363 },
+    { threshold: 0.85, precision: 0.9315, recall: 0.9317, f1: 0.9299, accuracy: 0.9299 },
+    { threshold: 0.90, precision: 0.9143, recall: 0.9109, f1: 0.9078, accuracy: 0.9079 },
+  ];
+
+  readonly geminiProR6ThresholdData = [
+    { threshold: 0.60, precision: 0.8570, recall: 0.8141, f1: 0.8140, accuracy: 0.8212 },
+    { threshold: 0.70, precision: 0.8790, recall: 0.8535, f1: 0.8552, accuracy: 0.8586 },
+    { threshold: 0.80, precision: 0.8974, recall: 0.8866, f1: 0.8884, accuracy: 0.8896 },
+    { threshold: 0.85, precision: 0.9046, recall: 0.8992, f1: 0.9004, accuracy: 0.9012 },
+    { threshold: 0.90, precision: 0.9116, recall: 0.9103, f1: 0.9108, accuracy: 0.9111 },
+    { threshold: 0.92, precision: 0.9147, recall: 0.9149, f1: 0.9148, accuracy: 0.9149 },
+    { threshold: 0.93, precision: 0.9159, recall: 0.9164, f1: 0.9161, accuracy: 0.9162 },
+    { threshold: 0.94, precision: 0.9175, recall: 0.9182, f1: 0.9177, accuracy: 0.9178 },
+    { threshold: 0.95, precision: 0.9167, recall: 0.9175, f1: 0.9168, accuracy: 0.9168 },
+    { threshold: 0.97, precision: 0.9121, recall: 0.9125, f1: 0.9111, accuracy: 0.9111 },
+  ];
+
+  readonly geminiFlashR1ThresholdData = [
+    { threshold: 0.30, precision: 0.5810, recall: 0.5284, f1: 0.4500, accuracy: 0.5546 },
+    { threshold: 0.35, precision: 0.6828, recall: 0.6178, f1: 0.5919, accuracy: 0.6369 },
+    { threshold: 0.39, precision: 0.8046, recall: 0.7868, f1: 0.7885, accuracy: 0.7937 },
+    { threshold: 0.41, precision: 0.8498, recall: 0.8461, f1: 0.8473, accuracy: 0.8486 },
+    { threshold: 0.43, precision: 0.8729, recall: 0.8744, f1: 0.8731, accuracy: 0.8733 },
+    { threshold: 0.44, precision: 0.8810, recall: 0.8823, f1: 0.8798, accuracy: 0.8799 },
+    { threshold: 0.45, precision: 0.8793, recall: 0.8789, f1: 0.8749, accuracy: 0.8749 },
+    { threshold: 0.47, precision: 0.8781, recall: 0.8675, f1: 0.8597, accuracy: 0.8601 },
+    { threshold: 0.50, precision: 0.8357, recall: 0.7965, f1: 0.7795, accuracy: 0.7839 },
+    { threshold: 0.55, precision: 0.7843, recall: 0.6709, f1: 0.6187, accuracy: 0.6495 },
+  ];
+
+  readonly geminiFlashR3ThresholdData = [
+    { threshold: 0.40, precision: 0.6322, recall: 0.5670, f1: 0.5185, accuracy: 0.5897 },
+    { threshold: 0.45, precision: 0.7194, recall: 0.6638, f1: 0.6512, accuracy: 0.6796 },
+    { threshold: 0.50, precision: 0.8339, recall: 0.8243, f1: 0.8262, accuracy: 0.8289 },
+    { threshold: 0.52, precision: 0.8683, recall: 0.8671, f1: 0.8676, accuracy: 0.8683 },
+    { threshold: 0.54, precision: 0.8879, recall: 0.8896, f1: 0.8880, accuracy: 0.8881 },
+    { threshold: 0.56, precision: 0.8928, recall: 0.8933, f1: 0.8897, accuracy: 0.8897 },
+    { threshold: 0.57, precision: 0.8925, recall: 0.8914, f1: 0.8870, accuracy: 0.8870 },
+    { threshold: 0.59, precision: 0.8863, recall: 0.8809, f1: 0.8748, accuracy: 0.8749 },
+    { threshold: 0.62, precision: 0.8637, recall: 0.8419, f1: 0.8307, accuracy: 0.8321 },
+    { threshold: 0.70, precision: 0.7794, recall: 0.6580, f1: 0.6003, accuracy: 0.6358 },
   ];
 
   readonly geminiFlashR6ThresholdData = [

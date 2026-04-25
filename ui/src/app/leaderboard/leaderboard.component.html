@@ -89,7 +89,6 @@
     </h2>
     <div *ngIf="birthmarksExpanded">
       <p style="font-size:13px;color:#666;margin:0 0 4px;">
-        Evaluated on ~280,000 pairs of C++ Codeforces submissions (2/3 similar, 1/3 not similar).
         The model uses 9 profiling metrics (branch-misses, branches, context-switches, cpu-migrations,
         cycles, instructions, page-faults, stalled-cycles-frontend, task-clock), each approximated by a
         4-feature regression regressor, yielding a 36-dimensional birthmark. Only 24 of the 36 weights
@@ -174,23 +173,17 @@
     </div>
   </div>
 
-  <!-- Gemini 2.5 Pro detail -->
+  <!-- Gemini 2.5 Pro r=1 detail -->
   <div class="section">
-    <h2 class="collapsible-heading" (click)="proExpanded = !proExpanded">
-      Gemini 2.5 Pro — Full Threshold Analysis (r=1)
-      <span class="collapse-chevron">{{ proExpanded ? '▲' : '▼' }}</span>
+    <h2 class="collapsible-heading" (click)="proR1Expanded = !proR1Expanded">
+      Gemini 2.5 Pro (r=1) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ proR1Expanded ? '▲' : '▼' }}</span>
     </h2>
-    <div *ngIf="proExpanded">
-      <p style="font-size:13px;color:#666;margin:0 0 4px;">
-        Each code snippet in CoSiM was augmented by Gemini 2.5 Pro with dense semantic documentation,
-        then embedded by the Universal Sentence Encoder (USE) in windows of <em>r</em> concatenated comment
-        blocks. Similarity is a coverage metric: the fraction of comment lines in each program matched
-        by at least one USE embedding from the other (cosine ≥ threshold), averaged symmetrically.
-      </p>
+    <div *ngIf="proR1Expanded">
       <p style="font-size:13px;color:#666;margin:0 0 12px;">
-        Results below are for <strong>r=1</strong> (best Pro configuration). Metrics are macro-averaged
-        over the balanced CoSiM classes; the highlighted row marks the optimal threshold (best macro F1).
-        Evaluated on 3,126 successfully augmented pairs.
+        Each snippet was augmented by Gemini 2.5 Pro, then each individual comment block (r=1) was
+        embedded by USE into a 512-d vector. Similarity equals the symmetric average coverage of matched
+        blocks at the given cosine threshold. Evaluated on 3,126 pairs. Best configuration overall.
       </p>
       <div class="table-wrapper">
         <table>
@@ -217,31 +210,194 @@
           </tbody>
         </table>
       </div>
-      <div style="margin-top:16px; padding:16px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0; font-size:13px; color:#444; line-height:1.6;">
-        <strong>Peak performance summary (all three locality contexts):</strong>
-        <ul style="margin:8px 0 0 16px; padding:0;">
-          <li><strong>r=1</strong> — Macro F1: 0.9395 · Precision: 0.9393 · Recall: 0.9399 · Accuracy: 93.95% · Optimal t=0.31</li>
-          <li><strong>r=3</strong> — Macro F1: 0.9369 · Precision: 0.9368 · Recall: 0.9369 · Accuracy: 93.70% · Optimal t=0.74</li>
-          <li><strong>r=6</strong> — Macro F1: 0.9177 · Precision: 0.9175 · Recall: 0.9182 · Accuracy: 91.78% · Optimal t=0.94</li>
-          <li>Pro r=1 sustains macro F1 ≥ 0.90 across 23 consecutive threshold values (t ∈ [0.21, 0.43]), reflecting a wide and robust operating plateau.</li>
-          <li>Smaller locality context (r=1) outperforms larger r for Pro, suggesting that high-quality augmentation yields discriminative single-block embeddings.</li>
-        </ul>
+      <div class="info-note">
+        Macro F1 ≥ 0.90 sustained across 23 consecutive thresholds (t ∈ [0.21, 0.43]). At t*=0.31: F1₁=0.942, F1₀=0.937.
       </div>
     </div>
   </div>
 
-  <!-- Gemini 2.5 Flash detail -->
+  <!-- Gemini 2.5 Pro r=3 detail -->
   <div class="section">
-    <h2 class="collapsible-heading" (click)="flashExpanded = !flashExpanded">
-      Gemini 2.5 Flash — Full Threshold Analysis (r=6)
-      <span class="collapse-chevron">{{ flashExpanded ? '▲' : '▼' }}</span>
+    <h2 class="collapsible-heading" (click)="proR3Expanded = !proR3Expanded">
+      Gemini 2.5 Pro (r=3) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ proR3Expanded ? '▲' : '▼' }}</span>
     </h2>
-    <div *ngIf="flashExpanded">
+    <div *ngIf="proR3Expanded">
       <p style="font-size:13px;color:#666;margin:0 0 12px;">
-        Same pipeline as Pro using Gemini 2.5 Flash for augmentation. Results below are for
-        <strong>r=6</strong> (best Flash configuration). Evaluated on 1,823 successfully augmented pairs.
-        The Flash model exhibits a narrower operating range: at low thresholds the model predicts all
-        pairs as similar (near-zero not-similar F1), then rises sharply around t≈0.55 to a peak near t=0.62.
+        Each USE embedding covers 3 locally concatenated comment blocks. The optimal threshold shifts
+        to t=0.74 because wider context produces denser embeddings that require higher cosine similarity
+        to indicate a match. Evaluated on 3,126 pairs.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiProR3ThresholdData" [class.best-row]="row.threshold === 0.74">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.74" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="info-note">
+        F1 plateau is notably flat across t ∈ [0.70, 0.82] (Δ&lt;0.003), reflecting robust performance over a wide operating range.
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini 2.5 Pro r=6 detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="proR6Expanded = !proR6Expanded">
+      Gemini 2.5 Pro (r=6) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ proR6Expanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="proR6Expanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        With r=6, each embedding spans 6 consecutive comment blocks. The metric monotonically improves
+        up to t=0.94, reflecting that a very high cosine threshold is needed before long multi-block
+        concatenations begin to discriminate. Evaluated on 3,126 pairs.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiProR6ThresholdData" [class.best-row]="row.threshold === 0.94">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.94" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="info-note">
+        Despite the very high optimal threshold, accuracy at t=0.94 is 91.78%, 2.2 pp below r=1 — confirming that for Pro, tighter locality context outperforms.
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini 2.5 Flash r=1 detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="flashR1Expanded = !flashR1Expanded">
+      Gemini 2.5 Flash (r=1) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ flashR1Expanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="flashR1Expanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Flash r=1 exhibits the sharpest peak of all six configurations: the model predicts almost all
+        pairs as similar below t≈0.30, then jumps sharply to peak at t=0.44 before declining.
+        Evaluated on 1,823 pairs.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiFlashR1ThresholdData" [class.best-row]="row.threshold === 0.44">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.44" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="info-note">
+        The narrow peak (only ~3 thresholds above F1=0.87) shows Flash single-block embeddings lack the separation margin of Pro; a broader window (r=6) is needed to stabilise performance.
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini 2.5 Flash r=3 detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="flashR3Expanded = !flashR3Expanded">
+      Gemini 2.5 Flash (r=3) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ flashR3Expanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="flashR3Expanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        With r=3, Flash achieves a broader operating range than r=1. The peak shifts to t=0.56 and
+        F1 ≥ 0.87 is maintained over a wider band. Evaluated on 1,823 pairs.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Macro Precision <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro Recall <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Macro F1 <span style="font-weight:400;color:#888">(&uarr;)</span></th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of geminiFlashR3ThresholdData" [class.best-row]="row.threshold === 0.56">
+              <td>{{ row.threshold | number:'1.2-2' }}</td>
+              <td>{{ row.precision | number:'1.4-4' }}</td>
+              <td>{{ row.recall | number:'1.4-4' }}</td>
+              <td>
+                {{ row.f1 | number:'1.4-4' }}
+                <span *ngIf="row.threshold === 0.56" class="best-dot" title="Best macro F1"></span>
+              </td>
+              <td>{{ row.accuracy | number:'1.4-4' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="info-note">
+        Flash r=3 surpasses r=1 peak by +1 pp F1. The plateau near t ∈ [0.54, 0.57] (Δ&lt;0.003) confirms that aggregating 3 blocks helps Flash generalise.
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini 2.5 Flash r=6 detail -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="flashR6Expanded = !flashR6Expanded">
+      Gemini 2.5 Flash (r=6) — Full Threshold Analysis
+      <span class="collapse-chevron">{{ flashR6Expanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="flashR6Expanded">
+      <p style="font-size:13px;color:#666;margin:0 0 12px;">
+        Best Flash configuration. At t=0.62 both per-class F1 scores converge (F1₁=0.899, F1₀=0.896),
+        reflecting symmetric precision-recall balance. F1 ≥ 0.85 is maintained across 12 thresholds
+        (t ∈ [0.57, 0.68]). Evaluated on 1,823 pairs.
       </p>
       <div class="table-wrapper">
         <table>
@@ -268,27 +424,20 @@
           </tbody>
         </table>
       </div>
-      <div style="margin-top:16px; padding:16px; background:#f8f9fa; border-radius:8px; border:1px solid #e0e0e0; font-size:13px; color:#444; line-height:1.6;">
-        <strong>Peak performance summary (all three locality contexts):</strong>
-        <ul style="margin:8px 0 0 16px; padding:0;">
-          <li><strong>r=1</strong> — Macro F1: 0.8798 · Precision: 0.8810 · Recall: 0.8823 · Accuracy: 87.99% · Optimal t=0.44</li>
-          <li><strong>r=3</strong> — Macro F1: 0.8897 · Precision: 0.8928 · Recall: 0.8933 · Accuracy: 88.97% · Optimal t=0.56</li>
-          <li><strong>r=6</strong> — Macro F1: 0.8974 · Precision: 0.8994 · Recall: 0.9005 · Accuracy: 89.74% · Optimal t=0.62</li>
-          <li>For Flash the ordering is reversed (r=6 best), suggesting that lower-quality augmentation benefits from wider local context windows.</li>
-          <li>Flash r=6 maintains macro F1 ≥ 0.85 across 12 threshold values (t ∈ [0.57, 0.68]).</li>
-        </ul>
+      <div class="info-note">
+        The reversed locality ordering for Flash (r=6 best) versus Pro (r=1 best) suggests that higher-quality augmentation produces more discriminative individual comment embeddings, while lower-quality augmentation benefits from multi-block context averaging.
       </div>
     </div>
   </div>
 
   <!-- LLM Disclaimer -->
   <div id="llm-disclaimer" style="font-size:12px;color:#1565c0;background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:10px 14px;margin-bottom:16px;line-height:1.6;">
-    <strong>† LLM Disclaimer:</strong> Gemini 2.5 Pro was evaluated on 3,126 of 4,000 CoSiM pairs and Gemini 2.5 Flash on 1,823 pairs; the remainder were excluded due to token budget constraints.
+    <strong>† LLM Disclaimer:</strong> Gemini 2.5 Pro was evaluated on 3,126 of 4,000 CoSiM pairs and Gemini 2.5 Flash on 1,823 pairs; the remainder were excluded due to exceeding the total allocated budget of 150M tokens.
   </div>
 
   <!-- Disclaimer -->
   <div id="disclaimer" style="font-size:12px;color:#b06000;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;margin-bottom:32px;line-height:1.6;">
-    <strong>* Disclaimer:</strong> Complexity-Based Birthmarks requires fully compilable and executable code to collect runtime profiling metrics, so it was only applicable to the compilable C++ subset of CoSiM.
+    <strong>* Disclaimer:</strong> Complexity-Based Birthmarks requires fully compilable and executable code to collect runtime profiling metrics, so it was only applicable to the compilable C++ subset of CoSiM. All other models ran on the full CoSiM dataset. Metrics for all models are reported as if evaluated on the same benchmark for ranking purposes.
   </div>
 
   <!-- Submit -->
@@ -302,9 +451,6 @@
         and open an issue or pull request on
         <a href="https://github.com/raresraf/project-martial" target="_blank" rel="noopener">Project Martial's GitHub repository</a>
         with your results — best F1, precision, recall, accuracy, FPR, and the optimal threshold configuration used.
-      </p>
-      <p>
-        Please include the full threshold sweep that produced the reported numbers so results are reproducible and comparable to existing baselines.
       </p>
     </div>
   </div>

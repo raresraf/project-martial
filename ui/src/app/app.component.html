@@ -14,7 +14,7 @@
   .spacer { flex: 1; }
 
   .toolbar {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
@@ -27,7 +27,8 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 100;
     padding: 0 16px;
-    gap: 12px;
+    gap: 20px;
+    font-size: 14px;
   }
 
   .toolbar a {
@@ -37,6 +38,23 @@
     color: white;
     text-decoration: none;
   }
+
+  .toolbar .nav-link {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    opacity: 0.85;
+    padding: 0 4px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid transparent;
+    transition: opacity 0.15s ease-in-out;
+  }
+
+  .toolbar .nav-link:hover { opacity: 1; color: white; }
+  .toolbar .nav-link.active { opacity: 1; border-bottom: 2px solid #fff; color: white; }
 
   .toolbar .toolbar-icon-link {
     display: flex;
@@ -159,6 +177,8 @@
     <img width="32" height="32" alt="Project Martial Logo" src="assets/logo.png" />
     <span>Project Martial</span>
   </a>
+  <a class="nav-link" routerLink="/similarity" routerLinkActive="active">Similarity Workbench</a>
+  <a class="nav-link" routerLink="/leaderboard" routerLinkActive="active">CoSiM Leaderboard</a>
   <div class="spacer"></div>
   <a class="toolbar-icon-link" href="https://github.com/raresraf/project-martial" target="_blank" aria-label="GitHub">
     <svg height="22" viewBox="0 0 16 16" width="22" fill="#fff">

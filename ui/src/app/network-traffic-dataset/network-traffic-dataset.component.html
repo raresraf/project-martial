@@ -75,9 +75,24 @@
     </div>
   </div>
 
+  <!-- Dataset Tab Switcher -->
+  <div class="dataset-tabs">
+    <button class="dataset-tab" [class.active]="activeDataset === 'all'" (click)="activeDataset = 'all'">
+      All Bytes
+    </button>
+    <button class="dataset-tab" [class.active]="activeDataset === 'noalpha'" (click)="activeDataset = 'noalpha'">
+      Non-Alphanumeric Only
+    </button>
+  </div>
+  <div class="dataset-tab-desc" *ngIf="activeDataset === 'noalpha'">
+    Alphanumeric characters (a–z, A–Z, 0–9) removed from all packets before computing similarity.
+    Cross-engine scores are higher because engine-specific query text is stripped, leaving structural/protocol bytes only.
+    SQL Server 2017 Enterprise ☁ and Standard ☁ become <strong>identical</strong> (1.00) under this filter.
+  </div>
+
   <!-- Similarity Matrix -->
   <div class="section">
-    <h2>Similarity Matrix</h2>
+    <h2>Similarity Matrix vs MySQL Reference Versions</h2>
     <p style="font-size:13px;color:#666;margin:0 0 8px;">
       Cosine similarity (TF-IDF, byte-level n-grams) between each engine and the six MySQL reference
       versions. Colors are fixed to the 4-gram score to highlight same-type vs cross-type similarity,
@@ -92,11 +107,9 @@
 
     <div class="legend">
       <span style="font-weight:500;">Color scale (4-gram):</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#a5d6a7;"></span> ≥ 0.67 — strong similarity</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#c8e6c9;"></span> ≥ 0.60 — high similarity</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#ffcdd2;"></span> ≥ 0.25 — low similarity</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#ef9a9a;"></span> ≥ 0.05 — very low</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#e57373;"></span> &lt; 0.05 — extremely low</span>
+      <span *ngFor="let item of legendItems" class="legend-item">
+        <span class="legend-swatch" [style.background]="item.bg"></span> {{ item.label }}
+      </span>
     </div>
 
     <div class="table-wrapper">
@@ -108,8 +121,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of simRows; let i = index"
-              [class.group-sep]="isFirstInGroup(simRows, i)">
+          <tr *ngFor="let row of activePartialRows; let i = index"
+              [class.group-sep]="isFirstInGroup(activePartialRows, i)">
             <td class="engine-cell">
               <span class="badge"
                 [class.badge-mysql]="row.group === 'mysql'"
@@ -130,6 +143,69 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Full Mesh Similarity Matrix -->
+  <div class="section">
+    <h2 class="collapsible-heading" (click)="fullMeshExpanded = !fullMeshExpanded">
+      Full Mesh Similarity Matrix (31 × 31)
+      <span class="collapse-chevron">{{ fullMeshExpanded ? '▲' : '▼' }}</span>
+    </h2>
+    <div *ngIf="fullMeshExpanded">
+      <p style="font-size:13px;color:#666;margin:0 0 8px;">
+        Pairwise cosine similarity (TF-IDF, byte-level n-grams) across all 31 captured engine variants.
+        Diagonal is self-similarity (—). Colors are fixed to the 4-gram score.
+        ☁ = Cloud SQL (Google-managed); all others are Docker.
+      </p>
+
+      <div class="gram-selector">
+        <button class="gram-btn" [class.active]="selectedGram === 2" (click)="selectedGram = 2">2-gram</button>
+        <button class="gram-btn" [class.active]="selectedGram === 3" (click)="selectedGram = 3">3-gram</button>
+        <button class="gram-btn" [class.active]="selectedGram === 4" (click)="selectedGram = 4">4-gram</button>
+      </div>
+
+      <div class="legend">
+        <span style="font-weight:500;">Color scale (4-gram):</span>
+        <span *ngFor="let item of legendItems" class="legend-item">
+          <span class="legend-swatch" [style.background]="item.bg"></span> {{ item.label }}
+        </span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="full-mesh-table">
+          <thead>
+            <tr>
+              <th class="mesh-row-label-header"></th>
+              <th *ngFor="let col of fullMeshCols; let ci = index" class="mesh-col-header">
+                <div class="mesh-col-label">{{ col }}</div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of activeMeshRows; let i = index"
+                [class.group-sep]="isFirstInGroup(activeMeshRows, i)">
+              <td class="mesh-row-label">
+                <span class="badge"
+                  [class.badge-mysql]="row.group === 'mysql'"
+                  [class.badge-postgresql]="row.group === 'postgresql'"
+                  [class.badge-sqlserver]="row.group === 'sqlserver'"
+                  style="margin-right:4px; font-size:10px;">
+                  {{ getGroupLabel(row.group) }}
+                </span>
+                <span class="mesh-engine-name">{{ getEngineLabel(row) }}</span>
+              </td>
+              <td *ngFor="let cell of row.scores"
+                  [class.mesh-score-cell]="cell !== null"
+                  [class.mesh-diag-cell]="cell === null"
+                  [style.background]="getCellBg(cell)"
+                  [style.color]="getCellTextColor(cell)">
+                {{ getScore(cell) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 

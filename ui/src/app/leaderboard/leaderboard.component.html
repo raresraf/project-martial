@@ -50,7 +50,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let entry of entries">
+          <tr *ngFor="let entry of entries" [class.best-row]="entry.rank === 1">
             <td class="rank-cell">{{ entry.rank }}</td>
             <td class="model-cell">
               <ng-container *ngIf="entry.link; else noLink">
@@ -67,8 +67,7 @@
             <td><span class="badge" [class.badge-llm]="entry.category === 'LLM + USE'">{{ entry.category }}</span></td>
             <td class="f1-cell">
               {{ entry.bestF1 | number:'1.4-4' }}
-              <span class="best-dot"
-                [title]="entry.model === 'Complexity-Based Birthmarks' ? 'Weighted avg F1' : entry.category === 'LLM + USE' ? 'Macro F1' : 'Similar-class F1'"></span>
+              <span *ngIf="entry.rank === 1" class="best-dot" title="Best overall F1"></span>
             </td>
             <td>{{ entry.precision | number:'1.4-4' }}</td>
             <td>{{ entry.recall | number:'1.4-4' }}</td>

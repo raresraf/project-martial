@@ -1,1 +1,137 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* ─────────────────────────────────────────────────────────────────
+   Project Martial — Design Tokens
+   Copied from design_handoff_project_martial/colors_and_type.css
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Google Cloud / Material palette (canonical) ─────────────── */
+  --gcp-blue-500: #4285F4;
+  --gcp-blue-700: #174EA6;
+  --gcp-blue-link: #1A73E8;
+  --gcp-blue-tint: #E8F0FE;
+
+  --gcp-red-500: #DB4437;
+  --gcp-red-700: #A50E0E;
+
+  --gcp-yellow-500: #F4B400;
+  --gcp-yellow-700: #E37400;
+
+  --gcp-green-500: #0F9D58;
+  --gcp-green-700: #0D652D;
+  --gcp-green-good: #188038;
+
+  /* Neutral ramp */
+  --gcp-grey-100: #F8F9FA;
+  --gcp-grey-200: #F1F3F4;
+  --gcp-grey-300: #E8EAED;
+  --gcp-grey-400: #DADCE0;
+  --gcp-grey-500: #BDC1C6;
+  --gcp-grey-600: #9AA0A6;
+  --gcp-grey-700: #80868B;
+  --gcp-grey-800: #5F6368;
+  --gcp-grey-900: #3C4043;
+  --gcp-grey-1000: #202124;
+  --gcp-black: #000000;
+  --gcp-white: #ffffff;
+
+  /* Sidebars / dark breadcrumb */
+  --pm-toolbar-bg: #4285F4;
+  --pm-breadcrumb-bg: #161616;
+  --pm-breadcrumb-fg: #9AA0A6;
+  --pm-breadcrumb-current: #DADCE0;
+
+  /* ── Semantic foreground ─────────────────────────────────────── */
+  --fg-1: #202124;
+  --fg-2: #333333;
+  --fg-3: #555555;
+  --fg-4: #666666;
+  --fg-5: #888888;
+  --fg-link: var(--gcp-blue-500);
+
+  /* ── Semantic surfaces ───────────────────────────────────────── */
+  --bg-page: var(--gcp-white);
+  --bg-card: var(--gcp-grey-100);
+  --bg-subtle: #fafafa;
+  --bg-tinted: var(--gcp-grey-200);
+  --bg-info: var(--gcp-blue-tint);
+  --bg-best-row: #e6f4ea;
+  --bg-yellow-soft: #fffde7;
+
+  /* Borders */
+  --border-1: #E0E0E0;
+  --border-2: var(--gcp-grey-300);
+  --border-3: var(--gcp-grey-400);
+  --border-strong: #BDBDBD;
+
+  /* Status surfaces */
+  --bg-similar: #E8F5E9;       --fg-similar: #1B5E20;
+  --bg-notsimilar: #FFEBEE;    --fg-notsimilar: #B71C1C;
+  --bg-warn: #FFF8E1;          --fg-warn: #B06000;     --border-warn: #FFE082;
+  --bg-llm: #E3F2FD;           --fg-llm: #1565C0;      --border-llm: #90CAF9;
+
+  /* Pillar palette */
+  --pillar-opensource-bg: #E8F5E9;   --pillar-opensource-fg: #2E7D32;  --pillar-opensource-bd: #A5D6A7;
+  --pillar-student-bg:    #E3F2FD;   --pillar-student-fg:    #1565C0;  --pillar-student-bd:    #90CAF9;
+  --pillar-competitive-bg:#FFF3E0;   --pillar-competitive-fg:#E65100;  --pillar-competitive-bd:#FFCC80;
+
+  /* Language badges */
+  --lang-go-bg: #E0F7FA;          --lang-go-fg: #006064;
+  --lang-typescript-bg: #E3F2FD;  --lang-typescript-fg: #0D47A1;
+  --lang-c-bg: #FAFAFA;           --lang-c-fg: #424242;
+  --lang-java-bg: #FFF3E0;        --lang-java-fg: #BF360C;
+  --lang-rust-bg: #FFEBEE;        --lang-rust-fg: #B71C1C;
+  --lang-cuda-bg: #F1F8E9;        --lang-cuda-fg: #33691E;
+  --lang-python-bg: #E8EAF6;      --lang-python-fg: #1A237E;
+  --lang-opencl-bg: #F3E5F5;      --lang-opencl-fg: #4A148C;
+  --lang-cpp-bg: #E3F2FD;         --lang-cpp-fg: #01579B;
+
+  /* Code surface */
+  --code-bg: #1E1E1E;
+  --code-fg: #D4D4D4;
+
+  /* Threshold-app dark mode controls */
+  --bg-dark: #1F1F1F;
+  --bg-controls-dark: #2D2D2D;
+  --bg-controls-light: #E8F0FE;
+
+  /* ── Type ────────────────────────────────────────────────────── */
+  --font-sans: 'Roboto', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-mono: 'Roboto Mono', 'Courier New', monospace;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  --line-height: 1.5;
+
+  /* ── Shape & elevation ───────────────────────────────────────── */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-pill: 14px;
+  --radius-chip: 16px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.10);
+  --shadow-hover: 0 4px 17px rgba(0, 0, 0, 0.35);
+
+  /* ── Motion ──────────────────────────────────────────────────── */
+  --t-fast: 0.15s ease-in-out;
+  --t-base: 0.2s ease-in-out;
+  --t-slow: 0.3s ease;
+
+  /* ── Spacing scale (4px base) ────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+}

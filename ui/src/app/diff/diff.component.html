@@ -105,15 +105,15 @@
 </style>
 
 <!-- Breadcrumb -->
-<div style="margin-top:60px; padding:8px 20px; background:#F8F9FA; border-bottom:1px solid #E8EAED; font-size:13px; color:#5F6368; display:flex; align-items:center; gap:6px;">
+<div style="margin-top:60px; padding:8px 20px; background:#161616; border-bottom:1px solid #3C4043; font-size:13px; color:#9AA0A6; display:flex; align-items:center; gap:6px;">
   <a routerLink="/" style="color:#4285F4; text-decoration:none; cursor:pointer;">Home</a>
   <span>›</span>
-  <span>Similarity Workbench</span>
+  <span style="color:#DADCE0;">Similarity Workbench</span>
 </div>
 
 <!-- Main content area -->
 <div style="max-width:960px; margin:0 auto; padding:24px 16px;">
-  <h2 style="text-align:center; font-weight:400; margin-bottom:8px;">Choose an analysis technique:</h2>
+  <h2 style="text-align:center; font-weight:400; margin-bottom:8px; font-size:22px; color:#202124;">Choose an analysis technique:</h2>
 
   <div class="diff-card-container">
     <a class="diff-card" [class.active]="chosenAnalysis === 'comments'" (click)="CommentsEntry()">
@@ -154,7 +154,7 @@
     </a>
   </div>
 
-  <h2 style="text-align:center; font-weight:400; margin-bottom:16px;">Start the analysis:</h2>
+  <h2 style="text-align:center; font-weight:400; margin-bottom:16px; font-size:22px; color:#202124;">Start the analysis:</h2>
 
   <div style="display:flex; justify-content:center; margin-bottom:20px;">
     <a class="start-card" (click)="startAnalysis()" [style.opacity]="chosenAnalysis ? 1 : 0.5">
